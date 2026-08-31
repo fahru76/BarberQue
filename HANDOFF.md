@@ -305,17 +305,86 @@ dashboard read access to that setting), but taken as confirmed per the user's re
 
 ### Then, in order
 
-4b. **Flip the RPC-dependent actions over, now that sessions exist** — this was
-    deliberately deferred from step 4 itself:
-    - `callNextToSeat()` / `markSeatDone()` in `index.html` → call
-      `queueRepository.callNext()` / `.completeService()` instead of mutating the local
-      array directly.
-    - The board/TV/customer-status reads → `listQueues()` (or a realtime subscription —
-      see item 6) **at the same time** as the above, not before: reading server state
-      while writes still happen only locally would make tickets look stuck.
-    - Decide what to do with the `isVip` / `fastPassApproved` / `approvedAt` / `revokedAt`
-      gap noted above — either add columns for them or fold the fast-pass-approval
-      workflow into `is_fast_pass` plus a new `staff`-driven approval flow.
+4b. **Done — `callNextToSeat()`/`markSeatDone()` now call the real server.**
+
+    **A blocker was found and resolved first, not skipped:** `call_next_customer()`
+    requires the target seat's `public.seats` row to have `active = true` AND a real
+    `barber_id` (an actual `staff.id`, not free text) — enforced by the database's own
+    `seats_active_requires_barber` check constraint. `public.seats` had **zero rows**
+    (nothing had ever written to it), and index.html's seat/barber-assignment UI was pure
+    free-text with no link to a signed-in account. Flipping the two functions without
+    fixing this first would have made every single "Panggil" press fail with "Kerusi
+    tidak dibuka" — asked the user how to handle it (three options), they chose to build
+    the assignment link properly rather than a shim or deferring.
+
+    What changed:
+    - **New `js/repositories/seatRepository.js`**: `listSeats()` (embeds the assigned
+      staff member's `display_name` via the `barber_id` FK) and `setSeatAssignment(seatNo,
+      {active, staffId})` (upsert, admin-only per the existing `admins manage seats` RLS
+      policy — nothing new needed there, step 2 already had it right).
+    - **`renderBarberAssignments()`** in index.html: the free-text `<input>` per seat is
+      now a `<select>` of registered staff accounts (from `AuthRepo.listStaff()`,
+      inactive ones shown but labelled). Selecting one still derives the same
+      `barberAssignments` (name-keyed) localStorage value everything else in this file
+      already reads (`buildBarberPerformance`, audit events, etc.) — so nothing
+      downstream of that key had to change. `saveBarberAssignments()` and
+      `toggleSeatStatus()` now also best-effort push `{active, staffId}` to
+      `seatRepository.setSeatAssignment()` per seat, same dual-write posture as
+      `bookTicket()`.
+    - **`callNextToSeat()`/`markSeatDone()`**: now `async`, call
+      `queueRepository.callNext()`/`.completeService()`, and merge the returned row into
+      the local `queues` array (upsert by id; synthesizes a local-shape record if the
+      ticket was never seen locally — e.g. called from another session). **Deliberately
+      no local-only fallback on server failure** — unlike `bookTicket()`/
+      `cancelCustomerWalkin()`, which must never block a customer on a network hiccup,
+      a staff action succeeding only locally would reintroduce the exact state
+      divergence this step exists to remove. The real error (e.g. "seat not assigned
+      yet") is shown instead.
+    - `queueRepository.js`'s `mapQueueRow()` now also maps `completed_at` →
+      `completedAt` — previously silently dropped for `completeService()`'s result
+      (only `listQueues()`/`callNext()` were exercised before, and neither of those
+      return a completed_at).
+
+    **Verified, without touching the live site:** a rollback-safe `DO $$ ... raise
+    exception 'PASSED' $$;` block (same pattern as step 2) simulated `auth.uid()` as
+    `fahru76`, assigned seat 1, inserted a throwaway ticket, called
+    `call_next_customer(1)` and `complete_service(id)` directly, and asserted every
+    returned field (`status`, `seat_no`, `barber_id`, `called_at`, `completed_at`)
+    matched what the client code expects — then raised, rolling back all of it
+    (`queues`/`seats` confirmed back at 0 rows afterward). `node --check` passes on both
+    script blocks; `npm test` unaffected (domain layer untouched).
+
+    **Live end-to-end test — passed, 31 August 2026.** A local dev server was tried
+    first via the linked computer's device shell, but the browser pane refuses to
+    navigate to `localhost`/`127.0.0.1` regardless of site permission (a blanket
+    restriction, not something this project can work around) — so this was pushed to
+    `main` and tested on the real deployed site instead (only the staff/admin screens
+    are touched by this change, gated behind sign-in; the customer walk-in flow is
+    untouched). With the user signed in as `fahru76`:
+    - Assigned `fahru76` to Kerusi 1 via the new dropdown and clicked "Kerusi 1 : AKTIF"
+      — confirmed via SQL that `public.seats` got `{seat_no:1, active:true, barber_id:
+      <fahru76's staff id>}`, and all three seats got rows (2 and 3 inactive, unassigned).
+    - Inserted one throwaway ticket directly via SQL (the shop's weekly operating hours
+      aren't configured yet, which blocked taking one through the real customer form —
+      unrelated to this change, left alone rather than touching real business-hours
+      settings) and pushed the matching local record so the existing "disable Panggil
+      when nothing's waiting locally" UI logic behaved normally.
+    - Clicked **Panggil**: seat 1 correctly showed the ticket's number and name; SQL
+      confirmed `status='serving', seat_no=1, barber_id=<fahru76>, called_at` set.
+    - Clicked **Selesai**: seat cleared back to empty on screen; SQL confirmed
+      `status='done', completed_at` set.
+    - Test ticket deleted afterward (both the server row and the injected local copy);
+      the seat 1 → fahru76 assignment was left in place as real, legitimate config,
+      not test data.
+
+    One unrelated pre-existing bug surfaced during testing, not touched by this pass:
+    the phone-number `<input pattern="...">` on the customer forms throws `Uncaught
+    SyntaxError: Invalid regular expression` in the console (a `v`-flag/character-class
+    escaping issue) — cosmetic, HTML5 pattern validation only, didn't block anything
+    tested here, but worth fixing separately.
+
+    - The `isVip` / `fastPassApproved` / `approvedAt` / `revokedAt` schema gap is still
+      open — unrelated to this pass, not touched.
 5. Migrate the remaining tables and settings (`appointments`, `services`, shop settings).
 6. Realtime subscriptions replacing the `storage` event listener:
    ```js
