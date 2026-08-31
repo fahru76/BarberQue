@@ -364,11 +364,15 @@ dashboard read access to that setting), but taken as confirmed per the user's re
     - Assigned `fahru76` to Kerusi 1 via the new dropdown and clicked "Kerusi 1 : AKTIF"
       — confirmed via SQL that `public.seats` got `{seat_no:1, active:true, barber_id:
       <fahru76's staff id>}`, and all three seats got rows (2 and 3 inactive, unassigned).
-    - Inserted one throwaway ticket directly via SQL (the shop's weekly operating hours
-      aren't configured yet, which blocked taking one through the real customer form —
-      unrelated to this change, left alone rather than touching real business-hours
-      settings) and pushed the matching local record so the existing "disable Panggil
-      when nothing's waiting locally" UI logic behaved normally.
+    - Inserted one throwaway ticket directly via SQL (taking one through the real
+      customer form failed at the time with "Walk-in tidak dibuka pada waktu ini" —
+      **correction**: this was NOT a missing-configuration gap as first reported to the
+      user; weekly operating hours were already configured with sensible defaults
+      (10:00–22:00 every day), and the real cause was simply that it was ~1:30am
+      Malaysia time, genuinely outside any 10am–10pm window. Flagged and corrected with
+      the user rather than left standing) and pushed the matching local record so the
+      existing "disable Panggil when nothing's waiting locally" UI logic behaved
+      normally.
     - Clicked **Panggil**: seat 1 correctly showed the ticket's number and name; SQL
       confirmed `status='serving', seat_no=1, barber_id=<fahru76>, called_at` set.
     - Clicked **Selesai**: seat cleared back to empty on screen; SQL confirmed
@@ -385,8 +389,92 @@ dashboard read access to that setting), but taken as confirmed per the user's re
 
     - The `isVip` / `fastPassApproved` / `approvedAt` / `revokedAt` schema gap is still
       open — unrelated to this pass, not touched.
-5. Migrate the remaining tables and settings (`appointments`, `services`, shop settings).
-6. Realtime subscriptions replacing the `storage` event listener:
+
+4c. **Done — shop operating hours configured per the user's actual schedule**, on
+    request, after the correction above surfaced that hours existed but were still the
+    generic defaults. Set via the live admin panel (`javascript_tool`, no code change):
+    closed every Friday; working hours 09:00–22:00 the other six days; two daily breaks,
+    13:00–14:00 and 19:00–20:30. Confirmed via SQL-equivalent read-back of
+    `weeklyOpHours` after saving.
+
+## Done — step 5a: services/price catalog is now server-authoritative
+
+The user chose to sequence step 5 as services first, then shop settings, then
+appointments (services is self-contained; shop settings needs a caching-architecture
+decision; appointments is tangled with the still-open `isVip`/`fastPassApproved` gap —
+see below).
+
+**What changed:**
+- **New `public.services` table** (`supabase/migrations/20260901000400_services_catalog.sql`):
+  `id text primary key`, `name` (1–60 chars, trimmed), a generated `name_key` column +
+  unique index for case/whitespace-insensitive uniqueness (same technique as
+  `staff.display_name`), `price_sen`/`duration_minutes` (both positive), `active`,
+  `category` (`asas`/`fashion`), `target` (`semua`/`dewasa`/`kanak`), `type`
+  (`gunting`/`botak`/`facial`/`lain`), `sort_order`, `created_at`. RLS enabled;
+  everyone may read active services, staff may also read inactive ones, only admins
+  may write (see the bug-and-fix below for how the read policy is actually split).
+- **New `js/repositories/serviceRepository.js`**: `listServices()`, `createService()`,
+  `updateService()`, `deleteService()`, `reorderServices()` (bulk `sort_order` upsert).
+  `price` stays a plain RM float in index.html; the RM↔sen conversion is isolated here,
+  same pattern as `queueRepository.takeTicket()`.
+- **`addService()`/`saveServiceEdit()`/`toggleServiceStatus()`/`deleteService()`** in
+  index.html: now `async`, call `window.ServiceRepo` **first** and only touch local
+  `shopServices` once the server confirms — same no-fallback rule as
+  `callNextToSeat()`/`markSeatDone()` from step 4b, because this catalog is what
+  customers see on every device, not just the one an admin happened to edit on.
+- **`persistServicePriority()`** (drag-reorder / ↑↓ buttons): local reorder logic is
+  unchanged; a new `syncServiceOrderToServer()` helper best-effort mirrors the resulting
+  `sort_order` per category to the server afterward — cosmetic (display order only), so
+  this follows the `syncSeatAssignmentToServer()` precedent (fire, don't block, warn on
+  failure) rather than the no-fallback rule above.
+- **`seedOrRefreshServices()`** (new, in the Supabase bridge module script): runs once at
+  load and again on every auth change. The *first* time it ever runs against an empty
+  `services` table, it seeds the server from whatever this device's local
+  `shopServices` already has (preserving ids and per-category order) so the existing
+  catalog isn't wiped back to empty on cutover. Every run after that treats the server
+  as authoritative and overwrites local `shopServices` with what it returns. Runs again
+  on sign-in/out specifically because of the bug below — an anon session and a signed-in
+  admin session are not allowed to see the same rows.
+
+**A real bug was found (and fixed) during verification, before ever reaching the live
+site:** the RLS select policy this migration first created was one combined
+`to anon, authenticated` policy — `using (active or public.is_active_staff())`. But
+`20260901000300_harden_function_grants.sql` had revoked `EXECUTE` on `is_active_staff()`
+from `anon`, on the stated assumption ("no anon policy calls them") that held until this
+migration. Postgres evaluates a row-security `USING` clause as one boolean expression
+regardless of which role's policy matched the row; for any *inactive* service, `active`
+is false, so Postgres must evaluate `is_active_staff()` to decide — and anon has no
+grant to call it, so the **entire query would error with 42501 for an anon customer**
+the moment even one inactive service existed, instead of just filtering that row out.
+Caught via a rollback-safe `DO $$ ... $$` simulation (anon role, one active + one
+inactive test row) before it ever reached a real customer. Fixed same-day by a second
+migration, `20260901000500_services_anon_policy_fix.sql`, splitting the single policy
+into two role-scoped ones — `to anon using (active)` and
+`to authenticated using (active or is_active_staff())` — since a role-scoped policy is
+never evaluated at all for a mismatched role, so anon's policy now never references
+`is_active_staff()`.
+
+**Verified (rollback-safe SQL, both before and after the fix):**
+```
+anon_sees=1 (want 1), anon_update_allowed=false (want false),
+anon_insert_allowed=false (want false), admin_sees=2 (want 2), admin_update_rows=1 (want 1)
+```
+`get_advisors(security)` shows no new warning attributable to `public.services` after
+either migration. `node --check` passes on both `index.html` script blocks; `npm test`
+unaffected (domain layer untouched).
+
+**Not yet done:** a live browser click-through (add/edit/toggle/delete a service against
+the deployed site) — planned next, same push-to-`main`-and-test-live approach as step 4b,
+pending a fresh GitHub token from the user (the previous one was single-use, meant to be
+revoked after the step 4b push).
+
+## Then, still to do
+
+5b. Shop settings (~15 localStorage keys) — needs a load-once-cache design decision
+    before starting (many are read synchronously today).
+6. Appointments (26 functions) — tangled with the still-open `isVip`/`fastPassApproved`/
+   `approvedAt`/`revokedAt` schema gap; needs that resolved first.
+7. Realtime subscriptions replacing the `storage` event listener:
    ```js
    supabase.channel('queue-changes')
      .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, () => updateUI())
@@ -417,17 +505,23 @@ js/domain/time.js                                   pure, tested
 js/domain/scheduler.js                              pure, tested
 js/supabaseConfig.js                                URL + publishable key
 js/supabaseClient.js                                creates the client (CDN import, no bundler)
-js/repositories/queueRepository.js                  step 3: wired for takeTicket/cancelOwn only
+js/repositories/queueRepository.js                  step 3: wired for takeTicket/cancelOwn only;
+                                                     step 4b added callNext/completeService
 js/repositories/authRepository.js                   step 4: sign-in/out, invite, staff list
+js/repositories/seatRepository.js                   step 4b: listSeats/setSeatAssignment
+js/repositories/serviceRepository.js                step 5a: services catalog CRUD + reorder
 index.html                                          the running app; bookTicket()/
                                                      cancelCustomerWalkin() dual-write to
                                                      Supabase; barber-app/admin-app now
                                                      session-gated; invite + staff list in
                                                      admin-app; callNext/completeService/board
-                                                     read still local-only, deliberately (4b)
+                                                     read now server-authoritative (4b); services
+                                                     catalog now server-authoritative (5a)
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
-supabase/migrations/2026090100000{0,1,2,3}_*.sql    applied and verified
+supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
+supabase/migrations/20260901000400_services_catalog.sql       step 5a, applied and verified
+supabase/migrations/20260901000500_services_anon_policy_fix.sql  step 5a bugfix, applied and verified
 supabase/functions/invite-barber/index.ts           deployed, verify_jwt=true, re-checks
                                                      is_admin() itself before inviting anyone
 tests/domain/scheduler.test.mjs                     15 fixtures
