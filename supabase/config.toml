@@ -1,0 +1,10 @@
+project_id = "queuecut"
+
+[db]
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+[auth]
+enable_signup = false          # barbers are invited by an admin, not self-serve

@@ -1,0 +1,10 @@
+{
+  "name": "queuecut",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node tests/domain/scheduler.test.mjs && node tests/differential.test.mjs 2>/dev/null",
+    "test:live": "node tests/live-smoke.mjs"
+  }
+}
