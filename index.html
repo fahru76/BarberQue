@@ -1890,18 +1890,22 @@
          exist by the time this deferred module runs, however it's ordered on
          the page.
 
-         Only takeTicket/cancelOwn (queues) and sign-in/out/invite (auth) are
-         wired in so far, and queues only as a best-effort dual-write alongside
-         the existing localStorage flow (see the comments at each call site).
-         listQueues/callNext/completeService are NOT used yet — flipping the
-         board/TV read path or the staff "Panggil"/"Selesai" actions over to the
-         server needs to happen together, once a session can actually satisfy
-         call_next_customer()/complete_service()'s is_active_staff() check; see
-         HANDOFF.md. -->
+         Step 4b: callNextToSeat()/markSeatDone() now call callNext()/
+         completeService() for real (a signed-in, active-staff session exists
+         to satisfy is_active_staff() since step 4 landed). The board/TV read
+         path itself is NOT cut over yet — updateUI() still renders from the
+         local `queues` array, which callNextToSeat/markSeatDone keep in sync
+         on this device/tab, same as bookTicket/cancelCustomerWalkin already
+         did for takeTicket/cancelOwn. Seeing another device's call/complete
+         without a reload is step 6 (realtime subscriptions) — see HANDOFF.md;
+         deliberately not attempted here, since a half-built polling merge
+         risks marking a not-yet-synced local ticket falsely "done". -->
     <script type="module">
-        import { takeTicket, cancelOwn } from './js/repositories/queueRepository.js';
+        import { takeTicket, cancelOwn, callNext, completeService, listQueues } from './js/repositories/queueRepository.js';
+        import { listSeats, setSeatAssignment } from './js/repositories/seatRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
-        window.QueueRepo = { takeTicket, cancelOwn };
+        window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues };
+        window.SeatRepo = { listSeats, setSeatAssignment };
         window.AuthRepo = AuthRepo;
 
         async function pushAuthState(event) {
@@ -1934,6 +1938,15 @@
         // bridge script's comment for why the dependency has to point this direction.
         let staffSession = null;
         let staffProfile = null;
+        // Populated by refreshStaffList(); renderBarberAssignments() reads this
+        // to build the "assign a registered staff member to this seat" <select>
+        // (migration step 4b) instead of re-fetching listStaff() a second time.
+        let cachedStaffList = [];
+        // Populated by refreshStaffList() alongside cachedStaffList: keyed by
+        // seat number (string), the server's own idea of who's assigned there —
+        // seats.barber_id is the actual source of truth for this, not any local
+        // key, since call_next_customer() checks that table directly.
+        let seatServerState = {};
 
         window.onStaffAuthChange = function (event, session, profile) {
             staffSession = session;
@@ -2054,7 +2067,15 @@
             const container = document.getElementById('staffListContainer');
             if (!container) return;
             try {
-                const staff = await window.AuthRepo.listStaff();
+                const [staff, seats] = await Promise.all([
+                    window.AuthRepo.listStaff(),
+                    window.SeatRepo.listSeats().catch(error => {
+                        console.warn('Memuatkan status kerusi pelayan gagal.', error);
+                        return [];
+                    })
+                ]);
+                cachedStaffList = staff;
+                seatServerState = Object.fromEntries(seats.map(seat => [String(seat.seatNo), seat]));
                 container.innerHTML = staff.map(member => `
                     <div class="admin-list-item" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                         <div><strong>${escapeHTML(member.displayName)}</strong><span class="text-muted"> &bull; ${member.active ? 'Aktif' : 'Belum Aktif'}</span></div>
@@ -2068,6 +2089,10 @@
                                 : `<button type="button" class="btn btn-action" onclick="toggleStaffActive('${member.id}', true)">AKTIFKAN</button>`}
                         </div>
                     </div>`).join('') || '<div class="text-muted">Tiada kakitangan lagi.</div>';
+                // The seat<->staff assignment dropdowns (migration step 4b) show the
+                // same roster; keep them current whenever it changes, not just on the
+                // next unrelated re-render.
+                renderBarberAssignments(true);
             } catch (error) {
                 container.innerHTML = '<div class="text-muted">Gagal memuatkan senarai kakitangan.</div>';
                 console.warn('Memuatkan senarai kakitangan gagal.', error);
@@ -3983,46 +4008,89 @@
             seatContainers.forEach(container => { container.dataset.seatCount = String(seatCount); });
         }
 
+        // Best-effort push of one seat's open/closed + assigned-staff state to
+        // the server (migration step 4b). Never blocks the local save/alert
+        // flow on failure — same dual-write posture as bookTicket()/
+        // cancelCustomerWalkin() elsewhere in this file: local storage stays
+        // the thing every other function in this file reads, the server call
+        // is what lets call_next_customer()/complete_service() actually work.
+        async function syncSeatAssignmentToServer(seatNum, active, staffId) {
+            if (!window.SeatRepo) return;
+            try {
+                await window.SeatRepo.setSeatAssignment(seatNum, { active, staffId: staffId || null });
+            } catch (error) {
+                console.warn(`Segerak kerusi ${seatNum} ke pelayan gagal.`, error);
+            }
+        }
+
+        function getStaffDisplayName(staffId) {
+            return cachedStaffList.find(member => member.id === staffId)?.displayName || '';
+        }
+
         function renderBarberAssignments(force = false) {
             const container = document.getElementById('adminBarberAssignments');
             if (!container) return;
-            const assignments = getBarberAssignments();
-            const signature = JSON.stringify(assignments);
+            // The server (seats.barber_id) is the source of truth for which
+            // registered staff account is assigned to a seat — see
+            // seatRepository.js. The signature has to include it, or a seat
+            // reassigned from elsewhere (or loaded for the first time once
+            // refreshStaffList() resolves) wouldn't trigger a re-render.
+            const seatStaffIds = getSeatNumbers().map(seat => seatServerState[String(seat)]?.barberId || '');
+            const signature = JSON.stringify(seatStaffIds) + '|' + cachedStaffList.length;
             if (!force && container.dataset.signature === signature && container.childElementCount === getSeatCount()) return;
-            if (!force && container.querySelector('input[data-dirty="true"]')) return;
+            if (!force && container.querySelector('select[data-dirty="true"]')) return;
             const pendingEdits = new Map();
-            container.querySelectorAll('input[data-dirty="true"]').forEach(input => pendingEdits.set(input.id, input.value));
-            container.innerHTML = getSeatNumbers().map(seat => `
+            container.querySelectorAll('select[data-dirty="true"]').forEach(select => pendingEdits.set(select.id, select.value));
+            const staffOptions = cachedStaffList.map(member =>
+                `<option value="${escapeHTML(member.id)}">${escapeHTML(member.displayName)}${member.active ? '' : ' (tidak aktif)'}</option>`
+            ).join('');
+            container.innerHTML = getSeatNumbers().map((seat, index) => `
                 <div class="barber-assignment-card">
                     <label for="barberNameSeat${seat}">Kerusi ${seat}</label>
-                    <input type="text" id="barberNameSeat${seat}" maxlength="60" value="${escapeHTML(assignments[seat])}" placeholder="Nama tukang gunting" oninput="this.dataset.dirty='true'">
+                    <select id="barberNameSeat${seat}" onchange="this.dataset.dirty='true'">
+                        <option value="">— Pilih tukang gunting —</option>
+                        ${staffOptions}
+                    </select>
                 </div>`).join('');
+            getSeatNumbers().forEach((seat, index) => {
+                const select = document.getElementById(`barberNameSeat${seat}`);
+                if (select) select.value = seatStaffIds[index];
+            });
             pendingEdits.forEach((value, id) => {
-                const input = document.getElementById(id);
-                if (input) {
-                    input.value = value;
-                    input.dataset.dirty = 'true';
+                const select = document.getElementById(id);
+                if (select) {
+                    select.value = value;
+                    select.dataset.dirty = 'true';
                 }
             });
+            if (!cachedStaffList.length) {
+                container.insertAdjacentHTML('beforeend',
+                    '<div class="text-muted">Belum ada akaun kakitangan berdaftar. Jemput seorang tukang gunting dahulu di panel KAKITANGAN di atas.</div>');
+            }
             container.dataset.signature = signature;
         }
 
         function saveBarberAssignments() {
             const assignments = {};
+            const staffIdsBySeat = {};
             for (const seat of getSeatNumbers()) {
-                const input = document.getElementById(`barberNameSeat${seat}`);
-                assignments[seat] = normalizeBarberName(input?.value);
+                const select = document.getElementById(`barberNameSeat${seat}`);
+                staffIdsBySeat[seat] = select?.value || '';
+                assignments[seat] = normalizeBarberName(getStaffDisplayName(staffIdsBySeat[seat]));
             }
-            if (!Object.values(assignments).some(Boolean)) return alert("Masukkan sekurang-kurangnya satu nama tukang gunting yang bertugas.");
+            if (!Object.values(assignments).some(Boolean)) return alert("Pilih sekurang-kurangnya seorang tukang gunting yang bertugas.");
             const activeSeats = getActiveSeats();
             const activeSeatWithoutName = getSeatNumbers().find(seat => activeSeats[seat] && !assignments[seat]);
-            if (activeSeatWithoutName) return alert(`Nama tukang gunting Kerusi ${activeSeatWithoutName} tidak boleh dikosongkan ketika kerusi masih aktif. Tutup kerusi dahulu.`);
-            if (!safeSetItem('barberAssignments', assignments)) return alert("Nama tukang gunting gagal disimpan. Sila cuba lagi.");
-            document.querySelectorAll('#adminBarberAssignments input').forEach(input => delete input.dataset.dirty);
+            if (activeSeatWithoutName) return alert(`Tukang gunting Kerusi ${activeSeatWithoutName} tidak boleh dikosongkan ketika kerusi masih aktif. Tutup kerusi dahulu.`);
+            if (!safeSetItem('barberAssignments', assignments)) return alert("Tukang gunting gagal disimpan. Sila cuba lagi.");
+            document.querySelectorAll('#adminBarberAssignments select').forEach(select => delete select.dataset.dirty);
             appendAuditEvent('barber_assignments_updated', 'shop_setting', 'barberAssignments', 'admin', { assignments });
+            Promise.all(getSeatNumbers().map(seat =>
+                syncSeatAssignmentToServer(seat, activeSeats[seat] === true, staffIdsBySeat[seat])
+            )).then(() => refreshStaffList());
             renderBarberAssignments(true);
             updateUI();
-            alert("Pasukan bertugas telah disimpan. Servis baharu akan direkodkan mengikut nama tukang gunting ini.");
+            alert("Pasukan bertugas telah disimpan. Servis baharu akan direkodkan mengikut tukang gunting ini.");
         }
 
         function saveSeatCountSetting() {
@@ -4062,22 +4130,24 @@
                 return;
             }
             const assignments = getBarberAssignments();
-            const input = document.getElementById(`barberNameSeat${seatNum}`);
-            const requestedBarberName = normalizeBarberName(input?.value || assignments[seatNum]);
+            const select = document.getElementById(`barberNameSeat${seatNum}`);
+            const requestedStaffId = select?.value || '';
+            const requestedBarberName = normalizeBarberName(getStaffDisplayName(requestedStaffId) || assignments[seatNum]);
             const change = buildSeatStatusChange(activeSeats, assignments, seatNum, requestedBarberName);
             if (!change.ok) {
-                alert(`Nama tukang gunting wajib diisi sebelum Kerusi ${seatNum} boleh diaktifkan.`);
-                input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                input?.focus({ preventScroll: true });
+                alert(`Tukang gunting wajib dipilih sebelum Kerusi ${seatNum} boleh diaktifkan.`);
+                select?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                select?.focus({ preventScroll: true });
                 return;
             }
             const result = commitStorageTransaction({ activeSeats: change.seats, barberAssignments: change.assignments });
             if (!result.ok) return alert("Status kerusi gagal disimpan. Sila cuba lagi.");
-            if (input) delete input.dataset.dirty;
+            if (select) delete select.dataset.dirty;
             appendAuditEvent(change.activating ? 'seat_activated_with_barber' : 'seat_closed_barber_retained', 'seat', String(seatNum), 'admin', {
                 seat: seatNum,
                 barberName: change.assignments[seatNum] || ''
             });
+            syncSeatAssignmentToServer(seatNum, change.seats[seatNum] === true, requestedStaffId).then(() => refreshStaffList());
             renderBarberAssignments(true);
             updateUI();
         }
@@ -5251,44 +5321,89 @@
         }
 
         // BARBER OPERATIONS
-        function callNextToSeat(seatNum) {
-            let queues = getQueues();
+        // Step 4b: this now calls the server for real (call_next_customer(),
+        // which requires a signed-in active-staff session AND the target
+        // seat's public.seats row to have active=true + a barber_id — see
+        // seatRepository.js / the KAKITANGAN seat-assignment cards). Unlike
+        // bookTicket()/cancelCustomerWalkin(), there is deliberately NO
+        // local-only fallback on failure: those two have one because a
+        // customer taking/cancelling a walk-in ticket must never be blocked
+        // by a network hiccup, but a staff action silently succeeding only
+        // locally would put the exact divergence this migration step exists
+        // to remove right back — better to show the real error (often "seat
+        // not assigned yet" while the team is still being set up) than to
+        // pretend it worked.
+        async function callNextToSeat(seatNum) {
             if (localStorage.getItem('shopStatus') !== 'open') return alert("Kedai sedang ditutup.");
             if (!getActiveSeats()[seatNum]) return alert(`Kerusi ${seatNum} sedang ditutup.`);
-            if(queues.find(q => q.status === 'serving' && q.seat === seatNum)) return alert("Sila 'Selesai' pelanggan di kerusi ini dahulu.");
-            
-            let waiting = sortWaitingQueue(queues.filter(q => q.status === 'waiting'));
-            if(waiting.length > 0) {
-                let id = waiting[0].id;
-                let idx = queues.findIndex(q => q.id === id);
-                queues[idx].status = 'serving';
-                queues[idx].seat = seatNum;
-                queues[idx].barberName = getBarberAssignments()[seatNum];
-                queues[idx].calledAt = getUTCISOString();
+            if (getQueues().find(q => q.status === 'serving' && q.seat === seatNum)) return alert("Sila 'Selesai' pelanggan di kerusi ini dahulu.");
+            if (!window.QueueRepo?.callNext) return alert("Ciri panggil pelanggan belum sedia. Sila muat semula halaman.");
+
+            let served;
+            try {
+                served = await window.QueueRepo.callNext(seatNum);
+            } catch (error) {
+                alert(error.message || "Panggil pelanggan gagal. Sila cuba lagi.");
+                return;
+            }
+
+            let queues = getQueues();
+            const idx = queues.findIndex(q => q.id === served.id);
+            const barberName = getBarberAssignments()[seatNum] || '';
+            if (idx > -1) {
+                queues[idx] = { ...queues[idx], status: served.status, seat: served.seat, barberId: served.barberId, calledAt: served.calledAt, barberName };
                 queues[idx].version = nextRecordVersion(queues[idx]);
-                saveQueues(queues); updateUI(); processCustomerNotifications();
-            } else { alert("Tiada pelanggan menunggu."); }
+            } else {
+                // Server knew a ticket this device's local copy never saw
+                // (taken or synced on another device/session). Synthesize a
+                // local-shape record rather than silently dropping it from
+                // the board — local-only fields this device has no way to
+                // know (phone, price) default to empty/zero.
+                queues.push({
+                    id: served.id, name: served.name, phone: '', service: served.service,
+                    duration: served.duration, price: 0, seat: served.seat, barberId: served.barberId,
+                    barberName, status: served.status, queueSource: served.queueSource,
+                    isFastPass: served.isFastPass, timestamp: served.timestamp, calledAt: served.calledAt,
+                    version: 1
+                });
+            }
+            saveQueues(queues);
+            updateUI();
+            processCustomerNotifications();
         }
 
-        function markSeatDone(seatNum) {
-            let queues = getQueues();
-            let idx = queues.findIndex(q => q.status === 'serving' && q.seat === seatNum);
-            if(idx > -1) {
-                const assignments = getBarberAssignments();
-                queues[idx].status = 'done';
-                if (!queues[idx].barberName) queues[idx].barberName = assignments[seatNum] || 'Tidak direkodkan';
-                queues[idx].completedAt = getUTCISOString(); // Simpan sebagai ISO UTC untuk keserasian server
-                queues[idx].version = nextRecordVersion(queues[idx]);
-                const entries = { queues };
-                if (!assignments[seatNum]) {
-                    const seats = getActiveSeats();
-                    seats[seatNum] = false;
-                    entries.activeSeats = seats;
-                }
-                const result = commitStorageTransaction(entries);
-                if (!result.ok) return alert("Rekod servis gagal disimpan. Sila cuba lagi.");
-                updateUI();
+        async function markSeatDone(seatNum) {
+            const idx = getQueues().findIndex(q => q.status === 'serving' && q.seat === seatNum);
+            if (idx === -1) return;
+            const ticketId = getQueues()[idx].id;
+            if (!window.QueueRepo?.completeService) return alert("Ciri selesai servis belum sedia. Sila muat semula halaman.");
+
+            let completed;
+            try {
+                completed = await window.QueueRepo.completeService(ticketId);
+            } catch (error) {
+                alert(error.message || "Rekod servis gagal disimpan. Sila cuba lagi.");
+                return;
             }
+
+            let queues = getQueues();
+            const updatedIdx = queues.findIndex(q => q.id === ticketId);
+            const assignments = getBarberAssignments();
+            if (updatedIdx > -1) {
+                queues[updatedIdx].status = 'done';
+                if (!queues[updatedIdx].barberName) queues[updatedIdx].barberName = assignments[seatNum] || 'Tidak direkodkan';
+                queues[updatedIdx].completedAt = completed.completedAt || getUTCISOString();
+                queues[updatedIdx].version = nextRecordVersion(queues[updatedIdx]);
+            }
+            const entries = { queues };
+            if (!assignments[seatNum]) {
+                const seats = getActiveSeats();
+                seats[seatNum] = false;
+                entries.activeSeats = seats;
+            }
+            const result = commitStorageTransaction(entries);
+            if (!result.ok) return alert("Rekod servis disahkan pelayan tetapi papan tempatan gagal dikemas kini. Sila muat semula halaman.");
+            updateUI();
         }
 
         function showTicketSelection() {

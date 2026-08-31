@@ -79,7 +79,16 @@ function mapQueueRow(row) {
         queueSource: row.source,
         isFastPass: row.is_fast_pass,
         timestamp: row.created_at,
-        calledAt: row.called_at
+        calledAt: row.called_at,
+        // Only present when the caller is authenticated staff: callNext() and
+        // completeService() (step 4b) go through call_next_customer()/
+        // complete_service(), which return the FULL public.queues row — not
+        // restricted to QUEUE_COLUMNS the way a plain anon-safe select is —
+        // so completed_at actually comes back here. listQueues() never
+        // includes it (its query filters to status in waiting/serving, and
+        // completed_at is null for both anyway), so this is simply undefined
+        // there, which mapQueueRow's callers already treat as "not set".
+        completedAt: row.completed_at
     };
 }
 

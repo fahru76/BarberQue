@@ -275,20 +275,33 @@ considered and rejected: it bypasses GoTrue's password hashing and the `auth.ide
 bookkeeping newer Supabase versions expect, and getting that exactly right by hand is
 fragile in a way that isn't worth the risk for a one-time setup step.
 
-So: **create the first account yourself, in the Supabase Dashboard** (Authentication → Users
-→ Add User — set a real password there, or use Invite from the dashboard). Then tell me the
-account's email and I'll run one plain SQL update — `update staff set role = 'admin', active
-= true where id = '<that user's id>'` — to make it an active admin; `handle_new_staff_user`
-will already have created the (inactive, `role = 'barber'`) row automatically the moment the
-account existed, so this is a small, ordinary, reversible edit to one row, not a schema
-change.
+**Done.** `fahru76@gmail.com` created the account itself via the Supabase Dashboard
+(auth.users row created 2026-08-31 15:40:35, email confirmed). `handle_new_staff_user` had
+already auto-created the matching `staff` row (`role='barber', active=false`); it was then
+updated with a plain, reversible SQL statement — `update public.staff set role='admin',
+active=true where id = '<that user's id>'` — and the result confirmed via `RETURNING`.
+`fahru76@gmail.com` is now the app's first active admin.
 
-**Also needed in the Supabase Dashboard, unrelated to me:** Authentication → URL
-Configuration → Site URL (and the Redirect URLs allow-list) needs to be set to wherever this
-app actually ends up hosted (the GitHub Pages URL). `inviteUserByEmail()` was called without
-an explicit `redirectTo` in `invite-barber/index.ts`, so it falls back to whatever Site URL
-is configured — if that's still Supabase's placeholder default, invite links will land
-somewhere that isn't this app.
+**Hosting: done.** The repo is public at `github.com/fahru76/BarberQue`. GitHub Pages is
+enabled (Settings → Pages → Deploy from a branch → `main` / `/ (root)`), the
+`pages-build-deployment` workflow run succeeded, and the live site was loaded and confirmed
+rendering correctly (customer walk-in view, all `js/` modules returning 200) at:
+
+**`https://fahru76.github.io/BarberQue/`**
+
+**Still open — needs a decision/action in the Supabase Dashboard:** Authentication → URL
+Configuration → Site URL (and the Redirect URLs allow-list) still needs to be set to the
+URL above. `inviteUserByEmail()` was called without an explicit `redirectTo` in
+`invite-barber/index.ts`, so it falls back to whatever Site URL is configured — if that's
+still Supabase's placeholder default, invite links will land somewhere that isn't this app.
+This wasn't changed automatically: the Supabase MCP tools available in this environment
+don't expose Auth URL configuration, and treating it as a security-relevant setting (it's
+effectively a redirect-URL allowlist) meant checking with the user first rather than driving
+it through the dashboard unasked.
+
+**Done.** The user set Site URL and the Redirect URLs allow-list themselves in the Supabase
+Dashboard on 31 August 2026. Not independently re-verified from this environment (no direct
+dashboard read access to that setting), but taken as confirmed per the user's report.
 
 ### Then, in order
 
