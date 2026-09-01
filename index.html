@@ -69,7 +69,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         .panel-box { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], select, textarea { width: 100%; padding: 12px 15px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); font-size: 1rem; font-family: 'Inter', sans-serif; outline: none; height: 48px; box-sizing: border-box;}
+        input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea { width: 100%; padding: 12px 15px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); font-size: 1rem; font-family: 'Inter', sans-serif; outline: none; height: 48px; box-sizing: border-box;}
         textarea { height: auto; min-height: 100px; resize: vertical; }
         input:focus, select:focus { border-color: var(--primary-color); box-shadow: 0 0 5px rgba(212, 175, 55, 0.5); }
         input[readonly] { cursor: not-allowed; opacity: 0.8; }
@@ -466,7 +466,7 @@
         .btn-sm { min-height: 34px; padding: 7px 11px; font-size: .67rem; border-radius: 9px; }
         .btn:disabled { transform: none; box-shadow: none; filter: saturate(.25); opacity: .48; }
 
-        input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
+        input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea {
             min-height: 50px;
             padding: 13px 15px;
             border: 1px solid var(--border-color);
@@ -917,7 +917,7 @@
             outline-color: var(--sleek-accent-strong);
         }
 
-        input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
+        input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea {
             min-height: 52px;
             border-radius: 15px;
             background: color-mix(in srgb, var(--input-bg) 94%, white 6%);
@@ -926,6 +926,19 @@
             border-color: var(--sleek-accent);
             background: color-mix(in srgb, var(--input-bg) 94%, var(--sleek-accent) 6%);
             box-shadow: 0 0 0 4px rgba(255,103,29,.11);
+        }
+        /* Chrome/Edge paint a bright yellow autofill background with dark text on
+           login-style fields (email/password), ignoring normal background/color —
+           this is the usual cause of "hard to see while typing" on a saved login.
+           The long transition delay is the standard trick to suppress that repaint. */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+            -webkit-text-fill-color: var(--text-main);
+            -webkit-box-shadow: 0 0 0 1000px color-mix(in srgb, var(--input-bg) 94%, white 6%) inset;
+            box-shadow: 0 0 0 1000px color-mix(in srgb, var(--input-bg) 94%, white 6%) inset;
+            caret-color: var(--text-main);
+            transition: background-color 5000s ease-in-out 0s;
         }
         #themeSelector {
             min-height: 38px;
