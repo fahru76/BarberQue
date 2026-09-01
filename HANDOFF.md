@@ -463,10 +463,43 @@ anon_insert_allowed=false (want false), admin_sees=2 (want 2), admin_update_rows
 either migration. `node --check` passes on both `index.html` script blocks; `npm test`
 unaffected (domain layer untouched).
 
-**Not yet done:** a live browser click-through (add/edit/toggle/delete a service against
-the deployed site) — planned next, same push-to-`main`-and-test-live approach as step 4b,
-pending a fresh GitHub token from the user (the previous one was single-use, meant to be
-revoked after the step 4b push).
+**Live end-to-end test — passed, 1 September 2026.** Pushed to `main` and tested against
+the real deployed site (the previous token, still unrevoked, was reused for this push at
+the user's explicit instruction). The built-in browser was still signed in as `fahru76`
+from step 4b's testing, so no new sign-in was needed.
+
+A second real bug turned up here, more significant than the first: `createService()`
+worked, but the display-order sync that runs right after (`syncServiceOrderToServer()` →
+`reorderServices()`) failed on *every* call, not just a first-seed race. The cause:
+`reorderServices()` did a single `upsert(..., {onConflict:'id'})` sending only `{id,
+sort_order}` per row. `INSERT ... ON CONFLICT (id) DO UPDATE` builds and validates the
+full candidate row — including NOT NULL checks on `name`/`price_sen`/
+`duration_minutes`/`category`, none of which have a default — *before* it discovers the
+id already exists and falls back to the UPDATE branch. So a partial-column upsert against
+this table can never succeed, whether or not two callers race. (The seed-loop fix from
+the section above — only reordering ids that were actually just created — was still
+worth keeping as a minor safety measure, but it was not the real fix.) Corrected by
+replacing the upsert with a plain per-row `UPDATE ... WHERE id = ...`, which never
+constructs a full candidate row and so can't trip a NOT NULL constraint on an omitted
+column. Pushed as a follow-up commit and redeployed.
+
+Verified directly against the live database and live site (cache-busted dynamic
+`import()` was needed partway through, since GitHub Pages serves JS with
+`cache-control: max-age=600` and the browser was still running the pre-fix module):
+- **Create**: added "QA Test Trim" (RM15, 20 min) via the admin form — confirmed present
+  in `public.services` with the exact values entered.
+- **Reorder**: moved it above "Gunting Biasa" — confirmed both rows' `sort_order` updated
+  correctly (this is what caught the bug above).
+- **Update**: toggled `active` to `false` and changed the price to RM18 — confirmed both
+  changes landed.
+- **Delete**: removed it — confirmed gone from the table.
+- Local `shopServices` was reconciled back to just the real "Gunting Biasa" record
+  afterward (test rows never left in place, `sort_order` restored to its original value).
+
+**Not yet done:** none of the CRUD paths remain unverified. `get_advisors(security)` was
+not re-checked after this specific fix (only after the two migrations) — worth a quick
+look next session, though this fix was a client-side query change, not DDL, so no new
+advisory is expected.
 
 ## Then, still to do
 
