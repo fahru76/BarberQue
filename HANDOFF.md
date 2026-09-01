@@ -757,16 +757,47 @@ customer-facing RPCs still correctly anon-`true`.
   classic). `npm test` — 15/15 passed, 20,000/20,000 comparisons matched, unaffected
   as expected (pure domain layer, no appointments involvement).
 
-**Live end-to-end test:** not yet run this session — see "Then, still to do" below;
-the established pattern (steps 4b/5a/5b) is to push to `main` first, since the
-built-in browser refuses to navigate `localhost`.
+**Live end-to-end test — passed, 1 September 2026.** Pushed to `main` (commit
+`93a7b56`) and tested against the real deployed site once GitHub Pages finished
+redeploying (confirmed via the Actions API, then a cache-busted dynamic `import()` —
+same trick as step 5a/5b — since GitHub Pages serves both `index.html` and its module
+imports with `cache-control: max-age=600`). The built-in browser was still signed in
+as `fahru76` from earlier steps' testing.
+
+- **`submitAppointment()` — new booking**: booked "QA Live Test" for today at 21:30
+  (the one slot the real capacity/hours check still allowed this late in the day) —
+  confirmed in `public.appointments` with the exact values entered, `status='upcoming'`.
+- **`submitAppointment()` — reschedule**: rescheduled the same booking (to its own
+  slot, the only one available) — confirmed `version` incremented 1 → 2 server-side,
+  proving the optimistic-concurrency path round-trips correctly end-to-end.
+- **`markAppointmentArrived()`**: checked it in — confirmed a real `public.queues` row
+  was created (`status='waiting'`, `source='booking'`, correct `duration_minutes`/
+  `price_sen`), the appointment flipped to `arrived`, and the local board's pushed
+  entry matched the server row field-for-field (this is the one genuinely new
+  return-shape surface this step introduced — confirmed correct).
+- **`approveFastPass()`/`revokeFastPass()`**: approved fast-pass on that queue entry
+  through the real admin dropdown UI (not just a direct RPC call) — confirmed
+  `approved_by` was set to `fahru76`'s real staff id **by the server**, not a
+  client-supplied value; revoked it back — confirmed `revoked_by` set the same way,
+  `is_fast_pass` cleared.
+- **`cancelCustomerAppointment()`**: booked a second appointment for tomorrow,
+  cancelled it — confirmed `status='cancelled'`, `cancelled_by='customer'` server-side.
+- **`convertWalkinToAppointment()`**: **not exercised live this session** — every
+  attempt to take a fresh walk-in ticket this late in the day was correctly rejected
+  by the existing client-side scheduling estimate ("akan melepasi waktu tutup kedai"),
+  leaving no walk-in ticket to convert. Not a step-6 regression — a time-of-day
+  constraint on live testing. This RPC was, however, verified thoroughly via
+  rollback-safe SQL (ownership-token check, the cross-table transaction, and the
+  correct `cancel_reason` on the original walk-in), and it calls Supabase through the
+  exact same authenticated-repository pattern already proven live above — worth a
+  quick live pass earlier in the day next session, but low-risk as left.
+- All test rows (both appointments) and the one test queue entry were deleted from
+  the live database afterward, and the matching local-storage entries
+  (`appointments`/`queues`/`myAppIds`/`appointmentClaimTokens`) were cleared in the
+  same browser session. Nothing left in a test state.
 
 ## Then, still to do
 
-- **Step 6 live end-to-end test**, following the 4b/5a/5b pattern: push, wait for
-  GitHub Pages to redeploy, then exercise booking, cancel, reschedule, walk-in
-  conversion, staff check-in, and fast-pass approve/revoke through the real UI against
-  the real deployed site (signed in as `fahru76`).
 7. Realtime subscriptions replacing the `storage` event listener:
    ```js
    supabase.channel('queue-changes')
