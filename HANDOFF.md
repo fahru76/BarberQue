@@ -629,10 +629,144 @@ All ten converted setters have now each been exercised at least once against the
 real deployed site and the real database, with every test reverted to its original
 value afterward. Nothing left in a test state.
 
+## Done — step 6: appointments + fast-pass workflow is now server-authoritative
+
+This step covers both `public.appointments` (the booking system) and the fast-pass
+approval workflow, which spans `appointments` **and** `queues` — the two were tangled
+together (an appointment checking in becomes a queue row; fast-pass approval targets
+either table), so they had to move as one unit.
+
+**Three decisions the user made (locked in, don't relitigate):**
+1. `isVip`/`fastPassApproved` are always redundant with `source='booking'`/`is_fast_pass`
+   in every current code path — chose **"Collapse them"**: not stored as separate
+   columns. `isVip` is derived client-side from `source === 'booking'`;
+   `fastPassApproved` is just `isFastPass` under a second name, both populated from the
+   one `is_fast_pass` column so every existing read site (which checks either name)
+   keeps working unchanged.
+2. Cancelling/rescheduling your own appointment needs real server-side protection —
+   chose **"Claim-token + RPCs"**, the same pattern as `queues`:
+   `book_appointment()`/`cancel_own_appointment()`/`reschedule_own_appointment()` as
+   `SECURITY DEFINER` functions, `claim_token` generated client-side
+   (`crypto.randomUUID()`) and never read back, same convention as
+   `queueRepository.takeTicket()`.
+3. Two more races — double-booking the same slot, and a partial failure mid-conversion
+   (walk-in → appointment touches two tables) — chose **"Server-side RPCs for both"**:
+   `book_appointment()` re-validates capacity and inserts in one transaction (an
+   advisory lock keyed by date serializes concurrent bookers);
+   `convert_walkin_to_appointment()`/`checkin_appointment()` wrap each cross-table
+   conversion in one transaction.
+
+**What changed:**
+- **`alter table public.queues`** adds `approved_by`/`approval_reason`/`approved_at`/
+  `revoked_by`/`revoked_reason`/`revoked_at` (closing the schema gap flagged since step
+  5a) — same shape added fresh to the new `appointments` table.
+- **New `public.appointments` table**
+  (`supabase/migrations/20260901000700_appointments.sql`): mirrors every field the
+  local prototype's appointment objects already have (`appt_date`/`appt_time`,
+  `duration_minutes`, `price_sen`, `status` — `upcoming`/`arrived`/`cancelled` —
+  `is_fast_pass` + the six approval/revocation columns above, `version`, `claim_token`).
+  RLS: readable by everyone; **no insert policy for anyone** —
+  `book_appointment()`/`convert_walkin_to_appointment()` are the only creation paths,
+  including for an admin booking on someone's behalf (they call the same RPC as
+  anyone else, so they get the same capacity check, not a bypass); admins may update
+  (used only by the still-local-only admin-cancel path, see below); no delete policy.
+  Anon's column grant excludes `claim_token` (never needs to be read back) and the
+  approval/audit columns; authenticated gets full select+update (RPCs still gate the
+  actual writes via their own logic).
+- **Seven new `SECURITY DEFINER` RPCs**: `book_appointment()`, `cancel_own_appointment()`,
+  `reschedule_own_appointment()`, `convert_walkin_to_appointment()` (anon+authenticated —
+  these are the customer-facing ones, matching `cancel_own_ticket()`'s existing
+  anon-executable precedent), `checkin_appointment()`, `approve_fast_pass()`,
+  `revoke_fast_pass()` (authenticated-only — staff/admin actions, gated by
+  `is_active_staff()`/`is_admin()` inside the function body). Plus two internal
+  helpers, `_appointment_hours_ok()` (re-checks weekly hours/breaks/closed-dates/
+  booking-advance-days/shop-status server-side — the local prototype only ever
+  checked this client-side) and `_appointment_slot_capacity_ok()` (minute-by-minute
+  sweep against `seat_count`, not pairwise overlap testing, since concurrency can be
+  3+ deep with multiple chairs).
+- **Deliberate scope boundary** (documented in the migration file itself): the
+  server-side capacity check only considers **other upcoming appointments** for that
+  date — it does not model today's live walk-in queue occupancy (chair-busy-until-when,
+  break-adjusted), which stays a client-side-only, best-effort refinement in
+  `js/domain/scheduler.js`. Porting the full break-aware scheduler into PL/pgSQL was
+  judged out of proportion to this step.
+- **New `js/repositories/appointmentRepository.js`**: thin wrappers over the seven
+  RPCs above, following the exact same claim-token and RM↔sen conversion conventions
+  as `queueRepository.js`. `checkinAppointment()` maps the returned `public.queues`
+  row into the same domain shape `queueRepository.mapQueueRow()` produces, so the
+  caller can push it straight into the local `queues` array.
+- **~26 existing functions in `index.html` rewired to write-through-first, no local
+  fallback** (same rule as every write path since step 4b — a booking is exactly the
+  kind of record another device legitimately needs to see): `submitAppointment()`
+  (all three branches — new booking, reschedule, walk-in conversion),
+  `cancelCustomerAppointment()`, `markAppointmentArrived()`, `approveFastPass()`,
+  `revokeFastPass()`. `startRescheduleAppointment()` needed no changes (pure
+  read/setup, no write). The ~10 remaining functions are plain local reads
+  (`getAppointments()`, admin list rendering, availability checks) — untouched, same
+  "no hydration mechanism" reasoning below.
+- **Deliberately no hydration/live-sync mechanism for appointments** (unlike
+  services/shop-settings, which do have one): `public.queues` itself doesn't have one
+  either — `listQueues()` exists and is wired into `window.QueueRepo`, but nothing
+  calls it yet (deferred to the still-open "step 7: realtime subscriptions" item
+  below). Appointments follows that same already-accepted boundary rather than
+  inventing a bespoke one-table exception.
+- **Deliberately left local-only, matching the existing un-migrated `queues`
+  admin-cancel precedent**: `confirmAdminCancellation()`'s `appointment` branch (like
+  its pre-existing `queue` branch) still only writes to local storage. Both admin-cancel
+  paths are a known, pre-existing gap, not something this step introduced or was asked
+  to close — flagging it here rather than leaving it undocumented.
+
+**A real (if not yet exploited) security bug was found and fixed, same class as
+`20260901000300_harden_function_grants.sql` fixed once before:** `revoke all on
+function ... from public` does **not** strip Supabase's default per-role `EXECUTE`
+grant — the specific role must be named. `checkin_appointment()`, `approve_fast_pass()`,
+`revoke_fast_pass()` (all meant to be staff/admin-only) were callable by `anon` despite
+only being granted `to authenticated`. Verified this was **not actually exploitable**
+first (a rollback-safe `set local role anon` simulation confirmed each function's own
+internal `is_active_staff()`/`is_admin()` check correctly rejects anon with "Not
+authorised") — then fixed anyway via
+`supabase/migrations/20260901000800_harden_appointment_function_grants.sql`
+(`revoke execute ... from anon, public`), and re-verified via `has_function_privilege`
+that anon is now `false` and authenticated `true` for all three, with the four
+customer-facing RPCs still correctly anon-`true`.
+
+**Verified (rollback-safe SQL):**
+- The full customer-facing flow in one transaction: book → reschedule (version bumps
+  correctly) → cancel with the wrong claim token (returns `false`, not an error) →
+  cancel with the right one (`true`) → a fresh booking → staff check-in
+  (`checkin_appointment()` returns the new `queues` row with the right `id`/`status`/
+  `source`/`duration_minutes`/`price_sen`, and the appointment flips to `arrived`) →
+  fast-pass approve (`is_fast_pass`/`approved_by` set correctly) → revoke
+  (`revoked_by` set, `is_fast_pass` cleared) → walk-in-to-appointment conversion
+  (`convert_walkin_to_appointment()` creates the new appointment and cancels the
+  original walk-in with `cancel_reason='Ditukar kepada Tempahan Online'`). All
+  assertions held; the table counts confirmed **zero** rows left behind afterward.
+- `get_advisors(security)` re-checked after the grant fix: `checkin_appointment`/
+  `approve_fast_pass`/`revoke_fast_pass` now appear **only** under the
+  authenticated-executable warning, not the anon-executable one — confirming the fix
+  took effect. Remaining warnings are pre-existing/by-design (the same pattern already
+  accepted for `cancel_own_ticket`/`next_ticket_number`/etc.) or unrelated
+  (`ticket_counters` has no policy by design; leaked-password-protection is a Supabase
+  Auth setting, not touched by this migration).
+- `tests/sql-consistency.mjs` — extended with the nine new step-6 function names
+  (it previously only recognized a fixed allowlist from earlier steps, so it was
+  reporting every new RPC call as "unknown public.X" — a linter gap, not a real
+  problem, but worth fixing so the tool stays useful going forward). Reports "no
+  inconsistencies found" after the fix.
+- `node --check` passes on both extracted `index.html` script blocks (module +
+  classic). `npm test` — 15/15 passed, 20,000/20,000 comparisons matched, unaffected
+  as expected (pure domain layer, no appointments involvement).
+
+**Live end-to-end test:** not yet run this session — see "Then, still to do" below;
+the established pattern (steps 4b/5a/5b) is to push to `main` first, since the
+built-in browser refuses to navigate `localhost`.
+
 ## Then, still to do
 
-6. Appointments (26 functions) — tangled with the still-open `isVip`/`fastPassApproved`/
-   `approvedAt`/`revokedAt` schema gap; needs that resolved first.
+- **Step 6 live end-to-end test**, following the 4b/5a/5b pattern: push, wait for
+  GitHub Pages to redeploy, then exercise booking, cancel, reschedule, walk-in
+  conversion, staff check-in, and fast-pass approve/revoke through the real UI against
+  the real deployed site (signed in as `fahru76`).
 7. Realtime subscriptions replacing the `storage` event listener:
    ```js
    supabase.channel('queue-changes')
@@ -669,18 +803,26 @@ js/repositories/queueRepository.js                  step 3: wired for takeTicket
 js/repositories/authRepository.js                   step 4: sign-in/out, invite, staff list
 js/repositories/seatRepository.js                   step 4b: listSeats/setSeatAssignment
 js/repositories/serviceRepository.js                step 5a: services catalog CRUD + reorder
+js/repositories/shopSettingsRepository.js           step 5b: singleton shop_settings get/create/update
+js/repositories/appointmentRepository.js            step 6: booking + fast-pass RPC wrappers
 index.html                                          the running app; bookTicket()/
                                                      cancelCustomerWalkin() dual-write to
                                                      Supabase; barber-app/admin-app now
                                                      session-gated; invite + staff list in
                                                      admin-app; callNext/completeService/board
                                                      read now server-authoritative (4b); services
-                                                     catalog now server-authoritative (5a)
+                                                     catalog now server-authoritative (5a); shop
+                                                     settings now server-authoritative (5b);
+                                                     appointments + fast-pass now
+                                                     server-authoritative (6)
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
 supabase/migrations/20260901000400_services_catalog.sql       step 5a, applied and verified
 supabase/migrations/20260901000500_services_anon_policy_fix.sql  step 5a bugfix, applied and verified
+supabase/migrations/20260901000600_shop_settings.sql          step 5b, applied and verified
+supabase/migrations/20260901000700_appointments.sql           step 6, applied and verified
+supabase/migrations/20260901000800_harden_appointment_function_grants.sql  step 6 bugfix, applied and verified
 supabase/functions/invite-barber/index.ts           deployed, verify_jwt=true, re-checks
                                                      is_admin() itself before inviting anyone
 tests/domain/scheduler.test.mjs                     15 fixtures

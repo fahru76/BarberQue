@@ -39,7 +39,7 @@ const known = new Set(['auth', 'now', 'true', 'false', 'null', 'public']);
 for (const m of clean.matchAll(/public\.(\w+)/g)) {
     const n = m[1];
     if (tables[n]) continue;
-    if (/^(is_active_staff|is_admin|bump_row_version|handle_new_staff_user|next_ticket_number|cancel_own_ticket|call_next_customer|complete_service|barber_performance)$/.test(n)) continue;
+    if (/^(is_active_staff|is_admin|bump_row_version|handle_new_staff_user|next_ticket_number|cancel_own_ticket|call_next_customer|complete_service|barber_performance|_appointment_slot_capacity_ok|_appointment_hours_ok|book_appointment|cancel_own_appointment|reschedule_own_appointment|convert_walkin_to_appointment|checkin_appointment|approve_fast_pass|revoke_fast_pass)$/.test(n)) continue;
     problems.push(`unknown public.${n}`);
 }
 
