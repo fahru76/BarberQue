@@ -823,6 +823,19 @@
             background: color-mix(in srgb, var(--surface-color) 90%, transparent);
             box-shadow: 0 18px 54px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.035);
         }
+        /* Kiosk mode: reached by loading ?view=display or ?view=barber directly
+           (see applyKioskModeFromURL() in the classic script) -- these are
+           dedicated-device entry points (the shop TV, a barber's tablet), so
+           the OTHER views' nav buttons are hidden, leaving only this device's
+           own tab as the way back after e.g. a barber signs out. Layar Kedai
+           additionally hides the whole nav-tools row (login/logout/theme/
+           reset) since that screen is a public, unattended, read-only
+           display with no legitimate reason for anyone to interact with it. */
+        body.kiosk-display .app-nav .btn[data-view]:not([data-view="display-app"]),
+        body.kiosk-barber .app-nav .btn[data-view]:not([data-view="barber-app"]) {
+            display: none;
+        }
+        body.kiosk-display .app-nav .nav-tools { display: none; }
         .brand-monogram {
             border-color: rgba(255,103,29,.45);
             border-radius: 13px;
@@ -1189,10 +1202,10 @@
             <span id="brandMonogram" class="brand-monogram" aria-hidden="true">QC</span>
             <span class="brand-copy"><strong id="navAppName">QueueCut</strong><span id="navShopName">Syam Barber Shop</span></span>
         </div>
-        <button class="btn active" aria-pressed="true" onclick="switchView('customer-app', this)">Pelanggan</button>
-        <button class="btn" aria-pressed="false" onclick="switchView('display-app', this)">Layar Kedai</button>
-        <button class="btn" aria-pressed="false" onclick="switchView('barber-app', this)">Tukang Gunting</button>
-        <button class="btn" aria-pressed="false" onclick="switchView('admin-app', this)">Admin</button>
+        <button class="btn active" data-view="customer-app" aria-pressed="true" onclick="switchView('customer-app', this)">Pelanggan</button>
+        <button class="btn" data-view="display-app" aria-pressed="false" onclick="switchView('display-app', this)">Layar Kedai</button>
+        <button class="btn" data-view="barber-app" aria-pressed="false" onclick="switchView('barber-app', this)">Tukang Gunting</button>
+        <button class="btn" data-view="admin-app" aria-pressed="false" onclick="switchView('admin-app', this)">Admin</button>
 
         <div class="nav-spacer"></div>
 
@@ -2128,6 +2141,85 @@
         // key, since call_next_customer() checks that table directly.
         let seatServerState = {};
 
+        // ============= PER-VIEW URLs (?view=customer|display|barber|admin) =============
+        // Deliberately a query parameter, not a #hash: Supabase invite/password-reset
+        // links already put their own token in the URL hash (see the PASSWORD_RECOVERY
+        // check just below), so routing through the hash too would mean carefully
+        // telling "this hash is a route" apart from "this hash is an auth callback".
+        // The query string has no such collision. This is a UX/bookmarking convenience
+        // only, same as everything else about which nav buttons are visible -- it is
+        // NOT a security boundary. The real one is server-side (RLS + is_active_staff()/
+        // is_admin() inside the RPCs); switchView()'s own gate below is just what keeps
+        // the UI honest about that, exactly as it always has been.
+        const VIEW_SLUGS = { 'customer-app': 'customer', 'display-app': 'display', 'barber-app': 'barber', 'admin-app': 'admin' };
+        const SLUG_TO_VIEW = Object.fromEntries(Object.entries(VIEW_SLUGS).map(([viewId, slug]) => [slug, viewId]));
+        // Set once, at load, from whichever view the page was *reached* by --
+        // not re-evaluated on later in-app navigation, since a kiosk device's
+        // whole point is that its bookmarked/home URL decides what it is.
+        let pendingDeepLinkView = null; // admin-app/barber-app requested before a session existed yet; retried after sign-in
+        let initialAuthGatedViewChecked = false;
+
+        function getViewIdFromLocation() {
+            const slug = new URLSearchParams(window.location.search).get('view');
+            return SLUG_TO_VIEW[slug] || 'customer-app';
+        }
+
+        function updateURLForView(viewId, replace) {
+            const url = new URL(window.location.href);
+            if (viewId === 'customer-app') url.searchParams.delete('view');
+            else url.searchParams.set('view', VIEW_SLUGS[viewId]);
+            const target = url.pathname + url.search + url.hash;
+            history[replace ? 'replaceState' : 'pushState']({ viewId }, '', target);
+        }
+
+        // Kiosk-mode nav simplification does not depend on the staff auth state
+        // (only which CONTENT is shown does, for admin-app/barber-app), so this
+        // runs synchronously at page load -- see the bottom of this script.
+        function applyKioskModeFromURL() {
+            const requested = getViewIdFromLocation();
+            document.body.classList.toggle('kiosk-display', requested === 'display-app');
+            document.body.classList.toggle('kiosk-barber', requested === 'barber-app');
+            // customer-app is already the active view in the initial markup --
+            // nothing to switch for the plain, no-param URL that's the vast
+            // majority of page loads. display-app is the only one of this pair
+            // that ever needs an actual switch here.
+            if (requested === 'display-app') {
+                const btn = document.querySelector(`.app-nav .btn[data-view="${requested}"]`);
+                if (btn) switchView(requested, btn, false);
+            }
+            // admin-app/barber-app are handled by applyAuthGatedViewFromURL(),
+            // once staffSession/staffProfile are known -- see onStaffAuthChange below.
+        }
+
+        // Runs once, the first time onStaffAuthChange fires after load (by which
+        // point staffSession/staffProfile are resolved either way -- see
+        // pushAuthState() in the Supabase bridge module above). Deep-linking
+        // straight to ?view=admin/barber has to wait for that, unlike customer/
+        // display above, since whether it's even allowed depends on it.
+        function applyAuthGatedViewFromURL() {
+            const requested = getViewIdFromLocation();
+            if (requested !== 'admin-app' && requested !== 'barber-app') return;
+            const btn = document.querySelector(`.app-nav .btn[data-view="${requested}"]`);
+            if (!btn) return;
+            if (!staffSession) {
+                // Not signed in yet -- switchView() below will open the login
+                // dialog; leave the URL as-is (it already says what they're
+                // trying to reach) and retry once submitStaffLogin() succeeds.
+                pendingDeepLinkView = requested;
+                switchView(requested, btn, false);
+                return;
+            }
+            switchView(requested, btn, false);
+            const activeId = document.querySelector('.view-section.active')?.id;
+            if (activeId && activeId !== requested) {
+                // Signed in, but declined for good (inactive account, or the
+                // wrong role for admin-app) -- logging in again won't change
+                // that, so correct the address bar to match what's actually
+                // showing instead of leaving a misleading deep link in place.
+                updateURLForView(activeId, true);
+            }
+        }
+
         window.onStaffAuthChange = function (event, session, profile) {
             staffSession = session;
             staffProfile = profile;
@@ -2144,6 +2236,20 @@
             }
             updateStaffAuthUI();
             if (document.getElementById('admin-app')?.classList.contains('active')) refreshStaffList();
+            if (!initialAuthGatedViewChecked) {
+                initialAuthGatedViewChecked = true;
+                applyAuthGatedViewFromURL();
+            } else if (pendingDeepLinkView && staffSession) {
+                // A deep link to ?view=admin/barber opened the login dialog above
+                // (no session yet at that point); this fires again once sign-in
+                // actually succeeds (event 'SIGNED_IN'), so retry it now rather
+                // than leaving the customer signed in but still parked on
+                // customer-app after typing their password.
+                const targetView = pendingDeepLinkView;
+                pendingDeepLinkView = null;
+                const btn = document.querySelector(`.app-nav .btn[data-view="${targetView}"]`);
+                if (btn) switchView(targetView, btn, false);
+            }
         };
 
         function updateStaffAuthUI() {
@@ -3978,7 +4084,7 @@
         }
 
         // UI & NAVIGATION
-        function switchView(viewId, btnElement) {
+        function switchView(viewId, btnElement, fromNav = true) {
             // Session gate (migration step 4): the nav buttons for these two panels
             // are still always visible and clickable — same as before auth existed —
             // but reaching the panel itself now requires a signed-in, active staff
@@ -4013,6 +4119,16 @@
             btnElement.setAttribute('aria-pressed', 'true');
             if (viewId === 'admin-app') refreshStaffList();
             updateUI();
+            // Keep the URL in sync with whichever view is now actually showing.
+            // Only reached past the gate above, i.e. only on a genuine switch --
+            // a denied attempt never gets here, so it never touches the address
+            // bar (see applyAuthGatedViewFromURL()/popstate below for the one
+            // case, a denied deep link, where the URL does still need correcting).
+            // `fromNav` distinguishes a person clicking a nav button (push a new
+            // history entry, so back/forward works between views) from every
+            // programmatic call this file makes -- initial load, the post-login
+            // retry, and the popstate handler -- which replace in place instead.
+            updateURLForView(viewId, !fromNav);
         }
 
         function setCustomerMode(mode) {
@@ -6404,10 +6520,25 @@
         window.setInterval(processCustomerNotifications, 30000);
         window.setInterval(refreshTimeSensitiveUI, 15000);
 
+        // Browser back/forward between the four ?view= URLs. Deliberately does
+        // NOT re-run applyKioskModeFromURL()'s body-class toggle -- a kiosk
+        // device's own nav buttons are hidden specifically so this history
+        // stack never grows in the first place; back/forward landing on a
+        // different view is an edge case (e.g. a shared browser also used for
+        // admin work), not the normal kiosk flow, so it's left showing the
+        // content for the new URL without also flipping which nav buttons are
+        // visible underneath it.
+        window.addEventListener('popstate', () => {
+            const viewId = getViewIdFromLocation();
+            const btn = document.querySelector(`.app-nav .btn[data-view="${viewId}"]`);
+            if (btn) switchView(viewId, btn, false);
+        });
+
         initData();
         ['customerPhoneInput', 'bookPhoneInput'].forEach(attachPhoneValidation);
         populateOperationalTimeSelects(); updateUI(); updateServiceProfileSummary('new');
         if(!window.currentCustomerTicket) populateWalkinServices();
+        applyKioskModeFromURL();
     </script>
 </body>
 </html>
