@@ -104,18 +104,31 @@ export async function deleteService(id) {
 }
 
 /**
- * Bulk-persist a new display order within one category. Each entry only
- * touches `sort_order` — Supabase's upsert only overwrites the columns
- * present in each row, so this can never accidentally blank out a service's
- * name/price/etc. for rows that already exist (every id here always already
- * exists; this is never used to create a row).
+ * Bulk-persist a new display order within one category. Every id here always
+ * already exists — this is never used to create a row — so this issues a
+ * plain UPDATE per row, not an upsert.
+ *
+ * This was originally a single `upsert(..., {onConflict:'id'})` call, which
+ * looked right ("only touches sort_order, can't blank out other columns")
+ * but is wrong on Postgres: `INSERT ... ON CONFLICT (id) DO UPDATE` builds
+ * the candidate row — and validates its NOT NULL constraints (`name`,
+ * `price_sen`, `duration_minutes`, `category`, none of which have defaults)
+ * — BEFORE it discovers the id already exists and falls back to the UPDATE
+ * branch. So it failed with "null value in column name violates not-null
+ * constraint" on every single call, not just a first-seed race — caught
+ * live during step-5a verification (adding a second service, then watching
+ * its post-create reorder call fail the exact same way). A plain UPDATE
+ * never constructs a full candidate row, so it can't trip this.
  *
  * @param {{id: string, sortOrder: number}[]} entries
  */
 export async function reorderServices(entries) {
     if (!entries.length) return;
-    const { error } = await supabase
-        .from('services')
-        .upsert(entries.map(({ id, sortOrder }) => ({ id, sort_order: sortOrder })), { onConflict: 'id' });
-    raiseOnError(error);
+    const results = await Promise.all(
+        entries.map(({ id, sortOrder }) =>
+            supabase.from('services').update({ sort_order: sortOrder }).eq('id', id)
+        )
+    );
+    const failed = results.find(({ error }) => error);
+    if (failed) raiseOnError(failed.error);
 }
