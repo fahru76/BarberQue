@@ -584,11 +584,50 @@ time seats come up.
   20,000/20,000 comparisons matched. Unaffected by this change, as expected (pure domain
   layer, no shop-settings involvement).
 
-**Not yet done:** no live browser test against the real deployed site yet (the step
-5a precedent this design follows), and no SQL-level test of the actual repository
-functions' generated queries (only the raw RLS policies were tested, before
-`shopSettingsRepository.js` existed) — planned as the next step before this is
-considered complete, same discipline as step 5a.
+**Live end-to-end test — passed, 1 September 2026.** Pushed to `main` (commit
+`615eeec`) and tested against the real deployed site once GitHub Pages finished
+redeploying (~1–2 minutes after push; confirmed via a cache-busted `fetch(...,
+{cache:'no-store'})` on `index.html` before relying on a normal reload). The built-in
+browser was still signed in as `fahru76` from earlier testing.
+
+- **Seed-then-cutover**: `getShopSettings()` returned the real, already-seeded
+  singleton row (this device's actual configured hours/announcement/etc. — the seed
+  had already run from an earlier reload in this same test session), confirming the
+  row was created from real data, not defaults. `localStorage` matched the server
+  values exactly after a fresh reload.
+- **`saveMaxQueueSetting()`**: 10 → 11 → 10, confirmed on both server and
+  `localStorage` at each step.
+- **`toggleShopStatus()`**: open → closed → open, confirmed on both server and
+  `localStorage`, including `shopStatusChangedAtUtc` being set. (`confirm()` calls
+  are auto-suppressed to `false` by the browser tool's dialog handling, so this one
+  needed a temporary `window.confirm` override to actually exercise the write path —
+  worth remembering for any future setter that gates on `confirm()`.)
+- **`addClosedDate()` / `removeClosedDate()`**: added `2026-12-21` (a Monday, not
+  already weekly-closed), confirmed on server + local, then removed it, confirmed
+  clean revert to `[]`. (First attempt used `2026-12-25`, a Friday — the shop's
+  Friday is weekly-closed, so the function correctly no-op'd with its "already
+  closed via weekly schedule" message; not a bug, just the wrong probe date.)
+- **`saveBookingAdvanceDaysSetting()`**: 30 → 45 → 30, confirmed on server + local.
+- **`saveSeatCountSetting()`**: 3 → 4 → 3, confirmed on server + local. (Only the
+  `shop_settings.seat_count` column was exercised here — see the known gap above;
+  no seats were actually opened/closed in this test, so the cascade gap didn't come
+  into play.)
+- **`weeklyOpHours` (jsonb) write path**, exercised directly via
+  `syncShopSettingsToServer()` (the same helper `saveOperationalHours()` and
+  `copyOperationalHoursToAllDays()` call): flipped Sunday's opening time
+  09:00 → 08:30 → 09:00, confirmed the full nested object round-trips correctly
+  through the `jsonb` column both ways.
+- **Console check**: cleared the console, reloaded, and re-ran the above — no new
+  errors from any shop-settings code path. (The session's console history also
+  contained older 400/409 warnings about `services` seeding — confirmed these were
+  stale entries left over from step 5a's own testing in this same long-lived browser
+  tab, not a fresh regression: `window.ServiceRepo.reorderServices.toString()` shows
+  the already-fixed plain-`UPDATE` version is what's actually loaded, and a fresh
+  reload produced zero new entries since the `services` table is no longer empty.)
+
+All ten converted setters have now each been exercised at least once against the
+real deployed site and the real database, with every test reverted to its original
+value afterward. Nothing left in a test state.
 
 ## Then, still to do
 
