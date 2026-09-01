@@ -1958,13 +1958,20 @@
             }
             const local = window.getServices ? window.getServices() : [];
             if (remote.length === 0 && local.length > 0) {
+                // Not locked against a concurrent seed from another tab/device
+                // hitting this same empty-table window at once — Postgres's own
+                // unique constraint on `id` is what actually prevents a double
+                // row if that happens (one create wins, the other gets a
+                // duplicate-key error below), so the only symptom is a stray
+                // console warning, never bad data. Confirmed by re-querying the
+                // table directly after triggering exactly that race during
+                // step-5a verification: exactly one correct row resulted.
                 const nextOrder = {};
                 const sortEntries = [];
                 for (const service of local) {
                     const category = service.category === 'fashion' ? 'fashion' : 'asas';
                     const sortOrder = nextOrder[category] ?? 0;
                     nextOrder[category] = sortOrder + 1;
-                    sortEntries.push({ id: service.id, sortOrder });
                     try {
                         await createService({
                             id: service.id,
@@ -1975,15 +1982,27 @@
                             target: ['dewasa', 'kanak'].includes(service.target) ? service.target : 'semua',
                             type: ['gunting', 'botak', 'facial', 'lain'].includes(service.type) ? service.type : 'lain'
                         });
+                        // Only reorder ids this call actually created — passing an id
+                        // whose insert failed into reorderServices() below made its
+                        // upsert fall through to a plain INSERT with nothing but
+                        // id+sort_order, which blows up on the NOT NULL columns
+                        // (found during the same race, fixed here rather than left in).
+                        sortEntries.push({ id: service.id, sortOrder });
                     } catch (error) {
-                        console.warn(`Seed servis "${service.name}" ke pelayan gagal.`, error);
+                        if (/duplicate key|unique constraint/i.test(error?.message || '')) {
+                            console.info(`Servis "${service.name}" sudah disegerakkan (mungkin oleh peranti/tab lain).`);
+                        } else {
+                            console.warn(`Seed servis "${service.name}" ke pelayan gagal.`, error);
+                        }
                     }
                 }
-                try {
-                    await reorderServices(sortEntries);
-                } catch (error) {
-                    // Cosmetic only (category display order) — the seed insert above already succeeded, so don't treat this as a failure.
-                    console.warn('Menetapkan turutan servis semasa seed gagal.', error);
+                if (sortEntries.length) {
+                    try {
+                        await reorderServices(sortEntries);
+                    } catch (error) {
+                        // Cosmetic only (category display order) — the seed insert above already succeeded, so don't treat this as a failure.
+                        console.warn('Menetapkan turutan servis semasa seed gagal.', error);
+                    }
                 }
                 try {
                     remote = await listServices();
