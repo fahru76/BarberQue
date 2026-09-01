@@ -501,10 +501,97 @@ not re-checked after this specific fix (only after the two migrations) — worth
 look next session, though this fix was a client-side query change, not DDL, so no new
 advisory is expected.
 
+## Done — step 5b: shop settings is now server-authoritative (client wiring complete; live test pending)
+
+**Decision the user made (locked in, don't relitigate):** a single-row table with typed
+columns, not a generic key-value table. Asked via AskUserQuestion because this was a
+genuine architecture fork — the KV alternative would have meant a generic
+`get/set(key, value)` repository with no per-field validation, versus a normal typed
+table with a `check` constraint per column. User chose **"Single row, typed columns
+(Recommended)"**.
+
+**What changed:**
+- **New `public.shop_settings` table**
+  (`supabase/migrations/20260901000600_shop_settings.sql`): singleton via
+  `id boolean primary key default true` + `check (id)` — a second row is structurally
+  impossible (a row with `id=false` fails the check; a second `id=true` row collides with
+  the primary key). 16 columns mirroring every existing shop-setting getter
+  (`app_name`, `shop_name`, `shop_map_link`/`_query`/`_address`, `shop_location_name`,
+  `shop_announcement`/`_html`/`_enabled`, `shop_status`/`_changed_at`, `max_queue`,
+  `seat_count`, `closed_dates` (jsonb array), `booking_advance_days`,
+  `weekly_op_hours` (jsonb object)), each with the same bounds the client already
+  enforces (e.g. `max_queue between 1 and 999`, `booking_advance_days between 1 and
+  365`). Created **empty** (0 rows) — same reasoning as `public.services`: seeding it
+  with generic defaults here would silently clobber a shop's real configured hours the
+  first time any client reads it back. RLS: readable by everyone (every field is shown
+  to customers somewhere — no active/inactive split like `services`); insert (seed) and
+  update both gated to `is_admin()`; **no delete policy for anyone, not even admins** —
+  deleting the one row would break the site for every device and there's no legitimate
+  reason for that action to exist.
+- **New `js/repositories/shopSettingsRepository.js`**: `getShopSettings()` (`.maybeSingle()`
+  — returns `null` on an empty table, not an error), `createShopSettings(settings)` (seed,
+  full row), `updateShopSettings(patch)` (partial, plain `UPDATE ... WHERE id = true` —
+  deliberately **not** an upsert, learned directly from step 5a's `reorderServices()` bug:
+  a partial-column upsert validates the full candidate row's NOT NULL constraints before
+  discovering the id exists, so it can never succeed against a table with required
+  columns; a plain UPDATE never has this problem). Same camelCase-object /
+  snake_case-column translation pattern as `serviceRepository.js`.
+- **`seedOrRefreshShopSettings()`** (new, in the Supabase bridge module script, alongside
+  `seedOrRefreshServices()`): same seed-then-cutover pattern — first time it finds the
+  table empty, seeds it from this device's real current settings (via
+  `collectCurrentShopSettingsSnapshot()`, new helper reading all 15 local keys into one
+  object); every time after that, treats the server as authoritative and overwrites
+  every local shop-setting key. Runs on initial load and again on every auth-state
+  change, same reasoning as services (an anon seed attempt failing is expected/harmless,
+  not an error — only an authenticated admin can pass the insert policy).
+- **`syncShopSettingsToServer(patch)`** (new, classic script, shared by all ten setters
+  below): calls `updateShopSettings(patch)` first; if that fails because the row doesn't
+  exist yet (`PGRST116`/no rows — the admin is saving before any device has ever
+  seeded), it self-heals by calling `createShopSettings()` with the full current local
+  snapshot merged with the patch, so the very first save someone makes doesn't produce a
+  confusing failure. Any other error is surfaced as-is.
+- **All ten admin save handlers converted to `async`, write-through-first** (no
+  local-fallback — same rule as step 5a/4b, since these values are shown to customers on
+  every device, not just the one being edited): `saveShopNameSetting()`,
+  `saveAnnouncementSetting()`, `toggleShopStatus()`, `saveMaxQueueSetting()`,
+  `saveOperationalHours()`, `copyOperationalHoursToAllDays()`,
+  `saveBookingAdvanceDaysSetting()`, `saveSeatCountSetting()`, `addClosedDate()`,
+  `removeClosedDate()`. Each now calls `syncShopSettingsToServer({...})` first and aborts
+  with an alert (no local write at all) if the sync fails, otherwise proceeds with the
+  original local `safeSetItem`/`commitStorageTransaction` write and UI update exactly as
+  before. The other ~90 read call sites (`getAppName()`, `getWeeklyOpHours()`, etc.) are
+  completely untouched — still plain synchronous `localStorage.getItem()` — since the
+  hydration step above is what keeps them fed with server-authoritative data.
+
+**Known gap, not fixed here (pre-existing, out of scope for this step):**
+`saveSeatCountSetting()`'s local cascade into `activeSeats`/`barberAssignments` is not
+mirrored to the (separate, already-migrated) `public.seats` table by this change — only
+the new `seat_count` column on `shop_settings` is synced. Changing the seat count from
+one device won't yet propagate the resulting seat open/close or barber-name state to
+other devices. Flagging this now rather than silently leaving it; worth a decision next
+time seats come up.
+
+**Verified so far:**
+- Rollback-safe SQL (`DO $$ ... $$`, before any client code existed): anon sees 0 rows on
+  an empty table with no error; anon insert/update both rejected; admin insert succeeds
+  (seeds the row); a second admin insert is rejected (singleton PK violation, proving the
+  constraint works); admin update succeeds; anon update rejected. All six assertions
+  passed; a follow-up `select count(*)` confirmed the rollback left the table at 0 rows.
+- `get_advisors(security)` — no new warning attributable to `shop_settings`.
+- `node --check` on both extracted `index.html` script blocks (module + classic) —
+  passes.
+- `npm test` (domain-layer scheduler tests + differential harness) — 15/15 passed,
+  20,000/20,000 comparisons matched. Unaffected by this change, as expected (pure domain
+  layer, no shop-settings involvement).
+
+**Not yet done:** no live browser test against the real deployed site yet (the step
+5a precedent this design follows), and no SQL-level test of the actual repository
+functions' generated queries (only the raw RLS policies were tested, before
+`shopSettingsRepository.js` existed) — planned as the next step before this is
+considered complete, same discipline as step 5a.
+
 ## Then, still to do
 
-5b. Shop settings (~15 localStorage keys) — needs a load-once-cache design decision
-    before starting (many are read synchronously today).
 6. Appointments (26 functions) — tangled with the still-open `isVip`/`fastPassApproved`/
    `approvedAt`/`revokedAt` schema gap; needs that resolved first.
 7. Realtime subscriptions replacing the `storage` event listener:

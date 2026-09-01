@@ -1925,10 +1925,12 @@
         import { takeTicket, cancelOwn, callNext, completeService, listQueues } from './js/repositories/queueRepository.js';
         import { listSeats, setSeatAssignment } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices } from './js/repositories/serviceRepository.js';
+        import { getShopSettings, createShopSettings, updateShopSettings } from './js/repositories/shopSettingsRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues };
         window.SeatRepo = { listSeats, setSeatAssignment };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices };
+        window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings };
         window.AuthRepo = AuthRepo;
 
         async function pushAuthState(event) {
@@ -2020,12 +2022,63 @@
             if (window.refreshServiceConfigurationUI) window.refreshServiceConfigurationUI();
         }
 
+        /**
+         * Seed-then-cutover for the ~15 shop settings (step 5b) — same shape
+         * as seedOrRefreshServices() above, but simpler: `shop_settings` is a
+         * SINGLETON (see the migration file), so there's exactly one row to
+         * fetch or create, never a list to reconcile.
+         *
+         * Re-run on every auth event (not just page load) for the same
+         * reason as services: only an admin can create the row (RLS "admins
+         * seed shop settings"), so if the very first visitor ever is a
+         * customer, seeding simply waits until an admin actually signs in —
+         * harmless, since nothing reads from the server copy until it exists
+         * (local defaults/whatever's already in localStorage keep working
+         * exactly as they do today).
+         */
+        async function seedOrRefreshShopSettings() {
+            let remote;
+            try {
+                remote = await getShopSettings();
+            } catch (error) {
+                console.warn('Memuatkan tetapan kedai pelayan gagal; kekal guna salinan tempatan.', error);
+                return;
+            }
+            if (!remote) {
+                const snapshot = window.collectCurrentShopSettingsSnapshot ? window.collectCurrentShopSettingsSnapshot() : null;
+                if (!snapshot) return;
+                try {
+                    remote = await createShopSettings(snapshot);
+                } catch (error) {
+                    if (/duplicate key|unique constraint/i.test(error?.message || '')) {
+                        console.info('Tetapan kedai sudah disegerakkan (mungkin oleh peranti/tab lain).');
+                        try {
+                            remote = await getShopSettings();
+                        } catch (refetchError) {
+                            console.warn('Memuatkan semula tetapan kedai selepas seed gagal.', refetchError);
+                            return;
+                        }
+                    } else {
+                        // Most likely cause: this session isn't a signed-in admin yet
+                        // (RLS refused the insert) — not an error worth alarming about.
+                        console.info('Seed tetapan kedai ke pelayan dilangkau (mungkin belum log masuk sebagai admin).', error);
+                        return;
+                    }
+                }
+            }
+            if (!remote) return;
+            Object.entries(remote).forEach(([key, value]) => window.safeSetItem?.(key, value));
+            window.updateUI?.();
+        }
+
         AuthRepo.onAuthStateChange((event) => {
             pushAuthState(event);
             seedOrRefreshServices().catch(error => console.warn('Segerak katalog servis gagal.', error));
+            seedOrRefreshShopSettings().catch(error => console.warn('Segerak tetapan kedai gagal.', error));
         });
         pushAuthState('INITIAL');
         seedOrRefreshServices().catch(error => console.warn('Segerak katalog servis gagal.', error));
+        seedOrRefreshShopSettings().catch(error => console.warn('Segerak tetapan kedai gagal.', error));
     </script>
 
     <!-- ================= LOGIK JAVASCRIPT ================= -->
@@ -2731,7 +2784,73 @@
             updateAnnouncementImageStatus(null);
         }
 
-        function saveShopNameSetting() {
+        /**
+         * Step 5b: every shop-setting field, in the exact shape
+         * shopSettingsRepository.js expects (and returns) — the ONE place
+         * that reads every local shop-setting key into a single object.
+         * Used by the Supabase bridge module script for the one-time seed
+         * (a brand-new `shop_settings` row is created from this device's
+         * REAL current configuration, never from generic defaults), and by
+         * syncShopSettingsToServer() below to fill in every OTHER field when
+         * a save happens to race the table still being empty.
+         */
+        function collectCurrentShopSettingsSnapshot() {
+            return {
+                appName: getAppName(),
+                shopName: getShopName(),
+                shopMapLink: getShopMapLink(),
+                shopMapQuery: getShopMapQuery(),
+                shopMapAddress: String(localStorage.getItem('shopMapAddress') ?? getShopMapQuery()),
+                shopLocationName: getShopLocationName(),
+                shopAnnouncement: getShopAnnouncement(),
+                shopAnnouncementHtml: String(localStorage.getItem('shopAnnouncementHtml') ?? ''),
+                shopAnnouncementEnabled: isShopAnnouncementEnabled(),
+                shopStatus: localStorage.getItem('shopStatus') === 'closed' ? 'closed' : 'open',
+                shopStatusChangedAtUtc: localStorage.getItem('shopStatusChangedAtUtc') || null,
+                maxQueue: Number.parseInt(localStorage.getItem('maxQueue'), 10) || 10,
+                seatCount: getSeatCount(),
+                closedDates: getClosedDates(),
+                bookingAdvanceDays: getBookingAdvanceDays(),
+                weeklyOpHours: getWeeklyOpHours()
+            };
+        }
+        window.collectCurrentShopSettingsSnapshot = collectCurrentShopSettingsSnapshot;
+
+        /**
+         * Every admin shop-settings save handler below calls this FIRST and
+         * bails out (alert, no local write) if it doesn't return `ok: true`
+         * — same no-local-fallback rule as services/seats, because every one
+         * of these settings is shown to customers on every device, not just
+         * the one an admin happened to edit on.
+         *
+         * `patch` is only the fields THIS save touches (e.g. just
+         * `{maxQueue}`). The one wrinkle a singleton table adds: if nobody
+         * has ever saved anything since step 5b shipped, `shop_settings` is
+         * still empty, and `updateShopSettings()` has no row to update — it
+         * fails with PostgREST's "no rows" error (code PGRST116). Rather
+         * than surface that as a confusing failure on an admin's first
+         * innocent save, self-heal by creating the row from this device's
+         * FULL current settings merged with the patch, so every OTHER
+         * setting doesn't silently revert to a column default.
+         */
+        async function syncShopSettingsToServer(patch) {
+            if (!window.ShopSettingsRepo) return { ok: false, error: new Error('Ciri tetapan kedai belum sedia. Sila muat semula halaman.') };
+            try {
+                await window.ShopSettingsRepo.updateShopSettings(patch);
+                return { ok: true };
+            } catch (error) {
+                const isMissingRow = error?.cause?.code === 'PGRST116' || /no rows|0 rows/i.test(error?.message || '');
+                if (!isMissingRow) return { ok: false, error };
+                try {
+                    await window.ShopSettingsRepo.createShopSettings({ ...collectCurrentShopSettingsSnapshot(), ...patch });
+                    return { ok: true };
+                } catch (createError) {
+                    return { ok: false, error: createError };
+                }
+            }
+        }
+
+        async function saveShopNameSetting() {
             const appName = String(document.getElementById('adminAppNameInput')?.value || '').replace(/\s+/g, ' ').trim();
             const shopName = String(document.getElementById('adminShopNameInput')?.value || '').replace(/\s+/g, ' ').trim();
             if (!appName) return alert('Nama aplikasi wajib diisi.');
@@ -2739,10 +2858,13 @@
             const mapQuery = String(document.getElementById('adminMapQuery')?.value || '').replace(/\s+/g, ' ').trim();
             const locationName = String(document.getElementById('adminMapLocationName')?.value || '').trim();
             if (!mapQuery || !locationName) return alert('Cari dan semak pin Google Maps serta isi nama lokasi terlebih dahulu.');
+            const shopMapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+            const sync = await syncShopSettingsToServer({ appName, shopName, shopMapLink, shopMapQuery: mapQuery, shopMapAddress: mapQuery, shopLocationName: locationName });
+            if (!sync.ok) return alert(sync.error?.message || 'Identiti dan lokasi kedai gagal disimpan. Sila cuba lagi.');
             const saved = commitStorageTransaction({
                 appName,
                 shopName,
-                shopMapLink: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`,
+                shopMapLink,
                 shopMapQuery: mapQuery,
                 shopMapAddress: mapQuery,
                 shopLocationName: locationName
@@ -2754,7 +2876,7 @@
             alert(`Identiti kedai berjaya disimpan. Lokasi pelanggan kini: ${locationName}.`);
         }
 
-        function saveAnnouncementSetting() {
+        async function saveAnnouncementSetting() {
             const editor = document.getElementById('adminAnnouncementEditor');
             const html = sanitizeAnnouncementHTML(editor?.innerHTML || '');
             if (html.length > ANNOUNCEMENT_HTML_LIMIT) {
@@ -2770,7 +2892,10 @@
             const text = String(plainContainer.textContent || '').replace(/\s+/g, ' ').trim();
             const hasContent = Boolean(text || plainContainer.querySelector('img'));
             const enabled = document.getElementById('adminAnnouncementEnabled')?.checked === true;
-            const saved = commitStorageTransaction({ shopAnnouncementHtml: hasContent ? html : '', shopAnnouncement: text, shopAnnouncementEnabled: String(enabled) }, { raw: true });
+            const shopAnnouncementHtml = hasContent ? html : '';
+            const sync = await syncShopSettingsToServer({ shopAnnouncementHtml, shopAnnouncement: text, shopAnnouncementEnabled: enabled });
+            if (!sync.ok) return alert(sync.error?.message || 'Pengumuman gagal disimpan. Sila cuba lagi.');
+            const saved = commitStorageTransaction({ shopAnnouncementHtml, shopAnnouncement: text, shopAnnouncementEnabled: String(enabled) }, { raw: true });
             if (!saved.ok) return alert('Pengumuman gagal disimpan. Gambar mungkin terlalu besar untuk storan browser.');
             announcementCache.initialized = false;
             markAdminInputsSaved(['adminAnnouncementEnabled']);
@@ -3876,7 +4001,7 @@
             else { populateWalkinServices(); }
         }
 
-        function toggleShopStatus() {
+        async function toggleShopStatus() {
             const status = localStorage.getItem('shopStatus') === 'closed' ? 'closed' : 'open';
             const nextStatus = status === 'open' ? 'closed' : 'open';
             const message = nextStatus === 'closed'
@@ -3884,15 +4009,20 @@
                 : "Buka operasi kedai sekarang?";
             if (!confirm(message)) return;
 
+            const changedAt = getUTCISOString();
+            const sync = await syncShopSettingsToServer({ shopStatus: nextStatus, shopStatusChangedAtUtc: changedAt });
+            if (!sync.ok) return alert(sync.error?.message || "Status kedai gagal disimpan. Sila cuba lagi.");
             safeSetItem('shopStatus', nextStatus);
-            safeSetItem('shopStatusChangedAtUtc', getUTCISOString());
+            safeSetItem('shopStatusChangedAtUtc', changedAt);
             updateUI();
         }
 
-        function saveMaxQueueSetting() {
+        async function saveMaxQueueSetting() {
             const input = document.getElementById('adminMaxQueueInput');
             const value = Number.parseInt(input.value, 10);
             if (!Number.isInteger(value) || value < 1 || value > 999) return alert("Had giliran mesti nombor bulat antara 1 hingga 999.");
+            const sync = await syncShopSettingsToServer({ maxQueue: value });
+            if (!sync.ok) return alert(sync.error?.message || "Had giliran gagal disimpan. Sila cuba lagi.");
             if (!safeSetItem('maxQueue', String(value))) return alert("Had giliran gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi.");
             markAdminInputsSaved(['adminMaxQueueInput']);
             updateUI();
@@ -4008,7 +4138,7 @@
             return `${detail}${remaining > 0 ? `\n… dan ${remaining} lagi` : ''}`;
         }
 
-        function saveOperationalHours() {
+        async function saveOperationalHours() {
             const day = getSelectedOperationalDay();
             const data = getOperationalHoursFormData();
             const onScreenDay = document.getElementById('selectedOperationalDayLabel')?.textContent || '';
@@ -4030,6 +4160,8 @@
                 if (!proceed) return;
             }
             weekly[day] = nextOps;
+            const sync = await syncShopSettingsToServer({ weeklyOpHours: weekly });
+            if (!sync.ok) return alert(sync.error?.message || "Waktu operasi gagal disimpan. Sila cuba lagi.");
             if (!safeSetItem('weeklyOpHours', weekly)) return alert("Waktu operasi gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi.");
             markAdminInputsSaved(OPERATION_TIME_INPUT_IDS);
             operationalTimeOptionsSignature = '';
@@ -4038,7 +4170,7 @@
             updateUI();
         }
 
-        function copyOperationalHoursToAllDays() {
+        async function copyOperationalHoursToAllDays() {
             const data = getOperationalHoursFormData();
             const validationError = getOperationalHoursValidationError(data);
             if (validationError) return alert(validationError);
@@ -4063,6 +4195,8 @@
             if (!confirm(message)) return;
             const replacementWeekly = {};
             OPERATION_DAY_ORDER.forEach(day => { replacementWeekly[day] = { ...nextOps }; });
+            const sync = await syncShopSettingsToServer({ weeklyOpHours: replacementWeekly });
+            if (!sync.ok) return alert(sync.error?.message || "Waktu operasi semua hari gagal disimpan. Sila cuba lagi.");
             if (!safeSetItem('weeklyOpHours', replacementWeekly)) return alert("Waktu operasi semua hari gagal disimpan. Sila cuba lagi.");
             markAdminInputsSaved(OPERATION_TIME_INPUT_IDS);
             operationalTimeOptionsSignature = '';
@@ -4071,10 +4205,12 @@
             updateUI();
         }
 
-        function saveBookingAdvanceDaysSetting() {
+        async function saveBookingAdvanceDaysSetting() {
             const input = document.getElementById('adminBookingAdvanceDaysInput');
             const days = Number.parseInt(input.value, 10);
             if (!Number.isInteger(days) || days < 1 || days > 365) return alert("Had tempahan mesti nombor bulat antara 1 hingga 365 hari.");
+            const sync = await syncShopSettingsToServer({ bookingAdvanceDays: days });
+            if (!sync.ok) return alert(sync.error?.message || "Had tempahan gagal disimpan. Sila cuba lagi.");
             if (!safeSetItem('bookingAdvanceDays', String(days))) return alert("Had tempahan gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi.");
             markAdminInputsSaved(['adminBookingAdvanceDaysInput']);
             if (document.getElementById('bookDateInput').value && !isOnlineBookingDateAllowed(document.getElementById('bookDateInput').value)) {
@@ -4199,7 +4335,7 @@
             alert("Pasukan bertugas telah disimpan. Servis baharu akan direkodkan mengikut tukang gunting ini.");
         }
 
-        function saveSeatCountSetting() {
+        async function saveSeatCountSetting() {
             const input = document.getElementById('adminSeatCountInput');
             const newCount = Number.parseInt(input.value, 10);
             if (!Number.isInteger(newCount) || newCount < 1 || newCount > 20) return alert("Jumlah kerusi mesti nombor bulat antara 1 hingga 20.");
@@ -4218,6 +4354,8 @@
                 nextSeats[seat] = seat <= currentCount ? currentSeats[seat] !== false : false;
                 nextBarbers[seat] = currentBarbers[seat] || '';
             }
+            const sync = await syncShopSettingsToServer({ seatCount: newCount });
+            if (!sync.ok) return alert(sync.error?.message || "Bilangan kerusi gagal disimpan. Sila cuba lagi.");
             if (!safeSetItem('seatCount', String(newCount))) return alert("Bilangan kerusi gagal disimpan. Sila cuba lagi.");
             saveActiveSeats(nextSeats);
             safeSetItem('barberAssignments', nextBarbers);
@@ -5682,7 +5820,7 @@
             renderAdminVisualCalendar(adminCalCurrentDate);
         }
 
-        function addClosedDate() {
+        async function addClosedDate() {
             let start = document.getElementById('adminClosedDateStart').value, end = document.getElementById('adminClosedDateEnd').value;
             if(!start) return alert("Pilih tarikh.");
             let c = getClosedDates();
@@ -5702,16 +5840,22 @@
             const datesToRecord = arr.filter(date => !isWeeklyClosed(date));
             if (!datesToRecord.length) return alert("Semua tarikh yang dipilih sudah ditutup melalui jadual mingguan.");
             datesToRecord.forEach(a => { if(!c.includes(a)) c.push(a); });
-            saveClosedDates(c.sort());
+            const sortedDates = c.sort();
+            const sync = await syncShopSettingsToServer({ closedDates: sortedDates });
+            if (!sync.ok) return alert(sync.error?.message || "Cuti gagal disimpan. Sila cuba lagi.");
+            saveClosedDates(sortedDates);
             clearAdminClosedDateSelection();
             const skippedMessage = weeklyClosedDates.length ? ` ${weeklyClosedDates.length} hari jadual mingguan dilangkau.` : '';
             alert(end ? `Julat cuti ${datesToRecord.length} hari direkod.${skippedMessage}` : "Cuti sehari direkod.");
             updateUI();
         }
 
-        function removeClosedDate(date) {
+        async function removeClosedDate(date) {
             if (!confirm(`Buka semula operasi pada ${date}?`)) return;
-            saveClosedDates(getClosedDates().filter(item => item !== date));
+            const filtered = getClosedDates().filter(item => item !== date);
+            const sync = await syncShopSettingsToServer({ closedDates: filtered });
+            if (!sync.ok) return alert(sync.error?.message || "Cuti gagal dibuka semula. Sila cuba lagi.");
+            saveClosedDates(filtered);
             updateUI();
         }
 
