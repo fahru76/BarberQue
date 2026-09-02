@@ -832,25 +832,30 @@
            tablet or QR link, the shop TV, a barber's tablet), so the OTHER
            views' nav buttons are hidden, leaving only this device's own tab
            as a visual label, same as Display always has.
-           Customer and Display both additionally hide the whole nav-tools
-           row (login/logout/theme/reset) -- neither has any legitimate
-           reason for a visitor to sign in or reset the system from there.
-           Barber is different: a signed-in barber on a dedicated tablet still
-           needs a way to log out, so only the theme selector, the Reset
-           button and the auth-status text are hidden there -- the Log Keluar
-           button (already shown/hidden by updateStaffAuthUI() based on actual
-           auth state, untouched here) stays reachable. */
+           Customer and Display both hide sign-in/out chrome and the Reset
+           button -- neither has any legitimate reason for a visitor to sign
+           in or reset the system from there. Barber only hides the
+           auth-status text and Reset, keeping Log Keluar reachable (a
+           signed-in barber on a dedicated tablet still needs a way to log
+           out; the button itself is shown/hidden by updateStaffAuthUI()
+           based on actual auth state, untouched here).
+           #themeSelector is deliberately excluded from every one of the
+           rules below -- Auto/Cerah/Gelap stays available on every view,
+           kiosk or not. */
         body.kiosk-display .app-nav .btn[data-view]:not([data-view="display-app"]),
         body.kiosk-customer .app-nav .btn[data-view]:not([data-view="customer-app"]),
         body.kiosk-barber .app-nav .btn[data-view]:not([data-view="barber-app"]) {
             display: none;
         }
-        body.kiosk-display .app-nav .nav-tools,
-        body.kiosk-customer .app-nav .nav-tools {
-            display: none;
-        }
+        body.kiosk-display .app-nav #staffAuthStatus,
+        body.kiosk-display .app-nav #staffLoginBtn,
+        body.kiosk-display .app-nav #staffLogoutBtn,
+        body.kiosk-customer .app-nav #staffAuthStatus,
+        body.kiosk-customer .app-nav #staffLoginBtn,
+        body.kiosk-customer .app-nav #staffLogoutBtn,
+        body.kiosk-display .app-nav .btn.btn-reset,
+        body.kiosk-customer .app-nav .btn.btn-reset,
         body.kiosk-barber .app-nav #staffAuthStatus,
-        body.kiosk-barber .app-nav #themeSelector,
         body.kiosk-barber .app-nav .btn.btn-reset:not(#staffLogoutBtn) {
             display: none;
         }
