@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 31 August 2026
+**Date:** 1 September 2026
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -796,6 +796,133 @@ as `fahru76` from earlier steps' testing.
   (`appointments`/`queues`/`myAppIds`/`appointmentClaimTokens`) were cleared in the
   same browser session. Nothing left in a test state.
 
+## Done — admin login dialog: contrast + size fix
+
+**User-reported bug, pre-existing since the app's original design** (not introduced by
+the Supabase migration): the username/password fields in the staff login dialog were
+hard to read while typing and visibly smaller than every other input on the page.
+
+**Root cause, confirmed live via `getComputedStyle()`:** `index.html` has three
+cascading `<style>` blocks (the original design, then two later reskins — "QueueCut 7"
+and "QueueCut 8", the one actually in effect). All three define a shared selector list
+for input styling (height, background, border, focus ring), and all three had omitted
+`input[type="email"]` and `input[type="password"]` from that list since the very first
+version — an oversight that predates this migration entirely. Unstyled, the browser's
+native rendering took over: the email field rendered at ~19px tall with a dark
+background but black text (near-zero contrast); the password field rendered at ~19px
+tall on plain white, breaking the dark theme outright.
+
+**Fix:** added `input[type="email"], input[type="password"]` to the selector list in
+all three `<style>` blocks (so the fix holds regardless of which block ends up
+governing after future reskins), plus a `-webkit-autofill` override so Chrome/Edge's
+native yellow autofill repaint doesn't reintroduce the same contrast break when a
+browser-saved credential is used:
+
+```css
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--text-main);
+    -webkit-box-shadow: 0 0 0 1000px color-mix(in srgb, var(--input-bg) 94%, white 6%) inset;
+    box-shadow: 0 0 0 1000px color-mix(in srgb, var(--input-bg) 94%, white 6%) inset;
+    caret-color: var(--text-main);
+    transition: background-color 5000s ease-in-out 0s;
+}
+```
+
+**Verified live**, before/after, via `getComputedStyle()` on the deployed site:
+
+| | before | after |
+|---|---|---|
+| email height | 19.33px | 52px |
+| email background/text | dark bg, black text (unreadable) | dark theme bg, cream text (matches every other field) |
+| password height | 19.33px | 52px |
+| password background | plain white (theme break) | dark theme bg |
+
+Confirmed with a live screenshot showing both fields properly sized and themed.
+Pushed to `main` and deployed; no schema/RPC changes involved — pure client-side CSS.
+
+---
+
+## Done — separate URLs per view (`?view=customer\|display\|barber\|admin`)
+
+**User request:** each of the four views (Pelanggan, Layar Kedai, Tukang Gunting, Admin)
+should have its own URL for direct/bookmarkable access, while asking whether the
+floating nav menu still makes sense once that exists.
+
+**Decisions made (asked via AskUserQuestion, both recommended options chosen):**
+
+1. **Query-parameter routing (`?view=admin`), not hash routing (`#admin`).** Checked
+   the existing code first: Supabase's invite and password-reset emails already deliver
+   their tokens via the URL **hash** (`window.location.hash`, read by the existing
+   `PASSWORD_RECOVERY`/`type=invite` detection code). Hash-based view routing would
+   collide with that. Query params have no such collision and survive a page reload
+   cleanly, which GitHub Pages' `cache-control: max-age=600` static hosting requires
+   anyway (no server-side rewrites available).
+2. **Kiosk-mode simplification for Layar Kedai / Tukang Gunting only** — not Admin.
+   Loading `?view=display` or `?view=barber` now hides the floating nav and the
+   staff-tools affordances entirely (these are meant to run unattended on a shop
+   tablet/TV), while `?view=admin` and `?view=customer` keep the full nav — an admin
+   still needs to jump between views from their own device.
+
+**Security note carried over explicitly to the user:** none of this — query param,
+hash, or separate files — is a security boundary. The existing `switchView()` code
+already comments on this (anyone could call it from the console); the real boundary
+is server-side (RLS policies + `is_active_staff()`/`is_admin()` inside the RPCs). This
+feature is bookmarking/UX convenience only.
+
+**Implementation** (all in `index.html`):
+
+- Nav buttons tagged `data-view="customer-app|display-app|barber-app|admin-app"`.
+- CSS: `body.kiosk-display`/`body.kiosk-barber` hide every nav button except the
+  matching one, and hide `.nav-tools` entirely for kiosk-display.
+- `getViewIdFromLocation()`/`updateURLForView()` translate between the `view=` query
+  slug and the internal view id; `history.pushState`/`replaceState` used so switching
+  views never reloads the page, and other query params (e.g. test cache-busters) are
+  preserved via the `URL` object.
+- `switchView()` gained a `fromNav` parameter (default `true`) and now calls
+  `updateURLForView(viewId, !fromNav)` at the end — a nav click pushes a new history
+  entry, a URL-driven/back-forward switch replaces state instead of stacking one.
+- A `popstate` listener re-derives the view from the URL and calls `switchView(...,
+  false)` so browser back/forward works.
+- **Auth-gated deep links (`admin-app`/`barber-app`) are applied only after the
+  Supabase auth check resolves**, not at synchronous page-init time — the classic
+  script's top-level init runs before the deferred auth module. A
+  `pendingDeepLinkView` variable is armed when a deep link target requires a session
+  that isn't there yet; `window.onStaffAuthChange` re-checks it on every subsequent
+  call, so signing in through the login dialog lands the user on the originally
+  requested view instead of dropping them back to Pelanggan. If the deep link is
+  denied for a reason a fresh sign-in can't fix (wrong role, inactive account), the
+  URL is corrected back to whatever view is actually showing instead of being left
+  pointing at a view the user was never shown.
+- Kiosk-mode/non-auth-gated views (`display-app`, `customer-app`) apply immediately at
+  init time — no auth dependency, no flash risk.
+
+**Verified live** against the deployed site (commit `f04017e`, confirmed deployed via
+the Actions API):
+
+- `?view=display` — nav and staff tools fully hidden (screenshot confirmed).
+- `?view=barber` — only the Tukang Gunting tab visible; staff tools still present.
+- `?view=barber` while signed out — login dialog opens, URL stays at `?view=barber`,
+  `pendingDeepLinkView` armed, kiosk class still applied underneath.
+- `?view=admin` while signed out — login dialog opens, `pendingDeepLinkView` set to
+  `admin-app`, and correctly **not** kiosk mode (admin was deliberately excluded from
+  kiosk simplification).
+- Sign-in retry logic — validated by invoking `window.onStaffAuthChange('SIGNED_IN',
+  ...)` directly (no real password available in this session) — confirmed the pending
+  view is applied once the callback fires.
+- `pushState`/`popstate` round-trip — clicking a nav button pushes a new history entry
+  and preserves unrelated query params; browser back/forward correctly restores both
+  the URL and the rendered view.
+
+**Not tested live** (acceptable gaps, not regressions): the admin "wrong role" denial
+path (no non-admin staff account exists in this environment to test with), and a
+genuine end-to-end login through the real form with real credentials (retry logic was
+validated by simulating the auth callback directly instead, which is the part that
+actually drives the retry — the login form itself is unchanged by this feature).
+
+---
+
 ## Then, still to do
 
 7. Realtime subscriptions replacing the `storage` event listener:
@@ -845,7 +972,11 @@ index.html                                          the running app; bookTicket(
                                                      catalog now server-authoritative (5a); shop
                                                      settings now server-authoritative (5b);
                                                      appointments + fast-pass now
-                                                     server-authoritative (6)
+                                                     server-authoritative (6); login dialog
+                                                     email/password fields fixed for contrast
+                                                     + size; each view now has its own URL
+                                                     (?view=customer|display|barber|admin) with
+                                                     kiosk-mode nav for display/barber
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
