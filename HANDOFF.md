@@ -1181,6 +1181,87 @@ open-items list below pending a decision on priority.
 
 ---
 
+## Done — seat-assignment authorization (only a seat's assigned barber, or admin, can call/complete on it)
+
+**Date:** 2 September 2026. Requested directly (Malay): only the barber admin assigned
+to a seat may press "Panggil" (call) for that seat — barber 1 at seat 1 must not be able
+to call to seat 2 or 3 just because they're signed in as active staff. Previously
+`call_next_customer()`/`complete_service()` only checked `is_active_staff()` — **any**
+active barber, or admin, could act on **any** open seat regardless of `public.seats
+.barber_id`.
+
+**Server (the real boundary):**
+`supabase/migrations/20260902001100_seat_assignment_authorization.sql`, applied to the
+live project. `call_next_customer(p_seat_no)` now additionally requires the caller's
+`auth.uid()` to match `seats.barber_id` for that seat (admins exempted via `is_admin()`
+OR); `complete_service(p_id)` requires the caller to match the **queue row's own**
+`barber_id` (set by `call_next_customer()` at call time), not the seat's *current*
+assignment — so a mid-service reassignment doesn't strand whoever is actually serving
+that customer. Both raise `42501` with a Malay message
+(`'Anda tidak ditugaskan pada kerusi ini'`) on mismatch; grants unchanged (`authenticated`
+only, same as before).
+
+`complete_service()` got the same treatment even though only "Panggil" was named
+explicitly — leaving it open would mean barber 2 still couldn't *call* to seat 1 but
+could still mark seat 1's customer done, the same gap on the other half of the action
+pair.
+
+**Verified — SQL, rolled back, zero leftover rows.** Ran a 7-case test inside
+`begin; ... rollback;` (two throwaway `auth.users`/`staff` rows created and destroyed
+entirely within the same transaction, since `staff.id` has a real FK to `auth.users`):
+non-staff caller rejected; assigned barber calls their own seat successfully; that same
+barber rejected from a seat assigned to someone else; the other barber rejected from
+completing the first barber's serving ticket; the first barber completes their own
+ticket successfully; admin overrides seat assignment for both call and complete. All
+seven passed (transaction aborts on any `FAIL`, so a clean rollback + zero leftover rows
+is itself proof nothing failed). `get_advisors(security)` re-checked — no new
+anon/authenticated-exposure warning beyond the pre-existing baseline.
+
+**Client (UX convenience only — server is authoritative regardless):**
+`index.html`'s barber-app render loop now disables "Panggil"/"Selesai" (with an
+explanatory `title`) when the signed-in staff member isn't the seat's assigned barber
+(or admin). New `refreshSeatServerState()` (barber-app's lighter counterpart to
+admin-app's `refreshStaffList()`) populates `seatServerState` — previously only
+populated when the *admin* panel was opened, meaning barber-app had zero knowledge of
+seat assignments before this change; wired into `switchView()` alongside the existing
+admin-app call. "Panggil" gates on `seatServerState[seat].barberId` (the seat's current
+assignment, matching the server check); "Selesai" gates on the serving ticket's own
+`barberId` (matching the server's own-row check). `seatServerState` is only refreshed on
+entering barber-app, not via a live subscription (no `seats` realtime channel exists
+yet — same staleness class as the no-initial-hydration item below) — acceptable for now
+since seat assignments change far less often than the queue itself, but noted as a
+known limitation, not silently swept under the rug.
+
+**Second half of the request, addressed as a side effect:** "Nama barber dipamer pada
+kerusi dan bukan partial nama dari email daftar barber" (the seat should show the real
+registered name, not a partial name from the registration email). Investigated first
+rather than assumed: the display pipeline itself was **not** buggy —
+`bBarber${n}Name` already sourced from `staff.display_name` via the admin's
+seat-assignment dropdown for every barber invited through the normal `invite-barber`
+edge-function flow. The one real case of an email-derived name is a **one-row data
+issue**: the bootstrap admin account (created manually, before `invite-barber` existed)
+never had `display_name` metadata set, so `handle_new_staff_user()`'s trigger fell back
+to `split_part(email, '@', 1)` — literally `fahru76`, stored directly in `staff
+.display_name`. Not something to silently overwrite with a guessed name — **still needs
+the user's input**: either tell me the real name to set on that one row now, or ask for
+a small admin-UI addition to rename any staff member's `display_name` (there currently
+is no such control — `setStaffStatus()` only ever patches `active`/`role`). Separately,
+while wiring `seatServerState` for the authorization check above, found and fixed a
+related staleness gap: the seat-name label previously read `getBarberAssignments()`
+(a `localStorage`-only cache) with no server fallback, so a device that never had the
+admin panel opened locally (e.g. a barber's own phone) could show "Tiada tukang gunting
+ditetapkan" even when the server had a real assignment. Now prefers
+`seatServerState[seat].barberName` (the real, server-joined `display_name`) whenever
+it's loaded, falling back to the local cache only until it is.
+
+**Not yet live-browser-verified** (the SQL test above proves the authorization logic
+end-to-end at the database level; the client-side button gating has been code-reviewed
+against the same logic but not clicked through in a live browser session with two real
+distinct barber accounts, since only one real staff account — the admin — currently
+exists in the live project).
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
@@ -1199,6 +1280,15 @@ open-items list below pending a decision on priority.
   during `initData()` or right after the realtime channels are armed — needs the same
   care given to the merge-by-id design in step 7 (must not wholesale-overwrite local
   history) before making that change.
+- **No live refresh of `seatServerState` while barber-app stays open.** Same class of
+  gap as above, smaller blast radius: `refreshSeatServerState()` (added with the
+  seat-assignment authorization fix) only runs once, on entering barber-app. If admin
+  reassigns a seat while a barber's tab is already sitting on barber-app, that barber's
+  "Panggil"/"Selesai" gating won't pick up the change until they leave and re-enter the
+  view (or reload). No `seats` realtime channel exists yet to fix this properly.
+- **Bootstrap admin account's `display_name` is `fahru76`** (email-derived, from before
+  `invite-barber` existed) — needs the user to supply the real name, or ask for a small
+  admin-UI rename control (`setStaffStatus()` currently has no `displayName` param).
 
 ---
 
@@ -1243,7 +1333,16 @@ index.html                                          the running app; bookTicket(
                                                      scoped by date not status (step 7 bugfix);
                                                      TUTUP closed-seat label letter-spacing fix;
                                                      confirmAdminCancellation() now
-                                                     server-authoritative (admin-cancel bugfix)
+                                                     server-authoritative (admin-cancel bugfix);
+                                                     kiosk-mode nav extended to Customer, Barber
+                                                     keeps sign-out only; theme selector always
+                                                     visible regardless of kiosk mode; barber-app
+                                                     seat buttons now gated by seat-assignment
+                                                     authorization (new refreshSeatServerState(),
+                                                     wired into switchView()); barber name label
+                                                     now prefers server-authoritative
+                                                     staff.display_name over the localStorage-only
+                                                     cache
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
@@ -1254,6 +1353,8 @@ supabase/migrations/20260901000700_appointments.sql           step 6, applied an
 supabase/migrations/20260901000800_harden_appointment_function_grants.sql  step 6 bugfix, applied and verified
 supabase/migrations/20260902000900_realtime_live_refresh.sql  step 7, applied and verified
 supabase/migrations/20260902001000_admin_cancel_record.sql    admin-cancel bugfix, applied and verified
+supabase/migrations/20260902001100_seat_assignment_authorization.sql  seat-assignment
+                                                     authorization, applied and verified
 supabase/functions/invite-barber/index.ts           deployed, verify_jwt=true, re-checks
                                                      is_admin() itself before inviting anyone
 tests/domain/scheduler.test.mjs                     15 fixtures
