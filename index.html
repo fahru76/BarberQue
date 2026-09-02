@@ -6363,7 +6363,7 @@
                 let curr = queues.find(q => q.status === 'serving' && q.seat === n);
                 // TV View
                 let tvNum = document.getElementById(`tvSeat${n}Num`);
-                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span style="font-size:1.2rem">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : '---');
+                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span style="font-size:1.2rem; letter-spacing:normal;">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : '---');
                 let tvBox = document.getElementById(`tvSeat${n}Box`);
                 if (tvBox) tvBox.style.borderColor = curr ? 'var(--primary-color)' : 'rgba(255,255,255,0.1)';
                 
