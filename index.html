@@ -823,19 +823,37 @@
             background: color-mix(in srgb, var(--surface-color) 90%, transparent);
             box-shadow: 0 18px 54px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.035);
         }
-        /* Kiosk mode: reached by loading ?view=display or ?view=barber directly
-           (see applyKioskModeFromURL() in the classic script) -- these are
-           dedicated-device entry points (the shop TV, a barber's tablet), so
-           the OTHER views' nav buttons are hidden, leaving only this device's
-           own tab as the way back after e.g. a barber signs out. Layar Kedai
-           additionally hides the whole nav-tools row (login/logout/theme/
-           reset) since that screen is a public, unattended, read-only
-           display with no legitimate reason for anyone to interact with it. */
+        /* Kiosk mode: reached by explicitly loading ?view=customer, ?view=display
+           or ?view=barber (see applyKioskModeFromURL() in the classic script;
+           the bare root URL with no ?view= param also lands on the customer
+           view by default, but keeps the full nav -- kiosk mode is opt-in via
+           an explicit param, not the default landing experience). These are
+           dedicated-device/dedicated-link entry points (a customer-facing
+           tablet or QR link, the shop TV, a barber's tablet), so the OTHER
+           views' nav buttons are hidden, leaving only this device's own tab
+           as a visual label, same as Display always has.
+           Customer and Display both additionally hide the whole nav-tools
+           row (login/logout/theme/reset) -- neither has any legitimate
+           reason for a visitor to sign in or reset the system from there.
+           Barber is different: a signed-in barber on a dedicated tablet still
+           needs a way to log out, so only the theme selector, the Reset
+           button and the auth-status text are hidden there -- the Log Keluar
+           button (already shown/hidden by updateStaffAuthUI() based on actual
+           auth state, untouched here) stays reachable. */
         body.kiosk-display .app-nav .btn[data-view]:not([data-view="display-app"]),
+        body.kiosk-customer .app-nav .btn[data-view]:not([data-view="customer-app"]),
         body.kiosk-barber .app-nav .btn[data-view]:not([data-view="barber-app"]) {
             display: none;
         }
-        body.kiosk-display .app-nav .nav-tools { display: none; }
+        body.kiosk-display .app-nav .nav-tools,
+        body.kiosk-customer .app-nav .nav-tools {
+            display: none;
+        }
+        body.kiosk-barber .app-nav #staffAuthStatus,
+        body.kiosk-barber .app-nav #themeSelector,
+        body.kiosk-barber .app-nav .btn.btn-reset:not(#staffLogoutBtn) {
+            display: none;
+        }
         .brand-monogram {
             border-color: rgba(255,103,29,.45);
             border-radius: 13px;
@@ -2189,7 +2207,14 @@
         // runs synchronously at page load -- see the bottom of this script.
         function applyKioskModeFromURL() {
             const requested = getViewIdFromLocation();
+            // kiosk-customer must key off the RAW ?view= param, not `requested`
+            // -- getViewIdFromLocation() defaults an absent param to
+            // 'customer-app' too, and the bare root URL (no param at all) is
+            // meant to keep showing the full nav, not become kiosk mode for
+            // every plain visit to the site.
+            const explicitSlug = new URLSearchParams(window.location.search).get('view');
             document.body.classList.toggle('kiosk-display', requested === 'display-app');
+            document.body.classList.toggle('kiosk-customer', explicitSlug === 'customer');
             document.body.classList.toggle('kiosk-barber', requested === 'barber-app');
             // customer-app is already the active view in the initial markup --
             // nothing to switch for the plain, no-param URL that's the vast
