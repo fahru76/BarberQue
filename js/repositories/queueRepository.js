@@ -96,12 +96,36 @@ function raiseOnError(error) {
     if (error) throw new Error(`[queueRepository] ${error.message ?? error}`, { cause: error });
 }
 
-/** Today's waiting + serving tickets, oldest first. What the board and the TV screen render. */
+/**
+ * Today's tickets, oldest first, anon-safe columns. What the board and the TV
+ * screen render, AND (step 7, see HANDOFF.md) what index.html's
+ * refreshQueuesFromServer() merges into local storage on a live update for
+ * anon (customer-app/display-app) callers.
+ *
+ * Deliberately no status filter -- a status-filtered query (e.g. "waiting +
+ * serving only", this function's original shape before step 7) would make a
+ * ticket that just got called/completed/cancelled on ANOTHER device silently
+ * invisible to this one's merge, since a row missing from the fresh fetch is
+ * never touched by mergeServerRows()'s merge-by-id: the local copy would be
+ * stuck showing 'waiting' forever. Anon can read `status` (it's in
+ * QUEUE_COLUMNS) even though it can't read `completed_at`/`cancelled_at`, so
+ * scoping by date instead of status is both correct and column-grant-safe.
+ * This was a real bug caught by the live two-tab test that verified this
+ * step, not a hypothetical -- see HANDOFF.md's step 7 section.
+ */
 export async function listQueues() {
+    // Malaysia midnight, expressed as the equivalent UTC instant -- matches
+    // the migrations' own `(now() at time zone 'Asia/Kuala_Lumpur')::date`.
+    // Shift by +8h first so reading the UTC Y/M/D fields gives MALAYSIA's
+    // current calendar date (handles the UTC-day-boundary case correctly,
+    // e.g. 20:00 UTC is already past midnight in Malaysia), then convert
+    // that date's 00:00 MYT back into its real UTC instant (-8h).
+    const myt = new Date(Date.now() + 8 * 3600 * 1000);
+    const startOfTodayMYT = new Date(Date.UTC(myt.getUTCFullYear(), myt.getUTCMonth(), myt.getUTCDate()) - 8 * 3600 * 1000);
     const { data, error } = await supabase
         .from('queues')
         .select(QUEUE_COLUMNS)
-        .in('status', ['waiting', 'serving'])
+        .gte('created_at', startOfTodayMYT.toISOString())
         .order('created_at', { ascending: true });
     raiseOnError(error);
     return data.map(mapQueueRow);
