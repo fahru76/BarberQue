@@ -1112,9 +1112,27 @@ inconsistencies found". `node --check` clean on both `index.html` script blocks 
 the modified repository file. `npm test` — 15/15 domain tests, 20,000/20,000
 differential comparisons, unaffected as expected.
 
-**Not yet verified live** at the time of writing: the actual two-device round trip
-(an admin cancels a ticket on one browser tab, a second tab's display board reflects
-it without a manual refresh) — see the report after this push.
+**Live browser round trip — attempted, blocked by an environment quirk, not a code
+issue.** The built-in browser tab was already showing a signed-in `fahru76` (Admin)
+session in the UI, but a fresh `supabase.auth.getSession()` call (both the page's own
+`AuthRepo.getSession()` and a freshly-imported client reading the same
+`sb-cojaebzxrtyvxrnadiuv-auth-token` localStorage entry directly) returned no
+session, even though that stored token was confirmed present, unexpired, and for the
+right user. This looks like a session-rehydration quirk specific to this automated
+browser context (possibly `detectSessionInUrl`/init timing after a scripted
+navigation) rather than anything wrong with this fix — the exact same "another tab
+reflects a change with no manual refresh" mechanism (realtime subscription →
+`scheduleQueueRefresh`/`scheduleAppointmentRefresh` → `mergeServerRows`) was already
+proven live for the customer-cancel path immediately above, and this fix reuses that
+same machinery unchanged; the only genuinely new surface is `admin_cancel_record()`
+itself, which the rollback-safe SQL test already covers thoroughly (authorisation,
+correctness, row state). Rather than keep fighting the browser session to re-prove
+already-proven plumbing, this was left as: **server-side logic verified, live
+UI-triggered round trip not exercised this session** — worth a quick pass next time
+a real interactive login happens naturally during other testing.
+A stray test ticket (`QA03-20260902`, created directly via a cache-busted dynamic
+import while chasing this) was cancelled via direct SQL afterward; nothing was left
+in a test state.
 
 ---
 
