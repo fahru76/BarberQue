@@ -2448,6 +2448,25 @@
             }
         }
 
+        /**
+         * Barber-app's lighter counterpart to refreshStaffList() (admin-app):
+         * populates the same seatServerState the seat-assignment authorization
+         * check below reads (seatServerState[n].barberId — who admin actually
+         * assigned to seat n), without also fetching the full staff roster,
+         * which barber-app has no use for. Only listSeats() is called here
+         * (readable by any signed-in staff, and even anon -- "seats readable
+         * by all") -- listStaff() stays admin-app-only, same as before.
+         */
+        async function refreshSeatServerState() {
+            try {
+                const seats = await window.SeatRepo.listSeats();
+                seatServerState = Object.fromEntries(seats.map(seat => [String(seat.seatNo), seat]));
+                updateUI();
+            } catch (error) {
+                console.warn('Memuatkan status kerusi gagal.', error);
+            }
+        }
+
         function confirmIfActingOnSelf(id) {
             return id !== staffProfile?.id || confirm('Ini akaun anda sendiri. Teruskan?');
         }
@@ -4181,6 +4200,7 @@
             btnElement.classList.add('active');
             btnElement.setAttribute('aria-pressed', 'true');
             if (viewId === 'admin-app') refreshStaffList();
+            if (viewId === 'barber-app') refreshSeatServerState();
             updateUI();
             // Keep the URL in sync with whichever view is now actually showing.
             // Only reached past the gate above, i.e. only on a genuine switch --
@@ -6002,7 +6022,11 @@
 
             let queues = getQueues();
             const idx = queues.findIndex(q => q.id === served.id);
-            const barberName = getBarberAssignments()[seatNum] || '';
+            // Prefer the server-authoritative name (staff.display_name via
+            // seatServerState, populated by refreshSeatServerState()) over the
+            // localStorage-only getBarberAssignments() cache -- same reasoning
+            // as the render loop above.
+            const barberName = String(seatServerState[String(seatNum)]?.barberName || '').trim() || getBarberAssignments()[seatNum] || '';
             if (idx > -1) {
                 queues[idx] = { ...queues[idx], status: served.status, seat: served.seat, barberId: served.barberId, calledAt: served.calledAt, barberName };
                 queues[idx].version = nextRecordVersion(queues[idx]);
@@ -6433,30 +6457,63 @@
                 let bDone = document.getElementById(`btnDone${n}`);
                 let bCtrl = document.getElementById(`bControl${n}`);
                 let bBarber = document.getElementById(`bBarber${n}Name`);
-                const assignedBarberName = String(getBarberAssignments()[n] || '').trim();
+                // seatServerState[n].barberName is the real staff.display_name
+                // (SeatRepo.listSeats() joins it server-side) -- preferred over
+                // the localStorage-only getBarberAssignments() cache, which can
+                // be empty on a device that never had the admin panel open
+                // locally (e.g. a barber's own phone/tablet) even though the
+                // assignment exists on the server.
+                const seatState = seatServerState[String(n)];
+                const serverBarberName = seatState?.barberName ? String(seatState.barberName).trim() : '';
+                const assignedBarberName = serverBarberName || String(getBarberAssignments()[n] || '').trim();
+                // Seat-assignment authorization (Malay request: "hanya barber
+                // yang assigned pada kerusi boleh memanggil pelanggan ke
+                // kerusi"). This is a UX convenience only -- call_next_customer()
+                // /complete_service() enforce the real boundary server-side
+                // (see supabase/migrations/20260902001100_seat_assignment_
+                // authorization.sql); a disabled/enabled button here can never
+                // be the only thing stopping an unauthorised call. Admins are
+                // exempted, matching the server. "Panggil" is gated on the
+                // SEAT's current assignment (seatServerState); "Selesai" is
+                // gated on the QUEUE ROW's own barber_id (curr.barberId, set at
+                // call time) so a mid-service reassignment doesn't strand the
+                // barber who's actually serving that customer -- same
+                // distinction the server-side functions make. Before
+                // seatServerState has loaded (refreshSeatServerState() is
+                // async), a non-admin barber sees the button disabled rather
+                // than briefly enabled for a seat that might not be theirs.
+                const isAdmin = staffProfile?.role === 'admin';
+                const isMyAssignedSeat = isAdmin || (!!seatState && !!seatState.barberId && seatState.barberId === staffProfile?.id);
+                const isMyServingSeat = isAdmin || (!!curr && !!curr.barberId && curr.barberId === staffProfile?.id);
+                const notMyAssignedSeatTitle = 'Kerusi ini bukan ditugaskan kepada anda.';
                 if (bBarber) {
                     const displayedBarberName = curr?.barberName || assignedBarberName;
                     bBarber.textContent = displayedBarberName || (activeSeats[n] ? 'Nama tidak direkodkan' : 'Tiada tukang gunting ditetapkan');
                 }
 
                 if(!activeSeats[n]) {
-                    if(bCtrl) bCtrl.style.opacity = '0.5'; 
-                    if(bSeat) bSeat.innerHTML = '<span style="font-size:1.5rem">DITUTUP</span>'; 
-                    if(bCall) bCall.style.display='none'; 
+                    if(bCtrl) bCtrl.style.opacity = '0.5';
+                    if(bSeat) bSeat.innerHTML = '<span style="font-size:1.5rem">DITUTUP</span>';
+                    if(bCall) bCall.style.display='none';
                     if(bDone) bDone.style.display='none';
                 } else {
                     if(bCtrl) bCtrl.style.opacity = '1';
-                    if(curr) { 
-                        if(bSeat) bSeat.innerHTML = `${escapeHTML(getDisplayTicketId(curr))}<br><span style="font-size:1rem;color:var(--text-main);">${escapeHTML(curr.name)}</span>`; 
-                        if(bCall) bCall.style.display='none'; 
-                        if(bDone) bDone.style.display='block'; 
-                    } else { 
-                        if(bSeat) bSeat.innerHTML = '---'; 
-                        if(bCall) {
-                            bCall.style.display='block'; 
-                            bCall.disabled = !isShopOpen || waitingList.length===0 || !assignedBarberName;
+                    if(curr) {
+                        if(bSeat) bSeat.innerHTML = `${escapeHTML(getDisplayTicketId(curr))}<br><span style="font-size:1rem;color:var(--text-main);">${escapeHTML(curr.name)}</span>`;
+                        if(bCall) bCall.style.display='none';
+                        if(bDone) {
+                            bDone.style.display='block';
+                            bDone.disabled = !isMyServingSeat;
+                            bDone.title = isMyServingSeat ? '' : notMyAssignedSeatTitle;
                         }
-                        if(bDone) bDone.style.display='none'; 
+                    } else {
+                        if(bSeat) bSeat.innerHTML = '---';
+                        if(bCall) {
+                            bCall.style.display='block';
+                            bCall.disabled = !isShopOpen || waitingList.length===0 || !assignedBarberName || !isMyAssignedSeat;
+                            bCall.title = isMyAssignedSeat ? '' : notMyAssignedSeatTitle;
+                        }
+                        if(bDone) bDone.style.display='none';
                     }
                 }
             });
