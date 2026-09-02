@@ -1955,7 +1955,7 @@
         import {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
             convertWalkinToAppointment, checkinAppointment, approveFastPass, revokeFastPass,
-            listActiveAppointments, subscribeAppointmentChanges
+            adminCancelRecord, listActiveAppointments, subscribeAppointmentChanges
         } from './js/repositories/appointmentRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
@@ -1965,7 +1965,7 @@
         window.AppointmentRepo = {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
             convertWalkinToAppointment, checkinAppointment, approveFastPass, revokeFastPass,
-            listActiveAppointments, subscribeAppointmentChanges
+            adminCancelRecord, listActiveAppointments, subscribeAppointmentChanges
         };
         window.AuthRepo = AuthRepo;
 
@@ -5176,59 +5176,89 @@
             pendingAdminCancellation = null;
         }
 
-        function confirmAdminCancellation() {
+        async function confirmAdminCancellation() {
             if (!pendingAdminCancellation) return closeAdminCancelDialog();
             const reason = document.getElementById('adminCancelReason').value.trim();
             if (reason.length < 3) return alert("Pembatalan Admin memerlukan sebab yang jelas.");
             const { source, recordId } = pendingAdminCancellation;
+            if (source !== 'queue' && source !== 'appointment') {
+                closeAdminCancelDialog();
+                return alert("Jenis rekod tidak sah.");
+            }
+
+            // Bugfix (see HANDOFF.md): admin_cancel_record() is a SECURITY DEFINER
+            // RPC (not a plain write-through like updateService()), same reasoning
+            // as approve_fast_pass()/revoke_fast_pass() just above -- cancelled_by
+            // is set server-side rather than trusted from the client, AND -- the
+            // actual point of this change -- every other device (display board,
+            // another staff phone) now sees the cancellation live, closing the gap
+            // this admin path had since step 6 (it previously only wrote to
+            // localStorage, so an admin's cancellation on one device was invisible
+            // everywhere else).
+            let cancelled;
+            try {
+                cancelled = await window.AppointmentRepo.adminCancelRecord(source, recordId, reason);
+            } catch (error) {
+                console.warn('Pembatalan Admin gagal disimpan.', error);
+                closeAdminCancelDialog();
+                return alert("Pembatalan gagal disimpan. Sila semak rekod dan cuba lagi.");
+            }
+            if (!cancelled) {
+                closeAdminCancelDialog();
+                return alert("Rekod ini tidak lagi boleh dibatalkan (mungkin telah berubah).");
+            }
 
             try {
             if (source === 'queue') {
                 const queues = getQueues();
                 const index = queues.findIndex(queue => queue.id === recordId);
-                if (index < 0 || queues[index].status !== 'waiting') return alert("Hanya giliran yang masih menunggu boleh dibatalkan oleh Admin.");
-                const queue = queues[index];
-                queue.status = 'cancelled';
-                queue.cancelledBy = 'admin';
-                queue.cancelReason = reason;
-                queue.cancelledAt = getUTCISOString();
-                queue.fastPassApproved = false;
-                queue.isFastPass = false;
-                queue.version = nextRecordVersion(queue);
-                if (!saveQueues(queues)) throw new Error('queue cancellation write failed');
-                appendAuditEvent('queue_cancelled', 'queue', queue.id, 'admin', { reason });
-                enqueueNotification({
-                    eventKey: `admin-cancel:${queue.id}:${queue.version}`, recordId: queue.id,
-                    phone: queue.phone,
-                    title: 'GILIRAN DIBATALKAN', message: `${queue.id}: Giliran anda dibatalkan oleh Admin. Sebab: ${reason}`
-                });
-            } else if (source === 'appointment') {
+                if (index >= 0) {
+                    const queue = queues[index];
+                    queue.status = 'cancelled';
+                    queue.cancelledBy = 'admin';
+                    queue.cancelReason = reason;
+                    queue.cancelledAt = getUTCISOString();
+                    queue.fastPassApproved = false;
+                    queue.isFastPass = false;
+                    queue.version = nextRecordVersion(queue);
+                    saveQueues(queues);
+                    appendAuditEvent('queue_cancelled', 'queue', queue.id, 'admin', { reason });
+                    enqueueNotification({
+                        eventKey: `admin-cancel:${queue.id}:${queue.version}`, recordId: queue.id,
+                        phone: queue.phone,
+                        title: 'GILIRAN DIBATALKAN', message: `${queue.id}: Giliran anda dibatalkan oleh Admin. Sebab: ${reason}`
+                    });
+                }
+            } else {
                 const appointments = getAppointments();
                 const index = appointments.findIndex(appointment => appointment.id === recordId);
-                if (index < 0 || appointments[index].status !== 'upcoming') return alert("Hanya tempahan akan datang boleh dibatalkan oleh Admin.");
-                const appointment = appointments[index];
-                appointment.status = 'cancelled';
-                appointment.cancelledBy = 'admin';
-                appointment.cancelReason = reason;
-                appointment.cancelledAt = getUTCISOString();
-                appointment.fastPassApproved = false;
-                appointment.isFastPass = false;
-                appointment.version = nextRecordVersion(appointment);
-                if (!saveAppointments(appointments)) throw new Error('appointment cancellation write failed');
-                appendAuditEvent('appointment_cancelled', 'appointment', appointment.id, 'admin', { reason });
-                enqueueNotification({
-                    eventKey: `admin-cancel:${appointment.id}:${appointment.version}`, recordId: appointment.id,
-                    phone: appointment.phone,
-                    title: 'TEMPAHAN DIBATALKAN', message: `${appointment.id}: Tempahan ${appointment.date} ${appointment.time} GMT+8 dibatalkan oleh Admin. Sebab: ${reason}`
-                });
-            } else {
-                return alert("Jenis rekod tidak sah.");
+                if (index >= 0) {
+                    const appointment = appointments[index];
+                    appointment.status = 'cancelled';
+                    appointment.cancelledBy = 'admin';
+                    appointment.cancelReason = reason;
+                    appointment.cancelledAt = getUTCISOString();
+                    appointment.fastPassApproved = false;
+                    appointment.isFastPass = false;
+                    appointment.version = nextRecordVersion(appointment);
+                    saveAppointments(appointments);
+                    appendAuditEvent('appointment_cancelled', 'appointment', appointment.id, 'admin', { reason });
+                    enqueueNotification({
+                        eventKey: `admin-cancel:${appointment.id}:${appointment.version}`, recordId: appointment.id,
+                        phone: appointment.phone,
+                        title: 'TEMPAHAN DIBATALKAN', message: `${appointment.id}: Tempahan ${appointment.date} ${appointment.time} GMT+8 dibatalkan oleh Admin. Sebab: ${reason}`
+                    });
+                }
             }
             updateUI();
             alert("Pembatalan direkodkan. Notifikasi aplikasi dan WhatsApp yang layak telah dimasukkan ke outbox.");
             } catch (error) {
-                console.error('Pembatalan Admin gagal disimpan.', error);
-                alert("Pembatalan gagal disimpan. Sila semak rekod dan cuba lagi.");
+                // The server-side cancellation already succeeded at this point --
+                // only the local mirror/notification bookkeeping failed. The next
+                // realtime refresh (this action's own UPDATE fires the queues/
+                // appointments channel) or a page reload will reconcile the view.
+                console.error('Pembatalan berjaya di server tetapi kemaskini tempatan gagal.', error);
+                alert("Pembatalan berjaya direkodkan, tetapi paparan tempatan gagal dikemaskini. Muat semula halaman jika perlu.");
             } finally {
                 closeAdminCancelDialog();
             }

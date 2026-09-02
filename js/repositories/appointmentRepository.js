@@ -175,6 +175,31 @@ export async function revokeFastPass(source, id) {
 }
 
 /**
+ * Admin-only cancel, targeting either a queue row or an appointment row by
+ * id -- same {source, id} shape as approve/revokeFastPass above, matching
+ * index.html's existing adminCancelRecord(source, recordId)/
+ * confirmAdminCancellation() call sites exactly.
+ *
+ * Closes a gap flagged (not introduced) during step 6: unlike every other
+ * admin action, confirmAdminCancellation() previously only wrote 'cancelled'
+ * to localStorage, so an admin's cancellation on one device was invisible to
+ * every other device -- the same class of bug step 7's live testing already
+ * caught and fixed on the customer-cancel path (see queueRepository.js's
+ * listQueues()). cancelled_by is set server-side (auth.uid() for queues,
+ * the literal 'admin' for appointments -- the two tables use different
+ * column types here, see the migration file) rather than trusted from the
+ * client, same reasoning as approved_by/revoked_by.
+ *
+ * @returns {Promise<boolean>} false (not an error) when the record was no
+ *          longer in a cancellable state (already served/arrived/cancelled).
+ */
+export async function adminCancelRecord(source, id, reason) {
+    const { data, error } = await supabase.rpc('admin_cancel_record', { p_source: source, p_id: id, p_reason: reason });
+    raiseOnError(error);
+    return data;
+}
+
+/**
  * Step 7 (see HANDOFF.md): staff-only, every column, appt_date >= today (no
  * status filter, no upper bound -- a booking can be bookingAdvanceDays in the
  * future, and a transition into 'cancelled'/'arrived' on another device still

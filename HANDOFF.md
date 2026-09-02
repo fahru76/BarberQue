@@ -714,7 +714,8 @@ either table), so they had to move as one unit.
   admin-cancel precedent**: `confirmAdminCancellation()`'s `appointment` branch (like
   its pre-existing `queue` branch) still only writes to local storage. Both admin-cancel
   paths are a known, pre-existing gap, not something this step introduced or was asked
-  to close — flagging it here rather than leaving it undocumented.
+  to close — flagging it here rather than leaving it undocumented. **Closed** by the
+  "admin cancel is now server-authoritative" section further down this file.
 
 **A real (if not yet exploited) security bug was found and fixed, same class as
 `20260901000300_harden_function_grants.sql` fixed once before:** `revoke all on
@@ -1052,6 +1053,71 @@ all still pass after the fix.
 
 ---
 
+## Done — admin cancel (queue + appointment) is now server-authoritative
+
+**Date:** 2 September 2026. Closes the gap flagged (not introduced) during step 6 and
+listed in the pending-work summary after it: `confirmAdminCancellation()` — both its
+queue and appointment branches — still only wrote `status: 'cancelled'` to
+localStorage, unlike every other admin action (`callNext`/`completeService`/
+`checkinAppointment`/`approveFastPass`/`revokeFastPass`, all server-authoritative
+since step 4b/6). An admin cancelling a ticket or appointment on one device was
+invisible to every other device — the same class of bug step 7's live testing had
+already found and fixed on the customer-initiated cancel path.
+
+**New RPC:** `admin_cancel_record(p_source, p_id, p_reason)` —
+`supabase/migrations/20260902001000_admin_cancel_record.sql`. Shaped exactly like
+`approve_fast_pass()`/`revoke_fast_pass()` just above it (one function, `p_source`
+picks the table) because `index.html`'s `adminCancelRecord(source, recordId)` /
+`confirmAdminCancellation()` already carry that same `{source, recordId}` pair
+end to end — the RPC boundary matches the client's existing shape rather than
+inventing a second one. Admin-only (`is_admin()`), matching admin-app's own gating
+(`staffProfile.role !== 'admin'` in `switchView()`) rather than the looser
+`is_active_staff()`. Only a `waiting` queue row / `upcoming` appointment can be
+targeted — same precondition the client already checked locally, and the same one
+`cancel_own_ticket()`/`cancel_own_appointment()` enforce on the customer path.
+`is_fast_pass` is cleared on cancel (matching what the local code already did);
+`approved_by`/`approval_reason`/`approved_at` are left as history, also unchanged
+from the local code's prior behaviour — this migration only moves the write target
+from localStorage to the server, it does not change what gets written.
+`queues.cancelled_by` is a `uuid` FK to `staff`, set from `auth.uid()` (the verified
+caller, same convention as `approved_by`/`revoked_by`); `appointments.cancelled_by`
+is a plain `text check ('customer'|'admin')` by contrast, so it gets the literal
+`'admin'` there, matching `cancel_own_appointment()`'s `'customer'` literal on the
+same column. `revoke ... from public` AND `from anon` are both explicit (the exact
+gap that made `checkin_appointment()`/`approve_fast_pass()`/`revoke_fast_pass()`
+briefly anon-callable in step 6, since Supabase's default per-role grant survives a
+bare `revoke ... from public`) — `get_advisors(security)` confirms this function
+appears only under the authenticated-executable warning, never the anon one.
+
+**Client wiring:** `js/repositories/appointmentRepository.js` gained
+`adminCancelRecord(source, id, reason)`, alongside `approveFastPass`/
+`revokeFastPass` (same file, same reasoning — it spans both tables). `index.html`'s
+`confirmAdminCancellation()` is now `async`: calls `adminCancelRecord()` first and
+only updates the local `queues`/`appointments` mirror and enqueues the
+customer-facing notification once the server confirms — same write-through-first,
+no-fallback convention as every other admin action since step 4b. If the server
+call succeeds but the local mirror update throws, the error is caught and reported
+rather than silently swallowed — the realtime subscription's own refresh (this
+action's UPDATE fires it) or a reload reconciles the view regardless.
+
+**Verified:** a rollback-safe SQL test (unauthorised/non-admin caller rejected with
+`42501`; reason under 3 characters rejected with `22023`; admin cancels a fabricated
+waiting queue ticket — returns `true`, row state confirmed correct including
+`cancelled_by`/`version`; cancelling the same ticket again returns `false`, not an
+error; admin cancels a fabricated upcoming appointment — same result; invalid
+`p_source` rejected with `22023`; transaction rolled back, zero rows left behind).
+`get_advisors(security)` re-checked — no new anon-executable warning.
+`tests/sql-consistency.mjs` extended with the new function name, reports "no
+inconsistencies found". `node --check` clean on both `index.html` script blocks and
+the modified repository file. `npm test` — 15/15 domain tests, 20,000/20,000
+differential comparisons, unaffected as expected.
+
+**Not yet verified live** at the time of writing: the actual two-device round trip
+(an admin cancels a ticket on one browser tab, a second tab's display board reflects
+it without a manual refresh) — see the report after this push.
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
@@ -1085,7 +1151,8 @@ js/repositories/serviceRepository.js                step 5a: services catalog CR
 js/repositories/shopSettingsRepository.js           step 5b: singleton shop_settings get/create/update
 js/repositories/appointmentRepository.js            step 6: booking + fast-pass RPC wrappers;
                                                      step 7 added listActiveAppointments/
-                                                     subscribeAppointmentChanges
+                                                     subscribeAppointmentChanges; added
+                                                     adminCancelRecord (admin-cancel bugfix)
 index.html                                          the running app; bookTicket()/
                                                      cancelCustomerWalkin() dual-write to
                                                      Supabase; barber-app/admin-app now
@@ -1101,7 +1168,11 @@ index.html                                          the running app; bookTicket(
                                                      (?view=customer|display|barber|admin) with
                                                      kiosk-mode nav for display/barber; queues +
                                                      appointments now update live across devices
-                                                     via Supabase Realtime (7)
+                                                     via Supabase Realtime (7); listQueues()
+                                                     scoped by date not status (step 7 bugfix);
+                                                     TUTUP closed-seat label letter-spacing fix;
+                                                     confirmAdminCancellation() now
+                                                     server-authoritative (admin-cancel bugfix)
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
@@ -1111,6 +1182,7 @@ supabase/migrations/20260901000600_shop_settings.sql          step 5b, applied a
 supabase/migrations/20260901000700_appointments.sql           step 6, applied and verified
 supabase/migrations/20260901000800_harden_appointment_function_grants.sql  step 6 bugfix, applied and verified
 supabase/migrations/20260902000900_realtime_live_refresh.sql  step 7, applied and verified
+supabase/migrations/20260902001000_admin_cancel_record.sql    admin-cancel bugfix, applied and verified
 supabase/functions/invite-barber/index.ts           deployed, verify_jwt=true, re-checks
                                                      is_admin() itself before inviting anyone
 tests/domain/scheduler.test.mjs                     15 fixtures
