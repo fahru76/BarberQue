@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 1 September 2026
+**Date:** 2 September 2026
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -923,16 +923,117 @@ actually drives the retry — the login form itself is unchanged by this feature
 
 ---
 
-## Then, still to do
+## Done — step 7: realtime cross-device updates (queues + appointments)
 
-7. Realtime subscriptions replacing the `storage` event listener:
-   ```js
-   supabase.channel('queue-changes')
-     .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, () => updateUI())
-     .subscribe();
-   ```
-   This is what makes the TV screen update when the barber presses "Selesai" on a tablet —
-   behaviour that does not exist today.
+**The gap this closes:** the existing `storage` event listener (index.html) only ever
+fires between browser tabs of the *same* device — a plain `localStorage` write event
+cannot cross devices. Nothing made the TV display, another barber's tablet, or the
+admin screen update when a *different* device called next, completed service, checked
+in, or booked/cancelled an appointment. That's what this step adds, via Supabase
+Realtime's `postgres_changes`.
+
+**Decisions made (asked via AskUserQuestion, both recommended options chosen):**
+
+1. **Scope: `queues` + `appointments`**, not just queues, and not also
+   `services`/`shop_settings`. Queues is the reported gap (TV board, barber queue).
+   Appointments was added because more than one staff member may work the
+   admin/booking screens at once and should see new bookings/cancellations without a
+   manual refresh. Services and shop settings change rarely and are normally edited
+   from a single admin device, so a manual refresh there stays an acceptable gap.
+2. **On any change, refetch the authoritative list and re-render** (not: patch local
+   state from the realtime payload's row data directly). This was the safer choice
+   for a reason beyond simplicity: Realtime's row-visibility check follows each
+   subscriber's RLS (so an anon customer's channel only ever sees rows anon may see),
+   but that's a *row-level* check — the column-level grants this project already
+   relies on elsewhere (`QUEUE_COLUMNS`, and appointments' anon grant restricted to
+   `id, appt_date, appt_time, duration_minutes, status`) are not something a raw
+   WAL-sourced payload can be trusted to respect the same way a PostgREST-gated query
+   does. So the realtime subscription is used **only as a "something changed, go
+   refetch" trigger** — the payload's actual row content is never read or used.
+
+**A real design problem found and solved before writing any client code:** the
+obvious naive approach — call the existing `listQueues()` (today's waiting/serving
+tickets only) and overwrite `localStorage.queues` wholesale on every change — would
+have been a **data-loss bug**. `queues`/`appointments` in localStorage hold this
+device's **all-time history** (completed tickets feed `barberPerformance()` reports,
+for instance); `listQueues()` was deliberately scoped to "what the board renders",
+not "everything". Two fixes, both applied:
+
+- **Merge by id, never a wholesale replace.** A new `mergeServerRows(localArray,
+  freshRows)` helper in index.html updates/inserts only the rows the fresh fetch
+  returned an opinion about; every other local row (older history) is left exactly
+  as it was.
+- **The fresh fetch itself has no status filter**, so a transition *out of*
+  waiting/serving (completed or cancelled on another device) is still visible via
+  the returned `status` field and the merge picks it up — scoped instead to "still
+  relevant": queues to *today* (Malaysia time), appointments to `appt_date >= today`
+  (no upper bound, since a booking can be up to `bookingAdvanceDays` ahead).
+
+**A second problem, specific to staff devices: column grants.** `listQueues()` only
+ever selects the anon-safe `QUEUE_COLUMNS` subset — it doesn't widen for an
+authenticated caller, by design (see that function's own header comment). Merging
+only that subset into a signed-in staff device's local state would silently drop
+`version` for any row created on a *different* device — and every existing
+cancel/fast-pass write already assumes `version` is present and correct before it
+will proceed. Plain table `SELECT`s can't fix this either: PostgREST enforces column
+grants as all-or-nothing, and widening `QUEUE_COLUMNS` would widen what anon can read
+too. Solution, matching how every other staff-only capability in this project is
+already built: two new **SECURITY DEFINER RPCs**, gated by `is_active_staff()`
+exactly like `call_next_customer()`/`checkin_appointment()`/etc., each returning the
+full row on its own terms rather than through a column-grant-limited `SELECT`:
+
+- `list_today_queues_full()` — today only (Malaysia time), every column, no status
+  filter.
+- `list_active_appointments()` — `appt_date >= today`, every column, no status
+  filter. Deliberately does not return `claim_token` — an admin/barber device merging
+  in someone else's booking never needs to act *as* that customer.
+
+Migration: `supabase/migrations/20260902000900_realtime_live_refresh.sql`. Also adds
+`public.appointments` to the `supabase_realtime` publication (`queues`/`seats` were
+already in it — Supabase's default behaviour when a table is created; `appointments`
+was created later in the same migration set and had simply never been added).
+
+**Client wiring** (`js/repositories/queueRepository.js`,
+`js/repositories/appointmentRepository.js`, `index.html`):
+
+- `listTodayQueuesFull()` / `listActiveAppointments()` — call the new RPCs, map to
+  the same local field names every existing write site already uses (`version`,
+  `cancelledBy`, `cancelReason`, `fastPassApproved`, `approvedBy`, `approvalReason`,
+  `revokedBy`, …) so a row merged in from another device behaves identically to one
+  this device wrote itself. `listActiveAppointments()` also trims `appt_time`'s
+  `"HH:MM:SS"` (Postgres `time`, over PostgREST) down to `"HH:MM"` — every local
+  record and `malaysiaDateTimeToUTC()`'s own regex assume the latter; without the
+  trim, a merged-in appointment's `scheduledAtUtc` would silently fail to compute.
+- `subscribeQueueChanges(onChange)` / `subscribeAppointmentChanges(onChange)` — each
+  repository module stays "the only one that talks to its table over the Supabase
+  client" (existing header comment): index.html never touches `supabase.channel()`
+  directly, it only gets a plain change-signal callback, never the payload's row data
+  (see the RLS/column-grant reasoning above).
+- index.html: `mergeServerRows()`, a `debounce()` helper (a burst of writes on
+  another device fires one `postgres_changes` event per row — debounced to 400ms so
+  that lands as one refetch, not several overlapping ones), and two refresh
+  functions. The queues channel is armed **once, from inside the existing
+  `onStaffAuthChange` callback** (regardless of whether a session exists) rather
+  than at the classic script's own top level — `window.QueueRepo` is only set once
+  the deferred bridge module runs, and `onStaffAuthChange` is the already-established
+  signal that this has happened (the module's `pushAuthState()` always calls it at
+  least once, session or not). The appointments channel is armed/disarmed from the
+  same callback based on `staffSession` presence — a customer's or the TV's browser
+  tab has no use for it, so it's simply never opened there.
+
+**Verified so far:** a rollback-safe SQL test (both RPCs reject anon; a fabricated
+inactive-staff caller is rejected by `is_active_staff()`'s own `active` check;
+an active staff caller gets both a `waiting` and a `done` row for today in one call,
+proving the "no status filter" design; the full row includes `phone`/`price_sen`,
+which anon cannot read); `tests/sql-consistency.mjs` clean; `node --check` on both
+modified repository files and both of index.html's inline `<script>` blocks (module
+and classic) — clean, after fixing one real syntax bug this caught (a JSDoc comment
+containing literal `cancelled_*/approved_*/revoked_*` accidentally closed the
+comment block early at the embedded `*/`).
+
+**Not yet verified live** at the time of writing (see the report after this push):
+the actual browser-side realtime round-trip (one browser tab writes, a second tab's
+subscription fires and the merge/re-render actually happens end-to-end).
 
 ---
 
@@ -957,12 +1058,16 @@ js/domain/scheduler.js                              pure, tested
 js/supabaseConfig.js                                URL + publishable key
 js/supabaseClient.js                                creates the client (CDN import, no bundler)
 js/repositories/queueRepository.js                  step 3: wired for takeTicket/cancelOwn only;
-                                                     step 4b added callNext/completeService
+                                                     step 4b added callNext/completeService;
+                                                     step 7 added listTodayQueuesFull/
+                                                     subscribeQueueChanges
 js/repositories/authRepository.js                   step 4: sign-in/out, invite, staff list
 js/repositories/seatRepository.js                   step 4b: listSeats/setSeatAssignment
 js/repositories/serviceRepository.js                step 5a: services catalog CRUD + reorder
 js/repositories/shopSettingsRepository.js           step 5b: singleton shop_settings get/create/update
-js/repositories/appointmentRepository.js            step 6: booking + fast-pass RPC wrappers
+js/repositories/appointmentRepository.js            step 6: booking + fast-pass RPC wrappers;
+                                                     step 7 added listActiveAppointments/
+                                                     subscribeAppointmentChanges
 index.html                                          the running app; bookTicket()/
                                                      cancelCustomerWalkin() dual-write to
                                                      Supabase; barber-app/admin-app now
@@ -976,7 +1081,9 @@ index.html                                          the running app; bookTicket(
                                                      email/password fields fixed for contrast
                                                      + size; each view now has its own URL
                                                      (?view=customer|display|barber|admin) with
-                                                     kiosk-mode nav for display/barber
+                                                     kiosk-mode nav for display/barber; queues +
+                                                     appointments now update live across devices
+                                                     via Supabase Realtime (7)
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
@@ -985,6 +1092,7 @@ supabase/migrations/20260901000500_services_anon_policy_fix.sql  step 5a bugfix,
 supabase/migrations/20260901000600_shop_settings.sql          step 5b, applied and verified
 supabase/migrations/20260901000700_appointments.sql           step 6, applied and verified
 supabase/migrations/20260901000800_harden_appointment_function_grants.sql  step 6 bugfix, applied and verified
+supabase/migrations/20260902000900_realtime_live_refresh.sql  step 7, applied and verified
 supabase/functions/invite-barber/index.ts           deployed, verify_jwt=true, re-checks
                                                      is_admin() itself before inviting anyone
 tests/domain/scheduler.test.mjs                     15 fixtures

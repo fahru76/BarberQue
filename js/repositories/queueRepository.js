@@ -108,6 +108,95 @@ export async function listQueues() {
 }
 
 /**
+ * Step 7 (see HANDOFF.md): full-row mapper for an AUTHENTICATED-only read.
+ * mapQueueRow() above deliberately only ever sees QUEUE_COLUMNS (the anon-safe
+ * subset) since listQueues() is called by anon and authenticated alike -- this
+ * one is for list_today_queues_full()'s RPC result only, which is staff-gated
+ * server-side and always returns every column, so it's the one place allowed
+ * to read phone/price_sen/version/cancelled_at/cancelled_by/cancel_reason,
+ * approved_by/approval_reason/approved_at and revoked_by/revoked_at off a row.
+ * Field names match every existing write site's local shape exactly (see
+ * index.html's approveFastPass()/revokeFastPass()/confirmAdminCancellation()),
+ * not just mapQueueRow()'s smaller set, so a row merged in from ANOTHER
+ * device behaves identically to one this device wrote itself -- in
+ * particular `version`, which every cancel/fast-pass write already assumes
+ * is present and correct before it will let a staff action proceed.
+ */
+function mapQueueRowFull(row) {
+    if (!row) return row;
+    return {
+        id: row.id,
+        name: row.name,
+        phone: row.phone,
+        service: row.service,
+        duration: row.duration_minutes,
+        price: row.price_sen / 100,
+        seat: row.seat_no,
+        barberId: row.barber_id,
+        status: row.status,
+        queueSource: row.source,
+        isFastPass: row.is_fast_pass,
+        fastPassApproved: row.is_fast_pass,
+        approvedBy: row.approved_by,
+        approvalReason: row.approval_reason,
+        approvedAt: row.approved_at,
+        revokedBy: row.revoked_by,
+        revokedAt: row.revoked_at,
+        timestamp: row.created_at,
+        calledAt: row.called_at,
+        completedAt: row.completed_at,
+        cancelledAt: row.cancelled_at,
+        cancelledBy: row.cancelled_by,
+        cancelReason: row.cancel_reason,
+        version: row.version
+    };
+}
+
+/**
+ * Step 7: staff-only, every column, today only (Malaysia time), NO status
+ * filter -- unlike listQueues() above, this is meant to drive a merge-by-id
+ * into an existing local array (see index.html's mergeServerRows()), and a
+ * transition OUT of waiting/serving (e.g. another device just completed or
+ * cancelled a ticket) has to still show up so the merge can update `status`
+ * accordingly. Only ever call this when a staff session exists -- the RPC
+ * itself rejects anon/inactive-staff callers (`is_active_staff()`), so this
+ * throws for anyone else rather than silently returning nothing.
+ */
+export async function listTodayQueuesFull() {
+    const { data, error } = await supabase.rpc('list_today_queues_full');
+    raiseOnError(error);
+    return data.map(mapQueueRowFull);
+}
+
+/**
+ * Step 7: cross-device live updates. This module stays "the only one that
+ * talks to public.queues over the Supabase client" (see the file header) --
+ * index.html never touches `supabase.channel()` directly, it just gets a
+ * plain "something changed, go refetch" callback.
+ *
+ * Deliberately does NOT hand the payload's row data to the caller. Realtime's
+ * postgres_changes broadcasts a row once RLS says the subscribing role may
+ * see it, but that check is row-level, not the column-level grants
+ * QUEUE_COLUMNS/mapQueueRowFull rely on elsewhere in this file -- reading the
+ * payload directly could leak a staff-only column (e.g. phone) to an anon
+ * subscriber. The callback is only ever a trigger to re-fetch through the
+ * normal PostgREST-gated listQueues()/listTodayQueuesFull() path, which
+ * enforces those grants correctly either way. Works for both anon and
+ * authenticated callers -- Realtime's own RLS-based row filter still applies
+ * per-connection regardless of who's subscribed.
+ *
+ * @param {() => void} onChange
+ * @returns {() => void} call to unsubscribe.
+ */
+export function subscribeQueueChanges(onChange) {
+    const channel = supabase
+        .channel('queues-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, onChange)
+        .subscribe();
+    return () => supabase.removeChannel(channel);
+}
+
+/**
  * Take a ticket: mint a server-sequenced number, then insert the row.
  *
  * `id` is the minted ticket number itself (see the mapQueueRow comment above

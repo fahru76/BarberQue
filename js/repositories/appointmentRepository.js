@@ -173,3 +173,72 @@ export async function revokeFastPass(source, id) {
     raiseOnError(error);
     return data;
 }
+
+/**
+ * Step 7 (see HANDOFF.md): staff-only, every column, appt_date >= today (no
+ * status filter, no upper bound -- a booking can be bookingAdvanceDays in the
+ * future, and a transition into 'cancelled'/'arrived' on another device still
+ * needs to show up here for the merge). The RPC itself rejects anon/inactive
+ * -staff callers, so only call this when a staff session exists.
+ *
+ * Deliberately does NOT return claim_token -- unlike checkinAppointment()'s
+ * mapping (a single row this device's own action just touched), a merged-in
+ * row here may belong to a booking made entirely on someone else's device,
+ * and nothing in the admin/barber UI ever needs to act AS that customer.
+ * `whatsappAuto` is local-only UI state (never a DB column) and is simply
+ * absent from a freshly-merged row, same as any other client-only field.
+ */
+export async function listActiveAppointments() {
+    const { data, error } = await supabase.rpc('list_active_appointments');
+    raiseOnError(error);
+    return data.map(row => ({
+        id: row.id,
+        name: row.name,
+        phone: row.phone,
+        service: row.service,
+        duration: row.duration_minutes,
+        price: row.price_sen / 100,
+        date: row.appt_date,
+        // Postgres `time` comes back as "HH:MM:SS" over PostgREST; every local
+        // record stores "HH:MM" (straight from <input type="time">), and
+        // malaysiaDateTimeToUTC()/isAppointmentSlotAvailable() etc. all parse
+        // on that assumption -- trim the seconds so a merged-in row matches.
+        time: typeof row.appt_time === 'string' ? row.appt_time.slice(0, 5) : row.appt_time,
+        status: row.status,
+        isFastPass: row.is_fast_pass,
+        fastPassApproved: row.is_fast_pass,
+        approvedBy: row.approved_by,
+        approvalReason: row.approval_reason,
+        approvedAt: row.approved_at,
+        revokedBy: row.revoked_by,
+        revokedReason: row.revoked_reason,
+        revokedAt: row.revoked_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        arrivedAt: row.arrived_at,
+        cancelledAt: row.cancelled_at,
+        cancelledBy: row.cancelled_by,
+        cancelReason: row.cancel_reason,
+        version: row.version
+    }));
+}
+
+/**
+ * Step 7: same pattern as queueRepository.js's subscribeQueueChanges() --
+ * a plain change signal, never the payload's row data (RLS gates which ROWS
+ * a subscriber sees, not which COLUMNS, and this table's anon column grant is
+ * far narrower than the full row this module reads elsewhere). Only ever
+ * call this when a staff session exists; there is no anon use for it, since
+ * a customer's own bookings are never re-read from the server (see the file
+ * header).
+ *
+ * @param {() => void} onChange
+ * @returns {() => void} call to unsubscribe.
+ */
+export function subscribeAppointmentChanges(onChange) {
+    const channel = supabase
+        .channel('appointments-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, onChange)
+        .subscribe();
+    return () => supabase.removeChannel(channel);
+}
