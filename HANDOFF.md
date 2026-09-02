@@ -1136,6 +1136,51 @@ in a test state.
 
 ---
 
+## Done — kiosk-mode nav bar extended to Customer; Barber keeps sign-out only
+
+**Date:** 2 September 2026. The user reported the nav bar was still showing on the
+per-view URLs; on clarifying, the actual ask was: `?view=customer` should hide the nav
+bar entirely (previously it showed the full nav — all four tabs plus login/theme/
+reset, unlike Display which already hid everything but its own tab), and `?view=barber`
+should hide it further too, but a signed-in barber still needs a way to sign out (no
+other UI path calls `signOutStaff()`), so that one button stays reachable. `?view=admin`
+is unchanged — the earlier deliberate decision to leave it with the full nav stands.
+
+New `kiosk-customer` body class, alongside the existing `kiosk-display`/`kiosk-barber`.
+It keys off the **raw `?view=` query param**, not `getViewIdFromLocation()`'s already-
+defaulted view id — that function defaults an absent param to `customer-app` too, and
+the bare root URL (no `?view=` at all) is meant to keep the full nav for a plain visit
+to the site; kiosk mode is opt-in via an explicit dedicated-link param, not the default
+landing experience. Customer gets the exact same CSS treatment as Display (all other
+view buttons hidden, whole `.nav-tools` row hidden). Barber additionally hides the
+theme selector, Reset button and auth-status text via targeted selectors
+(`#themeSelector`, `.btn.btn-reset:not(#staffLogoutBtn)`, `#staffAuthStatus`) rather
+than hiding all of `.nav-tools`, so `updateStaffAuthUI()`'s existing show/hide toggle
+on `#staffLogoutBtn` (unchanged) is what actually surfaces the sign-out button.
+
+**Verified live**, both changes deployed and screenshotted: `?view=customer` shows only
+the "PELANGGAN" label and page content; `?view=barber` shows "TUKANG GUNTING" plus a
+"LOG KELUAR" button and nothing else.
+
+**A separate, real gap surfaced while testing this (not caused by it):** a freshly
+loaded page never fetches current queue/appointment state from the server — the
+realtime wiring added in step 7 only refetches on a *live* change event
+(`subscribeQueueChanges`/`subscribeAppointmentChanges` → `scheduleQueueRefresh`/
+`scheduleAppointmentRefresh`), and `initData()` only seeds `localStorage` defaults if
+a key is entirely missing, never re-fetches known state. Caught concretely: a barber
+view, reloaded several times during testing after a ticket had been cancelled
+server-side, kept showing that ticket as `waiting` in the walk-in list until a change
+event fired or `refreshQueuesFromServer()` was called manually — confirmed via direct
+SQL that the server was correct throughout, and that manually invoking
+`refreshQueuesFromServer()` immediately fixed the local view. In practice a barber
+tablet usually stays on one continuously-open tab (which does receive live deltas), so
+this is more of a cold-start/reload gap than a constant one — but a device restarted
+overnight, or a browser tab freshly opened, would show stale or empty data until the
+next change happens elsewhere. **Not yet fixed** — flagged to the user, added to the
+open-items list below pending a decision on priority.
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
@@ -1146,6 +1191,14 @@ in a test state.
 - Same-day time model: an 18:00–01:00 shop still cannot be configured. Needs a
   business-day offset **before** the server stores schedules, since it changes the meaning
   of persisted values.
+- **No initial hydration for queues/appointments on page load** (found 2 September 2026
+  while testing the nav-bar change above). Step 7 wired live *change* events but never a
+  "fetch current state now" call on load — a device that was off/reloaded while changes
+  happened elsewhere shows stale local data until the next live event. Likely fix:
+  call `refreshQueuesFromServer()`/`refreshAppointmentsFromServer()` once, unconditionally,
+  during `initData()` or right after the realtime channels are armed — needs the same
+  care given to the merge-by-id design in step 7 (must not wholesale-overwrite local
+  history) before making that change.
 
 ---
 
