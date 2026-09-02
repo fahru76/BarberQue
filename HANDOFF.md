@@ -1031,9 +1031,24 @@ and classic) — clean, after fixing one real syntax bug this caught (a JSDoc co
 containing literal `cancelled_*/approved_*/revoked_*` accidentally closed the
 comment block early at the embedded `*/`).
 
-**Not yet verified live** at the time of writing (see the report after this push):
-the actual browser-side realtime round-trip (one browser tab writes, a second tab's
-subscription fires and the merge/re-render actually happens end-to-end).
+**Verified live** (two real browser tabs, `?view=display` + `?view=customer`, against
+the deployed site, commit `c352178`): a walk-in ticket taken on the customer tab
+appeared on the display tab within ~2s with no manual refresh, confirming the INSERT
+realtime path. Cancelling that ticket from the customer tab, though, surfaced a real
+bug: the display tab kept showing `status: "waiting"` even after 4+ seconds, and even
+after calling `refreshQueuesFromServer()` directly — which isolated the fault to the
+fetch/merge, not realtime delivery. Root cause: `listQueues()` filtered rows by
+`status in ('waiting','serving')`, so a ticket that had just transitioned to
+`cancelled` fell out of the query entirely, and `mergeServerRows()` (by design) never
+touches an id that's absent from a fresh fetch — the local record was permanently
+stuck on its last-seen status. Fixed by scoping `listQueues()` by date (today, MYT)
+instead of status, matching the no-status-filter design already used for
+`listTodayQueuesFull()`; pushed as follow-up commit `0c1742e`. Re-ran the exact same
+two-tab test against the fixed deploy: the cancelled ticket now shows
+`status: "cancelled"` on the display tab within ~4s with no manual refresh, and the
+board correctly stops listing it under "GILIRAN AKAN DATANG". `node --check`,
+`tests/sql-consistency.mjs`, and `npm test` (15/15 domain + 20,000/20,000 differential)
+all still pass after the fix.
 
 ---
 
@@ -1060,7 +1075,10 @@ js/supabaseClient.js                                creates the client (CDN impo
 js/repositories/queueRepository.js                  step 3: wired for takeTicket/cancelOwn only;
                                                      step 4b added callNext/completeService;
                                                      step 7 added listTodayQueuesFull/
-                                                     subscribeQueueChanges
+                                                     subscribeQueueChanges; step 7 bugfix
+                                                     0c1742e: listQueues() scoped by date
+                                                     instead of status (a status-transition
+                                                     bug found via live testing)
 js/repositories/authRepository.js                   step 4: sign-in/out, invite, staff list
 js/repositories/seatRepository.js                   step 4b: listSeats/setSeatAssignment
 js/repositories/serviceRepository.js                step 5a: services catalog CRUD + reorder
