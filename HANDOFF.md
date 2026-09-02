@@ -1262,6 +1262,58 @@ exists in the live project).
 
 ---
 
+## Done — admin can rename any staff member's display name
+
+**Date:** 2 September 2026. Follow-up to the seat-assignment authorization fix above: the
+user chose to add a rename feature (over setting the bootstrap admin's real name directly,
+or leaving it) so the "fahru76" email-derived `display_name` can be fixed from the admin
+panel itself, by the user, whenever they're ready — no name was requested from/given to me,
+by design.
+
+`setStaffStatus(id, {...})` (`js/repositories/authRepository.js`) now also accepts
+`displayName`, patched straight through to `staff.display_name` — no new RLS policy needed,
+"admins manage staff" (`for all ... using (is_admin())`) already covers every column.
+Admin's staff list (`refreshStaffList()`) gained an "Ubah Nama" button per row that swaps
+the name for a text input + Simpan/Batal (a real form field, matching every other
+free-text input in this app — no native `prompt()`). A rename colliding with another
+staff member's name (case/whitespace-insensitive, enforced by the existing
+`staff_name_key_uidx` unique index) surfaces as a friendly Malay message rather than the
+raw Postgres constraint error, by checking `error.cause?.code === '23505'`.
+
+**Verified live:** `node --check`, `tests/sql-consistency.mjs`, `npm test` all pass on the
+deployed build; ran a live no-op rename round-trip (renamed the admin account to its own
+current name and back) confirming the full write path — client call → RLS-permitted
+update → UI reload — works end-to-end without touching any real data.
+
+---
+
+## Done — admin panel's URL slug is no longer the word "admin"
+
+**Date:** 2 September 2026. Requested directly: `?view=admin` gives away exactly where
+the privileged panel is to anyone poking at the URL. Asked first whether this meant the
+visible "ADMIN" nav label/heading too, or only the URL — confirmed **URL only**; the
+on-page label is unchanged. The requested replacement is the admin account's own email
+handle (the part before `@`) — `fahru76`.
+
+One-line change: `VIEW_SLUGS`'s `'admin-app'` entry, in `index.html`, changed from
+`'admin'` to `'fahru76'`. `SLUG_TO_VIEW`, `getViewIdFromLocation()` and
+`updateURLForView()` all derive from this one object, so nothing else needed to change.
+`?view=admin` now falls through to the `SLUG_TO_VIEW[slug] || 'customer-app'` default —
+same as any other unrecognized value — rather than opening the admin panel.
+
+This is obscurity, not security — worth being honest about in case it's ever relied on
+as more than that. The real gate is unchanged: `switchView()`'s `staffSession`/
+`staffProfile.role === 'admin'` check, backed server-side by RLS and `is_admin()`.
+Anyone who already knows (or guesses) the new slug still hits that same gate; this only
+stops a casual look at the URL bar from revealing where to try.
+
+**Verified:** `node --check` on the extracted module script, `tests/sql-consistency.mjs`,
+and `npm test` all pass (none of this touches SQL or the domain layer, so this is really
+just confirming the edit didn't break JS syntax). Live-browser check pending the next
+deploy.
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
@@ -1306,7 +1358,8 @@ js/repositories/queueRepository.js                  step 3: wired for takeTicket
                                                      0c1742e: listQueues() scoped by date
                                                      instead of status (a status-transition
                                                      bug found via live testing)
-js/repositories/authRepository.js                   step 4: sign-in/out, invite, staff list
+js/repositories/authRepository.js                   step 4: sign-in/out, invite, staff list;
+                                                     setStaffStatus() now also accepts displayName
 js/repositories/seatRepository.js                   step 4b: listSeats/setSeatAssignment
 js/repositories/serviceRepository.js                step 5a: services catalog CRUD + reorder
 js/repositories/shopSettingsRepository.js           step 5b: singleton shop_settings get/create/update
@@ -1342,7 +1395,11 @@ index.html                                          the running app; bookTicket(
                                                      wired into switchView()); barber name label
                                                      now prefers server-authoritative
                                                      staff.display_name over the localStorage-only
-                                                     cache
+                                                     cache; admin staff list can now rename any
+                                                     staff member's display_name ("Ubah Nama");
+                                                     admin panel's URL slug changed from
+                                                     ?view=admin to ?view=fahru76 (VIEW_SLUGS) --
+                                                     obscurity only, on-page "ADMIN" label unchanged
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified

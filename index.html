@@ -2166,7 +2166,9 @@
         // key, since call_next_customer() checks that table directly.
         let seatServerState = {};
 
-        // ============= PER-VIEW URLs (?view=customer|display|barber|admin) =============
+        // ============= PER-VIEW URLs (?view=customer|display|barber|<admin slug>) =============
+        // See VIEW_SLUGS below for the actual admin-app slug -- deliberately
+        // not the word "admin" (see its own comment there).
         // Deliberately a query parameter, not a #hash: Supabase invite/password-reset
         // links already put their own token in the URL hash (see the PASSWORD_RECOVERY
         // check just below), so routing through the hash too would mean carefully
@@ -2176,7 +2178,13 @@
         // NOT a security boundary. The real one is server-side (RLS + is_active_staff()/
         // is_admin() inside the RPCs); switchView()'s own gate below is just what keeps
         // the UI honest about that, exactly as it always has been.
-        const VIEW_SLUGS = { 'customer-app': 'customer', 'display-app': 'display', 'barber-app': 'barber', 'admin-app': 'admin' };
+        // admin-app's slug is deliberately not the word "admin" -- a guessable
+        // URL like ?view=admin just advertises where the privileged panel is.
+        // Using the admin account's own email handle instead is obscurity
+        // only, not security (the real gate is staffSession + staffProfile
+        // .role === 'admin' below, backed by RLS/is_admin() server-side) --
+        // but there's no reason to make the panel easy to find for free.
+        const VIEW_SLUGS = { 'customer-app': 'customer', 'display-app': 'display', 'barber-app': 'barber', 'admin-app': 'fahru76' };
         const SLUG_TO_VIEW = Object.fromEntries(Object.entries(VIEW_SLUGS).map(([viewId, slug]) => [slug, viewId]));
         // Set once, at load, from whichever view the page was *reached* by --
         // not re-evaluated on later in-app navigation, since a kiosk device's
@@ -2236,8 +2244,8 @@
         // Runs once, the first time onStaffAuthChange fires after load (by which
         // point staffSession/staffProfile are resolved either way -- see
         // pushAuthState() in the Supabase bridge module above). Deep-linking
-        // straight to ?view=admin/barber has to wait for that, unlike customer/
-        // display above, since whether it's even allowed depends on it.
+        // straight to the admin/barber panels has to wait for that, unlike
+        // customer/display above, since whether it's even allowed depends on it.
         function applyAuthGatedViewFromURL() {
             const requested = getViewIdFromLocation();
             if (requested !== 'admin-app' && requested !== 'barber-app') return;
@@ -2303,7 +2311,7 @@
                 initialAuthGatedViewChecked = true;
                 applyAuthGatedViewFromURL();
             } else if (pendingDeepLinkView && staffSession) {
-                // A deep link to ?view=admin/barber opened the login dialog above
+                // A deep link to the admin/barber panels opened the login dialog above
                 // (no session yet at that point); this fires again once sign-in
                 // actually succeeds (event 'SIGNED_IN'), so retry it now rather
                 // than leaving the customer signed in but still parked on
