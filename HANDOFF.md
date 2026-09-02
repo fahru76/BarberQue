@@ -1338,9 +1338,10 @@ deploy.
   reassigns a seat while a barber's tab is already sitting on barber-app, that barber's
   "Panggil"/"Selesai" gating won't pick up the change until they leave and re-enter the
   view (or reload). No `seats` realtime channel exists yet to fix this properly.
-- **Bootstrap admin account's `display_name` is `fahru76`** (email-derived, from before
-  `invite-barber` existed) — needs the user to supply the real name, or ask for a small
-  admin-UI rename control (`setStaffStatus()` currently has no `displayName` param).
+- **Bootstrap admin account's `display_name` is still `fahru76`** (email-derived, from
+  before `invite-barber` existed). The rename control now exists (admin-app's "Ubah
+  Nama" button, added 2 September 2026) — this is no longer an engineering task, just a
+  manual action item: nobody has used it yet to set the real name.
 
 ---
 
