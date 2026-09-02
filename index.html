@@ -2427,7 +2427,10 @@
                 seatServerState = Object.fromEntries(seats.map(seat => [String(seat.seatNo), seat]));
                 container.innerHTML = staff.map(member => `
                     <div class="admin-list-item" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                        <div><strong>${escapeHTML(member.displayName)}</strong><span class="text-muted"> &bull; ${member.active ? 'Aktif' : 'Belum Aktif'}</span></div>
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span id="staffName-${member.id}"><strong>${escapeHTML(member.displayName)}</strong><span class="text-muted"> &bull; ${member.active ? 'Aktif' : 'Belum Aktif'}</span></span>
+                            <button type="button" class="btn btn-sm" onclick="startRenameStaff('${member.id}')" title="Ubah nama">Ubah Nama</button>
+                        </div>
                         <div style="display:flex; gap:8px; align-items:center;">
                             <select onchange="setStaffRole('${member.id}', this.value)">
                                 <option value="barber" ${member.role === 'barber' ? 'selected' : ''}>Tukang Gunting</option>
@@ -2464,6 +2467,45 @@
                 updateUI();
             } catch (error) {
                 console.warn('Memuatkan status kerusi gagal.', error);
+            }
+        }
+
+        /**
+         * Inline rename for a staff row (added so an admin can fix an
+         * email-derived name on an account bootstrapped before inviteBarber()
+         * existed, or correct a typo on any staff member's name). Swaps the
+         * name span for a text input + Simpan/Batal, rather than a native
+         * prompt() — every other free-text input in this app is a real form
+         * field, and this follows that same convention.
+         */
+        function startRenameStaff(id) {
+            const el = document.getElementById(`staffName-${id}`);
+            if (!el) return;
+            const currentName = cachedStaffList.find(member => member.id === id)?.displayName || '';
+            el.innerHTML = `
+                <input type="text" id="staffNameInput-${id}" value="${escapeHTML(currentName)}" maxlength="60" style="width:160px;" autocomplete="off" />
+                <button type="button" class="btn btn-sm btn-action" onclick="saveRenameStaff('${id}')">Simpan</button>
+                <button type="button" class="btn btn-sm btn-reset" onclick="refreshStaffList()">Batal</button>
+            `;
+            document.getElementById(`staffNameInput-${id}`)?.focus();
+        }
+
+        async function saveRenameStaff(id) {
+            const input = document.getElementById(`staffNameInput-${id}`);
+            if (!input) return;
+            const displayName = input.value.trim();
+            if (!displayName) return alert('Nama tidak boleh kosong.');
+            try {
+                await window.AuthRepo.setStaffStatus(id, { displayName });
+                await refreshStaffList();
+            } catch (error) {
+                // staff_name_key_uidx (23505) means another staff member
+                // already has this name (case/whitespace-insensitive) -- see
+                // authRepository.js's setStaffStatus() comment.
+                alert(error.cause?.code === '23505'
+                    ? 'Nama ini telah digunakan oleh kakitangan lain.'
+                    : (error.message || 'Gagal mengemaskini nama.'));
+                console.warn(error);
             }
         }
 

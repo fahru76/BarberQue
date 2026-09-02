@@ -89,15 +89,25 @@ export async function listStaff() {
 }
 
 /**
- * Activate/deactivate a staff row, or change its role. The client-side
- * "admin-app only" gating is a convenience, not the real boundary — RLS's
- * "admins manage staff" policy (`for all ... using (is_admin())`) enforces
- * this server-side regardless of what the UI allows a caller to attempt.
+ * Activate/deactivate a staff row, change its role, or rename it
+ * (`displayName` — added so an admin can fix an email-derived name on an
+ * account bootstrapped before inviteBarber() existed, or any other staff
+ * member's name; barbers named through the normal invite flow don't need
+ * this, but nothing stops an admin from using it on them too). The
+ * client-side "admin-app only" gating is a convenience, not the real
+ * boundary — RLS's "admins manage staff" policy (`for all ... using
+ * (is_admin())`) enforces this server-side regardless of what the UI allows
+ * a caller to attempt. A rename that collides with another staff member's
+ * name (case/whitespace-insensitive) fails server-side on the
+ * `staff_name_key_uidx` unique index — the error's `.cause.code` is
+ * Postgres's `23505` (unique_violation), which callers can check for a
+ * friendlier message than the raw constraint error.
  */
-export async function setStaffStatus(id, { active, role } = {}) {
+export async function setStaffStatus(id, { active, role, displayName } = {}) {
     const patch = {};
     if (active !== undefined) patch.active = active;
     if (role !== undefined) patch.role = role;
+    if (displayName !== undefined) patch.display_name = displayName;
     const { error } = await supabase.from('staff').update(patch).eq('id', id);
     raiseOnError(error);
 }
