@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 3 September 2026
+**Date:** 3 September 2026 (updated same day: semantic-HTML/inline-style cleanup)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1431,13 +1431,95 @@ code path above.
 
 ---
 
+## Done — semantic HTML (`<main>`/`<header>`) + inline `style=` cleanup (code quality, no behaviour change)
+
+Requested directly: "Semantic HTML (`<main>`/`<header>`/`<footer>`) and ~195 inline
+`style=` attributes are still unaddressed — a code-quality item, not a bug." Pure
+refactor: the app's visual output and behaviour must be byte-for-byte identical, only
+the underlying HTML/CSS organization improves. No template, no diff-visible change to
+what a user sees.
+
+**Inline styles in the static markup (before the first `<script>`) — 118 of 119 removed:**
+
+- Every element with `style="..."` was decomposed into individual CSS declarations,
+  and each declaration's frequency across all such elements was counted.
+- 87 elements were fully "composable" (every one of their declarations is reused by at
+  least one other element) — these got one or more small utility classes instead
+  (`.mb-15`, `.w-full`, `.text-danger`, `.fs-85`, `.d-flex`, `.gap-10`, `.flex-1`, etc.
+  — 29 new classes total; 2 declarations — `color:var(--primary-color)` and
+  `color:var(--text-muted)` — already had matching classes, `.text-primary`/
+  `.text-muted`, and were reused rather than duplicated).
+- 32 elements had at least one declaration used nowhere else — these kept their exact
+  original declarations, moved verbatim into a new `#id { ... }` rule, with a
+  hand-picked, meaningful `id` added to the element (`customerTagline`,
+  `tvDisplayCard`, `adminFastPassPanel`, `btnConfirmAdminCancellation`, etc. — full
+  list is the diff on `index.html`, all 32 are new ids, none collide with anything
+  already in the file).
+- One element was deliberately **excluded** from all of this and still has its
+  original inline `style="display: none;"`: `<div id="booking-section">`. Line ~6638
+  reads `bookingSection?.style.display !== 'none'` directly off the inline style
+  property — moving that declaration into a stylesheet rule would make
+  `.style.display` read back `''` instead of `'none'` and silently break that check.
+  This is the one place inline styling is load-bearing, not just presentational.
+- All new CSS (utility classes + `#id` rules) was appended at the very end of the
+  page's last `<style>` block, i.e. after every other same-specificity rule already in
+  the file — the same position in the cascade an inline `style=""` attribute always
+  wins from, so nothing that used to be overridden-by-inline-style is now
+  overridden-by-something-else-instead. Checked for `!important` rules that could
+  interact with the touched elements/properties (`#customer-header-text p`'s two
+  `!important` declarations are the only one that overlaps, and it already won over
+  the old inline style the exact same way it wins over the new rule — no behaviour
+  change there either).
+
+**Inline styles left alone — 40, all inside `<script>` blocks:** every remaining
+`style="..."` lives inside a JS template literal that builds HTML at runtime (per-seat
+cards, per-record admin list items, service cards, badges, etc.), several with values
+computed from live data (`style="border-left-color: ${s.active ? 'var(--primary-color)'
+: 'var(--danger)'}"` and similar). Converting these to classes would mean editing
+string-concatenation code deep inside large functions with no static tag-balance check
+to verify against — meaningfully higher regression risk for a change whose entire
+point is "no behaviour change," so this batch was deliberately left as-is. If wanted
+later, the static ones (repeated per-row markup) could still move to classes; the
+genuinely data-driven ones (color depends on record state) are idiomatic to leave
+inline.
+
+**Semantic landmarks added:**
+
+- `<nav id="appNavigation">` is now wrapped in a `<header>` (checked first: every CSS
+  rule referencing nav is class-based, `.app-nav ...` or `body.kiosk-* .app-nav ...`
+  descendant selectors — never `nav` as a bare tag or `body > nav` — and the only JS
+  reference is `document.getElementById('appNavigation')`, so wrapping it changes
+  nothing either side reads).
+- The four top-level view containers — `customer-app`, `display-app`, `barber-app`,
+  `admin-app` — are now `<main>` instead of `<div>` (checked first: no CSS selector in
+  the file is tag-qualified, e.g. no `div.view-section` or `div#customer-app`; JS only
+  ever reaches them via `getElementById`/`classList`, never `tagName`).
+- **No `<footer>` was added.** The app has no footer-like content anywhere — no
+  copyright line, version tag, or bottom bar — so adding one would mean inventing
+  placeholder content rather than marking up something that already exists. Flagging
+  this rather than fabricating a footer just to tick the box.
+
+**Verification performed:** tag-balance counts for every affected tag
+(`div`/`main`/`header`/`nav`/`section`/`p`/`h2`/`h3`/`h4`/`button`/`span`/`select`/
+`form`/`dialog`) before and after, all balanced; both `<script>` blocks re-extracted
+and `node --check`ed after every edit; `npm test` (23/23) and
+`tests/sql-consistency.mjs` re-run clean (neither touches this change, run anyway per
+habit); grep-verified `booking-section`'s inline style and the id/class names chosen
+don't collide with anything pre-existing; full diff read start to finish, confirming
+every change is exactly "remove `style=\"...\"`, add `id=\"...\"` or `class=\"...\"`,
+or `<div>`→`<main>`/wrap-in-`<header>`" — no other text or attribute touched. **Not**
+tested: an actual rendered-pixel comparison in a browser (no browser available in this
+sandbox) — the CSS-cascade reasoning above is the substitute, and it's the same
+reasoning that made the original ~195 inline styles safe to move in the first place.
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
   forms, so every customer is asked for contact details for WhatsApp notifications that
   nothing sends. Either wire a provider or soften the copy — this is a promise to the
   customer, not just dead code.
-- `<main>` / `<header>` / `<footer>` still at zero; ~195 inline `style=` attributes.
 - **No initial hydration for queues/appointments on page load** (found 2 September 2026
   while testing the nav-bar change above). Step 7 wired live *change* events but never a
   "fetch current state now" call on load — a device that was off/reloaded while changes
@@ -1456,6 +1538,9 @@ code path above.
   before `invite-barber` existed). The rename control now exists (admin-app's "Ubah
   Nama" button, added 2 September 2026) — this is no longer an engineering task, just a
   manual action item: nobody has used it yet to set the real name.
+- **40 inline `style=` attributes remain**, all inside `<script>`-block template
+  literals that build HTML at runtime (see the cleanup section above for why they
+  were left as-is). No `<footer>` exists in the app — noted, not fabricated.
 
 ---
 
@@ -1526,7 +1611,18 @@ index.html                                          the running app; bookTicket(
                                                      editor validation + break/close <select>
                                                      population rewritten to allow close <= open;
                                                      mobile-number disclaimer added to both
-                                                     customer forms' phone-field notes
+                                                     customer forms' phone-field notes;
+                                                     semantic-HTML/inline-style cleanup --
+                                                     118 of 119 static-markup inline styles
+                                                     replaced with 29 new utility classes
+                                                     (87 elements) or 32 new per-element
+                                                     #id{} rules (id added to element);
+                                                     booking-section's style="display:none"
+                                                     kept inline (JS reads .style.display);
+                                                     nav wrapped in <header>; the four
+                                                     view-section roots are now <main>; 40
+                                                     inline styles remain, all inside
+                                                     <script>-block template literals
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified

@@ -1217,9 +1217,133 @@
         @media (prefers-reduced-motion: reduce) {
             .view-section.active { animation-duration: .01ms; }
         }
-    </style>
+    
+        /* Extracted from inline style="" attributes (semantic-HTML/inline-style cleanup) */
+        #staffAuthStatus { font-size:0.82rem; }
+        #staffLoginBtn { display:none; }
+        #staffLogoutBtn { display:none; }
+        #themeSelector { width: auto; padding: 8px 12px; height: auto; }
+        #customer-header-text { text-align: center; margin-bottom: 25px; }
+        #customerShopName { color: var(--primary-color); font-size: 2rem; }
+        #customer-closed-view { display: none; background: rgba(220, 53, 69, 0.1); border: 2px solid var(--danger); padding: 40px; border-radius: 12px; text-align: center; margin: 20px 0; }
+        #closedBookingReminder { display:none; margin-top:18px; padding-top:18px; border-top:1px solid var(--border-color); }
+        #closedBookingReminderText { margin-bottom:12px; }
+        #customer-break-alert { display: none; background: rgba(255, 193, 7, 0.1); border: 2px solid #ffc107; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0; }
+        #breakUntilTime { font-size:1.2rem; }
+        #customer-take-ticket { display: none; border-style: dashed; }
+        #walkinQueueStatus { margin-bottom:18px; }
+        #queueFullAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 8px; }
+        #walkinServiceHint { display:none; }
+        #walkinServiceSummary { margin-top:15px; color:var(--primary-color); font-size:1.1rem; text-align:right; }
+        #btnBookTicket { width: 100%; font-size: 1.2rem; padding: 15px; margin-top: 20px; }
+        #customer-my-ticket { display: none; }
+        #myTicketServices { font-size:0.9rem; color:var(--primary-color); margin-bottom:15px; }
+        #myQueueContext { margin-top:12px; font-size:0.8rem; line-height:1.5; }
+        #mySeatDir { margin-top: 15px; font-weight: bold; color: var(--success); font-size:1.2rem; display:none; }
+        #walkinWaitingActions { display:none; gap:10px; margin-top:20px; flex-wrap:wrap; }
+        #bookingFormTitle { color: var(--primary-color); margin-bottom: 15px; text-align: center; }
+        #customerMapFrame { width:100%; height:220px; border:0; border-radius:6px; }
+        #customerMapLink { display:block; width:100%; margin-top:10px; text-align:center; }
+        #bookingServiceHint { display:none; }
+        #bookServiceSummary { margin-top:15px; color:var(--primary-color); font-size:1.1rem; text-align:right; }
+        #bookDateInput { display: none; }
+        #bookingSlotNotice { display:none; margin-top:8px; color:var(--danger); font-size:0.85rem; }
+        #btnSubmitApp { flex: 1; }
+        #btnCancelEdit { display: none; }
+        #customer-my-appointments { display:none; border-color: var(--info); }
+        #tvServingGrid { margin-bottom: 50px; }
+        #tvUpcoming { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 20px; justify-content: flex-start; }
+        #tv-closed-notice { display: none; margin-top: 40px; padding: 20px; background: rgba(220,53,69,0.1); color: var(--danger); border-radius: 8px; font-size: 1.5rem; font-weight: bold; }
+        #inviteBarberError { color:var(--danger); display:none; margin-bottom:10px; }
+        #staffListContainer { margin-top:20px; }
+        #adminDetectedLocation { padding:12px; margin-top:15px; border-radius:8px; background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
+        #announcementImageStatus { font-size:0.78rem; margin-top:7px; }
+        #fastPassCandidateSummary { padding:12px; margin-bottom:12px; border-radius:8px; background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
+        #adminUnservableBookingSection { display:none; margin-bottom:20px; padding:14px; border:1px solid var(--danger); border-radius:8px; background:rgba(220,53,69,0.08); }
+        #adminUnservableBookingSummary { color:var(--danger); margin-bottom:6px; }
+        #adminCancelableQueueList { margin-bottom:18px; }
+        #adminClosedSelectionSummary { padding:12px; margin-bottom:15px; border-radius:8px; background:var(--border-light); color:var(--text-main); font-weight:600; }
+        #adminVisualCalendar { border-color: var(--danger); }
+        #adminCalMonthYear { color: var(--danger); }
+        #btnAddClosedDate { width: 100%; background: var(--danger); border-color: var(--danger); }
+        #adminEditServiceForm { display:none; background: rgba(23, 162, 184, 0.05); padding: 20px; border: 1px solid var(--info); border-radius: 8px; margin-bottom: 20px; }
+        #editSvcProfileSummary { margin-top:8px; padding:10px; border-radius:6px; background:var(--border-light); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
+        #adminServicesList { margin-bottom: 20px; }
+        #newSvcProfileSummary { margin-top:8px; padding:10px; border-radius:6px; background:var(--card-bg); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
+        #operationalHoursNotice { display:none; margin-top:12px; padding:10px 12px; color:var(--warning); background:color-mix(in srgb, var(--warning) 10%, transparent); border-left:3px solid var(--warning); border-radius:6px; font-size:0.85rem; }
+        #saveOperationalHoursBtn { margin-top: 20px; width: 100%; }
+        #adminSeatControls { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:25px; }
+        #adminCancelDialogTitle { color:var(--danger); margin-bottom:10px; }
+        #adminCancelDialogSummary { margin-bottom:15px; }
+        #staffLoginError { color:var(--danger); display:none; margin-bottom:10px; }
+        #setPasswordError { color:var(--danger); display:none; margin-bottom:10px; }
+    
+        /* Extracted from inline style="" attributes (semantic-HTML/inline-style cleanup, stage 2) */
+        .border-danger { border-color:var(--danger); }
+        .border-primary { border-color:var(--primary-color); }
+        .border-subtle { border-color:var(--border-color); }
+        .d-block { display:block; }
+        .d-flex { display:flex; }
+        .flex-1 { flex:1; }
+        .font-serif { font-family:serif; }
+        .fs-100 { font-size:1rem; }
+        .fs-105 { font-size:1.05rem; }
+        .fs-82 { font-size:0.82rem; }
+        .fs-85 { font-size:0.85rem; }
+        .fs-88 { font-size:0.88rem; }
+        .fs-90 { font-size:0.9rem; }
+        .gap-10 { gap:10px; }
+        .items-end { align-items:flex-end; }
+        .mb-10 { margin-bottom:10px; }
+        .mb-14 { margin-bottom:14px; }
+        .mb-15 { margin-bottom:15px; }
+        .mb-5 { margin-bottom:5px; }
+        .mb-8 { margin-bottom:8px; }
+        .mt-0 { margin-top:0; }
+        .mt-10 { margin-top:10px; }
+        .mt-15 { margin-top:15px; }
+        .mt-20 { margin-top:20px; }
+        .mt-30 { margin-top:30px; }
+        .my-20 { margin:20px 0; }
+        .text-danger { color:var(--danger); }
+        .text-info { color:var(--info); }
+        .w-full { width:100%; }
+        #customerTagline { font-size: 0.95rem; margin-top: 5px; }
+        #customerClosedHeading { color: var(--danger); font-size: 2.5rem; margin-bottom: 15px; }
+        #customerBreakHeading { color: #ffc107; margin-bottom: 10px; }
+        #queueFullAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom:10px; }
+        #btnBackToMenu { margin-top: 12px; width: 100%; }
+        #customerMapInfoBox { background:var(--border-light); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:18px; }
+        #tvDisplayCard { border: 4px solid var(--surface-color); padding: 40px; border-radius: 12px; text-align: center; max-width: 900px; margin: 0 auto; }
+        #tvServingHeading { color: var(--primary-color); margin-bottom: 30px; font-size: 3rem; }
+        #tvUpcomingHeading { color: var(--text-muted); text-align: left; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        #barberWaitingPanel { margin-top: 30px; border-color: var(--info); }
+        #adminShopStatusRow { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:10px; }
+        #adminShopStatusHeading { margin:0; }
+        #adminMapSearchRow { display:flex; gap:8px; }
+        #adminMapSearchNote { font-size:0.74rem; margin-top:10px; }
+        #adminAnnouncementSection { border-color:var(--warning); }
+        #announcementUnderlineIcon { font-family:serif; font-size:1.05rem; text-decoration:underline; }
+        #announcementImageAltField { min-width:180px; flex:1; }
+        #barberPerformanceHeading { margin:20px 0 10px; font-size:0.9rem; color:var(--text-muted); }
+        #adminFastPassPanel { border-color:#ffc107; }
+        #btnApproveFastPass { width:100%; background:#b57900; border-color:#b57900; }
+        #adminUnservableBookingNote { font-size:0.84rem; margin-bottom:12px; }
+        #adminClosedDateGuide { background:rgba(220,53,69,0.08); border:1px dashed var(--danger); border-radius:8px; padding:12px; margin-bottom:15px; }
+        #adminClosedDateActions { display:flex; justify-content:flex-end; margin-bottom:10px; }
+        #calLegendSpecialIcon { background:rgba(220,53,69,.18); border:1px solid var(--danger); }
+        #calLegendWeeklyClosureIcon { background:rgba(201,154,75,.12); border:1px dashed var(--warning); }
+        #adminAddServiceBox { background: var(--border-light); padding: 15px; border-radius: 8px; border: 1px dashed var(--border-color); }
+        #addServiceHeading { font-size: 1rem; color: var(--text-main); margin-bottom: 10px; }
+        #seatSectionDivider { border-color:var(--border-color); margin:24px 0; }
+        #barberAssignmentHeading { margin-bottom:6px; }
+        #btnSaveBarberAssignments { width:100%; margin-top:14px; }
+        #adminCancelDialogActions { display:flex; gap:10px; margin-top:18px; }
+        #btnConfirmAdminCancellation { flex:1; background:var(--danger); border-color:var(--danger); }
+</style>
 </head>
 <body>
+    <header>
     <nav id="appNavigation" class="app-nav" aria-label="Navigasi aplikasi QueueCut">
         <div id="appBrand" class="app-brand" aria-label="QueueCut oleh Syam Barber Shop">
             <span id="brandMonogram" class="brand-monogram" aria-hidden="true">QC</span>
@@ -1233,10 +1357,10 @@
         <div class="nav-spacer"></div>
 
         <div class="nav-tools">
-            <span id="staffAuthStatus" class="text-muted" style="font-size:0.82rem;"></span>
-            <button class="btn" id="staffLoginBtn" onclick="openStaffLoginDialog()" style="display:none;">Log Masuk</button>
-            <button class="btn btn-reset" id="staffLogoutBtn" onclick="signOutStaff()" style="display:none;">Log Keluar</button>
-            <select id="themeSelector" onchange="changeTheme(this.value)" style="width: auto; padding: 8px 12px; height: auto;">
+            <span id="staffAuthStatus" class="text-muted"></span>
+            <button class="btn" id="staffLoginBtn" onclick="openStaffLoginDialog()">Log Masuk</button>
+            <button class="btn btn-reset" id="staffLogoutBtn" onclick="signOutStaff()">Log Keluar</button>
+            <select id="themeSelector" onchange="changeTheme(this.value)">
                 <option value="auto">Auto</option>
                 <option value="dark">Gelap</option>
                 <option value="light">Cerah</option>
@@ -1244,15 +1368,16 @@
             <button class="btn btn-reset" onclick="resetSystem()">Reset</button>
         </div>
     </nav>
+    </header>
 
     <!-- ================= 1. PAPARAN PELANGGAN ================= -->
-    <div id="customer-app" class="view-section active">
+    <main id="customer-app" class="view-section active">
         <div class="customer-container">
             <!-- Header Teks Customer -->
-            <div id="customer-header-text" style="text-align: center; margin-bottom: 25px;">
+            <div id="customer-header-text">
                 <span id="customerHeaderEyebrow">QUEUECUT · KERTEH</span>
-                <h2 id="customerShopName" style="color: var(--primary-color); font-size: 2rem;">SYAM BARBER SHOP</h2>
-                <p class="text-muted" style="font-size: 0.95rem; margin-top: 5px;">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai—jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
+                <h2 id="customerShopName">SYAM BARBER SHOP</h2>
+                <p class="text-muted" id="customerTagline">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai—jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
             </div>
 
             <section id="customerAnnouncement" class="customer-announcement" aria-labelledby="customerAnnouncementTitle" aria-live="polite">
@@ -1261,21 +1386,21 @@
             </section>
 
             <!-- Notis Kedai Ditutup (Root Level) -->
-            <div id="customer-closed-view" style="display: none; background: rgba(220, 53, 69, 0.1); border: 2px solid var(--danger); padding: 40px; border-radius: 12px; text-align: center; margin: 20px 0;">
-                <h2 style="color: var(--danger); font-size: 2.5rem; margin-bottom: 15px;">KEDAI DITUTUP</h2>
+            <div id="customer-closed-view">
+                <h2 id="customerClosedHeading">KEDAI DITUTUP</h2>
                 <p id="customerClosedMessage">Maaf, operasi walk-in kedai telah ditutup buat masa ini.</p>
-                <p class="text-muted" style="margin-top: 15px; font-size: 0.9rem;">Tempahan Online untuk tarikh operasi akan datang masih tersedia.</p>
-                <div id="closedBookingReminder" style="display:none; margin-top:18px; padding-top:18px; border-top:1px solid var(--border-color);">
-                    <p id="closedBookingReminderText" style="margin-bottom:12px;"></p>
+                <p class="text-muted mt-15 fs-90">Tempahan Online untuk tarikh operasi akan datang masih tersedia.</p>
+                <div id="closedBookingReminder">
+                    <p id="closedBookingReminderText"></p>
                     <button type="button" class="btn btn-info" onclick="setCustomerMode('booking')">LIHAT TEMPAHAN SAYA</button>
                 </div>
             </div>
 
             <!-- Notis Waktu Rehat -->
-            <div id="customer-break-alert" style="display: none; background: rgba(255, 193, 7, 0.1); border: 2px solid #ffc107; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
-                <h3 style="color: #ffc107; margin-bottom: 10px;">WAKTU REHAT KEDAI</h3>
-                <p>Kedai sedang direhatkan sehingga jam <strong id="breakUntilTime" style="font-size:1.2rem;"></strong>.</p>
-                <p class="text-muted" style="font-size: 0.85rem; margin-top: 10px;">Anda masih boleh mengambil nombor giliran, tetapi servis akan disambung selepas waktu rehat tamat.</p>
+            <div id="customer-break-alert">
+                <h3 id="customerBreakHeading">WAKTU REHAT KEDAI</h3>
+                <p>Kedai sedang direhatkan sehingga jam <strong id="breakUntilTime"></strong>.</p>
+                <p class="text-muted fs-85 mt-10">Anda masih boleh mengambil nombor giliran, tetapi servis akan disambung selepas waktu rehat tamat.</p>
             </div>
 
             <!-- Toggles Navigasi -->
@@ -1286,9 +1411,9 @@
 
             <!-- MOD: WALK-IN -->
             <div id="walkin-section">
-                <div id="customer-take-ticket" class="panel-box" style="display: none; border-style: dashed;">
-                    <h3 class="text-center" style="margin-bottom: 10px;">Sertai Giliran Hari Ini</h3>
-                    <div id="walkinQueueStatus" class="customer-queue-progress" aria-live="polite" style="margin-bottom:18px;">
+                <div id="customer-take-ticket" class="panel-box">
+                    <h3 class="text-center mb-10">Sertai Giliran Hari Ini</h3>
+                    <div id="walkinQueueStatus" class="customer-queue-progress" aria-live="polite">
                         <div class="customer-queue-metric">
                             <strong id="walkinQueueCount">0/10</strong>
                             <span>Giliran Walk-in semasa</span>
@@ -1300,9 +1425,9 @@
                     </div>
                     <form id="walkinForm" onsubmit="event.preventDefault(); bookTicket()">
                     
-                    <div id="queueFullAlert" style="display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 8px;">
-                        <div style="color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom:10px;">MAAF, GILIRAN WALK-IN PENUH</div>
-                        <button type="button" class="btn btn-info" style="width: 100%;" onclick="setCustomerMode('booking')">CARI SLOT KOSONG (ONLINE)</button>
+                    <div id="queueFullAlert">
+                        <div id="queueFullAlertHeading">MAAF, GILIRAN WALK-IN PENUH</div>
+                        <button type="button" class="btn btn-info w-full" onclick="setCustomerMode('booking')">CARI SLOT KOSONG (ONLINE)</button>
                     </div>
                     
                     <div class="input-group">
@@ -1313,7 +1438,7 @@
                         <label for="customerPhoneInput">Nombor WhatsApp:</label>
                         <input type="tel" id="customerPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true">
                     </div>
-                    <div class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">Nombor WhatsApp diperlukan untuk menyertai giliran ini — digunakan semata-mata untuk memaklumkan status giliran anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Anggaran masa giliran mungkin berubah mengikut keadaan operasi semasa.</div>
+                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk menyertai giliran ini — digunakan semata-mata untuk memaklumkan status giliran anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Anggaran masa giliran mungkin berubah mengikut keadaan operasi semasa.</div>
                     
                     <div class="input-group">
                         <label id="walkinServicesLabel">Pilih Servis:</label>
@@ -1322,20 +1447,20 @@
                             <button type="button" id="walkinServiceTabFashion" class="service-category-tab" onclick="setServiceCategoryTab('walkin', 'fashion')">Gaya Potongan</button>
                         </div>
                         <div id="walkinServiceSelect" class="service-checkbox-container" role="group" aria-labelledby="walkinServicesLabel"></div>
-                        <div id="walkinServiceHint" class="service-combo-hint" aria-live="polite" style="display:none;"></div>
-                        <div id="walkinServiceSummary" style="margin-top:15px; color:var(--primary-color); font-size:1.1rem; text-align:right;"></div>
+                        <div id="walkinServiceHint" class="service-combo-hint" aria-live="polite"></div>
+                        <div id="walkinServiceSummary"></div>
                     </div>
 
-                    <button type="submit" class="btn btn-action" id="btnBookTicket" style="width: 100%; font-size: 1.2rem; padding: 15px; margin-top: 20px;">AMBIL NOMBOR SEKARANG</button>
+                    <button type="submit" class="btn btn-action" id="btnBookTicket">AMBIL NOMBOR SEKARANG</button>
                     </form>
                 </div>
 
-                <div id="customer-my-ticket" style="display: none;">
+                <div id="customer-my-ticket">
                     <div class="ticket-box">
-                        <p style="font-size: 1rem; color: var(--text-muted);">TIKET WALK-IN ANDA</p>
+                        <p class="fs-100 text-muted">TIKET WALK-IN ANDA</p>
                         <div class="ticket-name" id="myTicketName">Nama</div>
                         <div class="ticket-number" id="myQueueNum">PG01</div>
-                        <div id="myTicketServices" style="font-size:0.9rem; color:var(--primary-color); margin-bottom:15px;"></div>
+                        <div id="myTicketServices"></div>
                         <p>Status: <strong id="myStatus" class="text-primary">Menunggu...</strong></p>
                         <div id="myQueueProgress" class="customer-queue-progress" aria-live="polite">
                             <div class="customer-queue-metric">
@@ -1347,27 +1472,27 @@
                                 <span>Anggaran masa menunggu</span>
                             </div>
                         </div>
-                        <p id="myQueueContext" class="text-muted" style="margin-top:12px; font-size:0.8rem; line-height:1.5;"></p>
-                        <p id="mySeatDir" style="margin-top: 15px; font-weight: bold; color: var(--success); font-size:1.2rem; display:none;">SILA KE KERUSI <span id="myTargetSeat"></span></p>
+                        <p id="myQueueContext" class="text-muted"></p>
+                        <p id="mySeatDir">SILA KE KERUSI <span id="myTargetSeat"></span></p>
                     </div>
-                    <div id="walkinWaitingActions" style="display:none; gap:10px; margin-top:20px; flex-wrap:wrap;">
-                        <button class="btn btn-reset" style="flex:1;" onclick="cancelCustomerWalkin()">BATAL WALK-IN</button>
-                        <button class="btn btn-info" style="flex:1;" onclick="startWalkinConversion()">TUKAR KE TEMPAHAN ONLINE</button>
+                    <div id="walkinWaitingActions">
+                        <button class="btn btn-reset flex-1" onclick="cancelCustomerWalkin()">BATAL WALK-IN</button>
+                        <button class="btn btn-info flex-1" onclick="startWalkinConversion()">TUKAR KE TEMPAHAN ONLINE</button>
                     </div>
-                    <button class="btn" style="margin-top: 12px; width: 100%;" onclick="showTicketSelection()">← Kembali ke Menu Utama</button>
+                    <button class="btn" id="btnBackToMenu" onclick="showTicketSelection()">← Kembali ke Menu Utama</button>
                 </div>
             </div>
 
             <!-- MOD: BOOKING -->
             <div id="booking-section" style="display: none;">
                 <div class="panel-box" id="bookingFormBox">
-                    <h3 id="bookingFormTitle" style="color: var(--primary-color); margin-bottom: 15px; text-align: center;">Tempahan Kalendar</h3>
+                    <h3 id="bookingFormTitle">Tempahan Kalendar</h3>
                     <form id="bookingForm" onsubmit="event.preventDefault(); submitAppointment()">
-                    <div style="background:var(--border-light); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:18px;">
-                        <strong style="display:block; color:var(--primary-color); margin-bottom:8px;">Lokasi Kedai</strong>
-                        <div style="font-size:0.9rem; margin-bottom:10px;">Alamat / Lokasi: <strong id="customerMapQuery">FCQQ+X6 Kerteh, Terengganu</strong></div>
-                        <iframe id="customerMapFrame" title="Lokasi Syam Barber Shop" src="https://www.google.com/maps?q=FCQQ%2BX6%20Kerteh%2C%20Terengganu&amp;output=embed" style="width:100%; height:220px; border:0; border-radius:6px;" loading="lazy" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
-                        <a id="customerMapLink" class="btn btn-outline" href="https://www.google.com/maps/search/?api=1&amp;query=FCQQ%2BX6%20Kerteh%2C%20Terengganu" target="_blank" rel="noopener noreferrer" style="display:block; width:100%; margin-top:10px; text-align:center;">BUKA GOOGLE MAPS</a>
+                    <div id="customerMapInfoBox">
+                        <strong class="d-block text-primary mb-8">Lokasi Kedai</strong>
+                        <div class="fs-90 mb-10">Alamat / Lokasi: <strong id="customerMapQuery">FCQQ+X6 Kerteh, Terengganu</strong></div>
+                        <iframe id="customerMapFrame" title="Lokasi Syam Barber Shop" src="https://www.google.com/maps?q=FCQQ%2BX6%20Kerteh%2C%20Terengganu&amp;output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+                        <a id="customerMapLink" class="btn btn-outline" href="https://www.google.com/maps/search/?api=1&amp;query=FCQQ%2BX6%20Kerteh%2C%20Terengganu" target="_blank" rel="noopener noreferrer">BUKA GOOGLE MAPS</a>
                     </div>
                     <div class="input-group">
                         <label for="bookNameInput">Nama Anda:</label>
@@ -1377,7 +1502,7 @@
                         <label for="bookPhoneInput">Nombor WhatsApp:</label>
                         <input type="tel" id="bookPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true">
                     </div>
-                    <div class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">Nombor WhatsApp diperlukan untuk membuat tempahan ini — digunakan semata-mata untuk memaklumkan status tempahan anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Masa tempahan mungkin berubah mengikut keadaan operasi semasa.</div>
+                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk membuat tempahan ini — digunakan semata-mata untuk memaklumkan status tempahan anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Masa tempahan mungkin berubah mengikut keadaan operasi semasa.</div>
                     <div class="input-group">
                         <label id="bookingServicesLabel">Pilih Servis:</label>
                         <div class="service-category-tabs">
@@ -1385,11 +1510,11 @@
                             <button type="button" id="bookingServiceTabFashion" class="service-category-tab" onclick="setServiceCategoryTab('booking', 'fashion')">Gaya Potongan</button>
                         </div>
                         <div id="bookServiceSelect" class="service-checkbox-container" role="group" aria-labelledby="bookingServicesLabel"></div>
-                        <div id="bookingServiceHint" class="service-combo-hint" aria-live="polite" style="display:none;"></div>
-                        <div id="bookServiceSummary" style="margin-top:15px; color:var(--primary-color); font-size:1.1rem; text-align:right;"></div>
+                        <div id="bookingServiceHint" class="service-combo-hint" aria-live="polite"></div>
+                        <div id="bookServiceSummary"></div>
                     </div>
                     <div class="input-row">
-                        <div style="width: 100%;">
+                        <div class="w-full">
                             <label for="bookDateInput">Pilih Tarikh:</label>
                             <div class="custom-calendar" id="custVisualCalendar">
                                 <div class="cal-header">
@@ -1402,7 +1527,7 @@
                                 </div>
                                 <div class="cal-days" id="calDaysContainer"></div>
                             </div>
-                            <input type="date" id="bookDateInput" onchange="generateTimeSlots()" style="display: none;">
+                            <input type="date" id="bookDateInput" onchange="generateTimeSlots()">
                         </div>
                     </div>
                     <div class="input-row">
@@ -1411,62 +1536,62 @@
                             <select id="bookTimeInput" disabled>
                                 <option value="">-- Pilih Tarikh Dahulu --</option>
                             </select>
-                            <div id="bookingSlotNotice" role="status" aria-live="polite" style="display:none; margin-top:8px; color:var(--danger); font-size:0.85rem;"></div>
+                            <div id="bookingSlotNotice" role="status" aria-live="polite"></div>
                         </div>
                     </div>
                     
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="submit" class="btn btn-action" id="btnSubmitApp" style="flex: 1;" disabled>SAHKAN TEMPAHAN</button>
-                        <button type="button" class="btn btn-reset" id="btnCancelEdit" style="display: none;" onclick="cancelEditMode()">BATAL KEMAS KINI</button>
+                    <div class="d-flex gap-10 mt-20">
+                        <button type="submit" class="btn btn-action" id="btnSubmitApp" disabled>SAHKAN TEMPAHAN</button>
+                        <button type="button" class="btn btn-reset" id="btnCancelEdit" onclick="cancelEditMode()">BATAL KEMAS KINI</button>
                     </div>
                     </form>
                 </div>
 
-                <div id="customer-my-appointments" class="panel-box" style="display:none; border-color: var(--info);">
-                    <h3 style="color: var(--info); margin-bottom: 15px;">TEMPAHAN SAYA</h3>
+                <div id="customer-my-appointments" class="panel-box">
+                    <h3 class="text-info mb-15">TEMPAHAN SAYA</h3>
                     <div id="myBookingListContainer"></div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
     <!-- ================= 2. PAPARAN TV ================= -->
-    <div id="display-app" class="view-section">
-        <div style="border: 4px solid var(--surface-color); padding: 40px; border-radius: 12px; text-align: center; max-width: 900px; margin: 0 auto;">
-            <h2 style="color: var(--primary-color); margin-bottom: 30px; font-size: 3rem;">SEDANG DILAYAN</h2>
-            <div class="serving-grid" id="tvServingGrid" style="margin-bottom: 50px;"></div>
-            <h3 style="color: var(--text-muted); text-align: left; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">GILIRAN AKAN DATANG</h3>
-            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 20px; justify-content: flex-start;" id="tvUpcoming"></div>
-            <div id="tv-closed-notice" style="display: none; margin-top: 40px; padding: 20px; background: rgba(220,53,69,0.1); color: var(--danger); border-radius: 8px; font-size: 1.5rem; font-weight: bold;">
+    <main id="display-app" class="view-section">
+        <div id="tvDisplayCard">
+            <h2 id="tvServingHeading">SEDANG DILAYAN</h2>
+            <div class="serving-grid" id="tvServingGrid"></div>
+            <h3 id="tvUpcomingHeading">GILIRAN AKAN DATANG</h3>
+            <div id="tvUpcoming"></div>
+            <div id="tv-closed-notice">
                 OPERASI KEDAI TELAH DITUTUP
             </div>
         </div>
-    </div>
+    </main>
 
     <!-- ================= 3. PANEL BARBER ================= -->
-    <div id="barber-app" class="view-section">
+    <main id="barber-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Tukang Gunting</h2>
             <div class="serving-grid" id="barberSeatControls"></div>
-            <div class="panel-box" style="margin-top: 30px; border-color: var(--primary-color);">
-                <h3 style="color: var(--primary-color); margin-bottom: 15px;">TEMPAHAN KALENDAR HARI INI (<span id="todayDateStr"></span>)</h3>
+            <div class="panel-box mt-30 border-primary">
+                <h3 class="text-primary mb-15">TEMPAHAN KALENDAR HARI INI (<span id="todayDateStr"></span>)</h3>
                 <div id="todayBookingList"></div>
             </div>
-            <div class="panel-box" style="margin-top: 30px; border-color: var(--info);">
-                <h3 style="color: var(--info); margin-bottom: 15px;">SENARAI MENUNGGU (WALK-IN)</h3>
+            <div class="panel-box" id="barberWaitingPanel">
+                <h3 class="text-info mb-15">SENARAI MENUNGGU (WALK-IN)</h3>
                 <div id="barberWaitingList"></div>
             </div>
         </div>
-    </div>
+    </main>
 
     <!-- ================= 4. PANEL ADMIN ================= -->
-    <div id="admin-app" class="view-section">
+    <main id="admin-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Admin</h2>
 
-            <section class="panel-box" style="border-color: var(--primary-color);">
-                <h3 class="admin-setting-title" style="margin-bottom: 10px;">KAKITANGAN</h3>
-                <p class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">Akaun kakitangan tidak boleh didaftar sendiri. Jemput tukang gunting baharu di sini — mereka menerima e-mel untuk menetapkan kata laluan sendiri, dan kekal <strong>Belum Aktif</strong> sehingga anda mengaktifkannya di senarai di bawah.</p>
+            <section class="panel-box border-primary">
+                <h3 class="admin-setting-title mb-10">KAKITANGAN</h3>
+                <p class="text-muted fs-85 mb-15">Akaun kakitangan tidak boleh didaftar sendiri. Jemput tukang gunting baharu di sini — mereka menerima e-mel untuk menetapkan kata laluan sendiri, dan kekal <strong>Belum Aktif</strong> sehingga anda mengaktifkannya di senarai di bawah.</p>
                 <form id="inviteBarberForm" onsubmit="event.preventDefault(); submitInviteBarber()">
                     <div class="input-group">
                         <label for="inviteBarberName">Nama Penuh:</label>
@@ -1476,21 +1601,21 @@
                         <label for="inviteBarberEmail">E-mel:</label>
                         <input type="email" id="inviteBarberEmail" required>
                     </div>
-                    <p id="inviteBarberError" class="text-muted" style="color:var(--danger); display:none; margin-bottom:10px;"></p>
-                    <button type="submit" class="btn btn-action" style="width:100%;">HANTAR JEMPUTAN</button>
+                    <p id="inviteBarberError" class="text-muted"></p>
+                    <button type="submit" class="btn btn-action w-full">HANTAR JEMPUTAN</button>
                 </form>
-                <div id="staffListContainer" style="margin-top:20px;"></div>
-                <button type="button" class="btn" style="width:100%; margin-top:10px;" onclick="refreshStaffList()">MUAT SEMULA SENARAI</button>
+                <div id="staffListContainer"></div>
+                <button type="button" class="btn w-full mt-10" onclick="refreshStaffList()">MUAT SEMULA SENARAI</button>
             </section>
 
-            <div class="panel-box" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:10px;">
-                <h3 style="margin:0;">Status Kedai: <span id="adminShopStatusText">DIBUKA</span></h3>
+            <div class="panel-box" id="adminShopStatusRow">
+                <h3 id="adminShopStatusHeading">Status Kedai: <span id="adminShopStatusText">DIBUKA</span></h3>
                 <button class="btn" id="toggleShopBtn" onclick="toggleShopStatus()"></button>
             </div>
 
             <section class="panel-box">
-                <h3 class="admin-setting-title" style="margin-bottom: 10px;">IDENTITI &amp; LOKASI KEDAI</h3>
-                <p class="text-muted" style="font-size:0.88rem; margin-bottom:15px;">Nama aplikasi, nama kedai dan lokasi akan dipaparkan pada halaman pelanggan.</p>
+                <h3 class="admin-setting-title mb-10">IDENTITI &amp; LOKASI KEDAI</h3>
+                <p class="text-muted fs-88 mb-15">Nama aplikasi, nama kedai dan lokasi akan dipaparkan pada halaman pelanggan.</p>
                 <div class="input-group">
                     <label for="adminAppNameInput">Nama Aplikasi:</label>
                     <input type="text" id="adminAppNameInput" maxlength="40" placeholder="Contoh: QueueCut">
@@ -1501,18 +1626,18 @@
                 </div>
                 <div class="map-picker-guide">
                     <span class="map-picker-step">1</span>
-                    <div><strong>Cari menggunakan Google Maps terus di sini</strong><br><span class="text-muted" style="font-size:0.82rem;">Masukkan nama kedai bersama bandar atau alamat yang tepat, kemudian tekan “Cari di Google”.</span></div>
+                    <div><strong>Cari menggunakan Google Maps terus di sini</strong><br><span class="text-muted fs-82">Masukkan nama kedai bersama bandar atau alamat yang tepat, kemudian tekan “Cari di Google”.</span></div>
                 </div>
                 <div class="input-group">
                     <label for="adminMapSearchInput">Nama Kedai / Alamat / Bandar:</label>
-                    <div style="display:flex; gap:8px;">
+                    <div id="adminMapSearchRow">
                         <input type="text" id="adminMapSearchInput" maxlength="160" placeholder="Contoh: Syam Barber Shop, Kerteh">
                         <button type="button" class="btn btn-action" onclick="searchAdminMapLocations()">CARI DI GOOGLE</button>
                     </div>
                 </div>
                 <div class="map-picker-guide">
                     <span class="map-picker-step">2</span>
-                    <div><strong>Semak pin kedai dalam preview Google</strong><br><span class="text-muted" style="font-size:0.82rem;">Jika pin tidak tepat, lengkapkan carian dengan bandar, negeri atau alamat dan cari semula.</span></div>
+                    <div><strong>Semak pin kedai dalam preview Google</strong><br><span class="text-muted fs-82">Jika pin tidak tepat, lengkapkan carian dengan bandar, negeri atau alamat dan cari semula.</span></div>
                 </div>
                 <iframe id="adminGoogleMapFrame" title="Preview pin lokasi kedai di Google Maps" src="https://www.google.com/maps?q=FCQQ%2BX6%20Kerteh%2C%20Terengganu&amp;z=17&amp;output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
                 <input type="hidden" id="adminMapQuery" value="FCQQ+X6 Kerteh, Terengganu">
@@ -1520,14 +1645,14 @@
                     <label for="adminMapLocationName">Nama Lokasi pada Header:</label>
                     <input type="text" id="adminMapLocationName" maxlength="80" placeholder="Contoh: Kerteh">
                 </div>
-                <div id="adminDetectedLocation" style="padding:12px; margin-top:15px; border-radius:8px; background:var(--border-light); color:var(--text-muted); font-size:0.88rem;">Lokasi semasa: Kerteh</div>
-                <p class="text-muted" style="font-size:0.74rem; margin-top:10px;">Preview dan pautan pelanggan menggunakan carian Google Maps yang sama. Pastikan hanya lokasi kedai yang dimaksudkan muncul sebagai hasil utama.</p>
-                <button type="button" class="btn btn-info" style="width:100%; margin-top:15px;" onclick="saveShopNameSetting()">SIMPAN IDENTITI &amp; LOKASI</button>
+                <div id="adminDetectedLocation">Lokasi semasa: Kerteh</div>
+                <p class="text-muted" id="adminMapSearchNote">Preview dan pautan pelanggan menggunakan carian Google Maps yang sama. Pastikan hanya lokasi kedai yang dimaksudkan muncul sebagai hasil utama.</p>
+                <button type="button" class="btn btn-info w-full mt-15" onclick="saveShopNameSetting()">SIMPAN IDENTITI &amp; LOKASI</button>
             </section>
 
-            <section class="panel-box" style="border-color:var(--warning);">
-                <h3 class="admin-setting-title" style="margin-bottom: 10px;">PENGUMUMAN PELANGGAN</h3>
-                <p class="text-muted" style="font-size:0.88rem; margin-bottom:15px;">Pengumuman akan dipaparkan pada halaman pelanggan untuk Walk-in dan Tempahan Online.</p>
+            <section class="panel-box" id="adminAnnouncementSection">
+                <h3 class="admin-setting-title mb-10">PENGUMUMAN PELANGGAN</h3>
+                <p class="text-muted fs-88 mb-15">Pengumuman akan dipaparkan pada halaman pelanggan untuk Walk-in dan Tempahan Online.</p>
                 <div class="input-group">
                     <label id="announcementEditorLabel">Kandungan Pengumuman:</label>
                     <div id="announcementEditorToolbar" class="rich-editor-toolbar" role="toolbar" aria-label="Alat format pengumuman">
@@ -1536,9 +1661,9 @@
                             <button type="button" class="editor-tool-button" onclick="formatAnnouncement('redo')" title="Redo" aria-label="Redo"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M12 5h4v-4M15.5 5A7 7 0 1 0 17 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                         </div>
                         <div class="editor-tool-group">
-                            <button type="button" class="editor-tool-button" data-editor-command="bold" onclick="formatAnnouncement('bold')" title="Bold" aria-label="Bold" aria-pressed="false"><strong style="font-size:1.05rem;">B</strong></button>
-                            <button type="button" class="editor-tool-button" data-editor-command="italic" onclick="formatAnnouncement('italic')" title="Italic" aria-label="Italic" aria-pressed="false"><em style="font-family:serif; font-size:1.05rem;">I</em></button>
-                            <button type="button" class="editor-tool-button" data-editor-command="underline" onclick="formatAnnouncement('underline')" title="Underline" aria-label="Underline" aria-pressed="false"><span style="font-family:serif; font-size:1.05rem; text-decoration:underline;">U</span></button>
+                            <button type="button" class="editor-tool-button" data-editor-command="bold" onclick="formatAnnouncement('bold')" title="Bold" aria-label="Bold" aria-pressed="false"><strong class="fs-105">B</strong></button>
+                            <button type="button" class="editor-tool-button" data-editor-command="italic" onclick="formatAnnouncement('italic')" title="Italic" aria-label="Italic" aria-pressed="false"><em class="font-serif fs-105">I</em></button>
+                            <button type="button" class="editor-tool-button" data-editor-command="underline" onclick="formatAnnouncement('underline')" title="Underline" aria-label="Underline" aria-pressed="false"><span id="announcementUnderlineIcon">U</span></button>
                         </div>
                         <div class="editor-tool-group">
                             <button type="button" class="editor-tool-button" data-editor-command="insertUnorderedList" onclick="formatAnnouncement('insertUnorderedList')" title="Senarai bullet" aria-label="Senarai bullet" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><circle cx="3" cy="5" r="1.3" fill="currentColor"/><circle cx="3" cy="10" r="1.3" fill="currentColor"/><circle cx="3" cy="15" r="1.3" fill="currentColor"/><path d="M7 5h10M7 10h10M7 15h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
@@ -1558,7 +1683,7 @@
                     <input type="file" id="announcementImageInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden onchange="uploadAnnouncementImage(this)">
                     <div id="announcementImageControls" class="image-editor-controls" aria-label="Tetapan gambar terpilih">
                         <button type="button" class="btn btn-info" onclick="openAnnouncementImagePicker(true)">GANTI GAMBAR</button>
-                        <div class="image-control-field" style="min-width:180px; flex:1;">
+                        <div class="image-control-field" id="announcementImageAltField">
                             <label for="announcementImageAlt">Teks alternatif</label>
                             <input type="text" id="announcementImageAlt" maxlength="120" placeholder="Terangkan gambar" onchange="updateAnnouncementImageAlt(this.value)">
                         </div>
@@ -1573,19 +1698,19 @@
                         </div>
                         <button type="button" class="btn btn-reset" onclick="removeAnnouncementImage()">BUANG</button>
                     </div>
-                    <span id="announcementImageStatus" class="text-muted" style="font-size:0.78rem; margin-top:7px;">Gunakan ikon gambar pada toolbar untuk memasukkan gambar. Klik gambar untuk mengeditnya.</span>
+                    <span id="announcementImageStatus" class="text-muted">Gunakan ikon gambar pada toolbar untuk memasukkan gambar. Klik gambar untuk mengeditnya.</span>
                 </div>
-                <label class="weekly-closed-toggle" for="adminAnnouncementEnabled" style="margin-top:15px;">
+                <label class="weekly-closed-toggle mt-15" for="adminAnnouncementEnabled">
                     <input type="checkbox" id="adminAnnouncementEnabled">
                     <span><strong>Paparkan Pengumuman</strong><small>Matikan pilihan ini untuk menyembunyikan pengumuman tanpa memadam teks.</small></span>
                 </label>
-                <button type="button" class="btn btn-info" style="width:100%; margin-top:15px;" onclick="saveAnnouncementSetting()">SIMPAN PENGUMUMAN</button>
+                <button type="button" class="btn btn-info w-full mt-15" onclick="saveAnnouncementSetting()">SIMPAN PENGUMUMAN</button>
             </section>
 
             <!-- TAB LAPORAN -->
             <div class="panel-box">
-                <h3 class="admin-setting-title" style="margin-bottom: 15px;">LAPORAN PRESTASI JUALAN</h3>
-                <div class="mode-toggle" style="margin-bottom: 15px;">
+                <h3 class="admin-setting-title mb-15">LAPORAN PRESTASI JUALAN</h3>
+                <div class="mode-toggle mb-15">
                     <button class="mode-btn active" id="btnRepDaily" onclick="showReport('daily')">Penghujung Hari</button>
                     <button class="mode-btn" id="btnRepMonthly" onclick="showReport('monthly')">Bulan Lepas</button>
                 </div>
@@ -1599,87 +1724,87 @@
                         <div class="report-val" id="reportCount">0</div>
                     </div>
                 </div>
-                <h4 style="margin:20px 0 10px; font-size:0.9rem; color:var(--text-muted);">Prestasi Mengikut Tukang Gunting</h4>
+                <h4 id="barberPerformanceHeading">Prestasi Mengikut Tukang Gunting</h4>
                 <div id="barberPerformanceSummary" class="barber-performance-grid"></div>
-                <h4 style="margin-bottom: 10px; font-size: 0.9rem; color: var(--text-muted);">Senarai Pelanggan Selesai:</h4>
+                <h4 class="mb-10 fs-90 text-muted">Senarai Pelanggan Selesai:</h4>
                 <div id="reportListContainer"></div>
             </div>
 
             <!-- LALUAN PANTAS: KELULUSAN ADMIN -->
-            <div class="panel-box" style="border-color:#ffc107;">
-                <h3 class="admin-setting-title" style="margin-bottom:10px;">LALUAN PANTAS</h3>
-                <p class="text-muted" style="font-size:0.88rem; margin-bottom:15px;">Pilih pelanggan Walk-in atau Tempahan Online yang sudah wujud. Tetapan servis, harga dan tempoh asal akan digunakan tanpa perubahan. Keutamaan ini tidak dipaparkan pada skrin pelanggan.</p>
+            <div class="panel-box" id="adminFastPassPanel">
+                <h3 class="admin-setting-title mb-10">LALUAN PANTAS</h3>
+                <p class="text-muted fs-88 mb-15">Pilih pelanggan Walk-in atau Tempahan Online yang sudah wujud. Tetapan servis, harga dan tempoh asal akan digunakan tanpa perubahan. Keutamaan ini tidak dipaparkan pada skrin pelanggan.</p>
                 <div class="input-group">
                     <label for="fastPassCandidate">Pelanggan:</label>
                     <select id="fastPassCandidate" onchange="updateFastPassCandidateSummary()">
                         <option value="">-- Pilih Walk-in atau Tempahan Online --</option>
                     </select>
                 </div>
-                <div id="fastPassCandidateSummary" style="padding:12px; margin-bottom:12px; border-radius:8px; background:var(--border-light); color:var(--text-muted); font-size:0.88rem;">Pilih pelanggan untuk melihat servis sedia ada.</div>
+                <div id="fastPassCandidateSummary">Pilih pelanggan untuk melihat servis sedia ada.</div>
                 <div class="input-group">
                     <label for="fastPassReason">Sebab Kelulusan:</label>
                     <input type="text" id="fastPassReason" maxlength="160" placeholder="Contoh: warga emas / keperluan khas / kecemasan">
                 </div>
-                <button class="btn btn-action" style="width:100%; background:#b57900; border-color:#b57900;" onclick="approveFastPass()">LULUSKAN TERUS KEUTAMAAN</button>
-                <div style="margin-top:20px;">
-                    <h4 style="margin-bottom:10px;">Kelulusan Aktif</h4>
+                <button class="btn btn-action" id="btnApproveFastPass" onclick="approveFastPass()">LULUSKAN TERUS KEUTAMAAN</button>
+                <div class="mt-20">
+                    <h4 class="mb-10">Kelulusan Aktif</h4>
                     <div id="adminFastPassList"></div>
                 </div>
             </div>
 
-            <div class="panel-box" style="border-color:var(--danger);">
-                <h3 class="admin-setting-title" style="margin-bottom:10px;">PENGURUSAN PEMBATALAN</h3>
-                <p class="text-muted" style="font-size:0.88rem; margin-bottom:15px;">Admin boleh membatalkan Walk-in yang masih menunggu atau Tempahan Online yang masih akan datang. Sebab pembatalan wajib dan notifikasi akan direkodkan.</p>
-                <div id="adminUnservableBookingSection" style="display:none; margin-bottom:20px; padding:14px; border:1px solid var(--danger); border-radius:8px; background:rgba(220,53,69,0.08);">
-                    <h4 id="adminUnservableBookingSummary" style="color:var(--danger); margin-bottom:6px;"></h4>
-                    <p class="text-muted" style="font-size:0.84rem; margin-bottom:12px;">Tempahan ini masih aktif tetapi berada di luar waktu operasi semasa. Hubungi pelanggan untuk penjadualan semula atau batalkan dengan sebab yang jelas.</p>
+            <div class="panel-box border-danger">
+                <h3 class="admin-setting-title mb-10">PENGURUSAN PEMBATALAN</h3>
+                <p class="text-muted fs-88 mb-15">Admin boleh membatalkan Walk-in yang masih menunggu atau Tempahan Online yang masih akan datang. Sebab pembatalan wajib dan notifikasi akan direkodkan.</p>
+                <div id="adminUnservableBookingSection">
+                    <h4 id="adminUnservableBookingSummary"></h4>
+                    <p class="text-muted" id="adminUnservableBookingNote">Tempahan ini masih aktif tetapi berada di luar waktu operasi semasa. Hubungi pelanggan untuk penjadualan semula atau batalkan dengan sebab yang jelas.</p>
                     <div id="adminUnservableBookingList"></div>
                 </div>
-                <h4 style="margin-bottom:10px;">Giliran Menunggu</h4>
-                <div id="adminCancelableQueueList" style="margin-bottom:18px;"></div>
-                <h4 style="margin-bottom:10px;">Tempahan Online Akan Datang</h4>
+                <h4 class="mb-10">Giliran Menunggu</h4>
+                <div id="adminCancelableQueueList"></div>
+                <h4 class="mb-10">Tempahan Online Akan Datang</h4>
                 <div id="adminCancelableBookingList"></div>
             </div>
 
             <!-- CUTI KEDAI -->
-            <div class="panel-box" style="border-color: var(--danger);">
-                <h3 class="admin-setting-title" style="margin-bottom: 15px;">TETAPAN CUTI / TUTUP KEDAI</h3>
-                <div style="background:rgba(220,53,69,0.08); border:1px dashed var(--danger); border-radius:8px; padding:12px; margin-bottom:15px;">
-                    <strong style="display:block; color:var(--danger); margin-bottom:5px;">Cara Pilih Cuti</strong>
-                    <span class="text-muted" style="font-size:0.88rem;">Klik sekali untuk sehari. Klik tarikh kedua untuk membentuk julat. Klik tarikh ketiga untuk memulakan pilihan baharu.</span>
+            <div class="panel-box border-danger">
+                <h3 class="admin-setting-title mb-15">TETAPAN CUTI / TUTUP KEDAI</h3>
+                <div id="adminClosedDateGuide">
+                    <strong class="d-block text-danger mb-5">Cara Pilih Cuti</strong>
+                    <span class="text-muted fs-88">Klik sekali untuk sehari. Klik tarikh kedua untuk membentuk julat. Klik tarikh ketiga untuk memulakan pilihan baharu.</span>
                 </div>
                 <input type="hidden" id="adminClosedDateStart">
                 <input type="hidden" id="adminClosedDateEnd">
-                <div id="adminClosedSelectionSummary" style="padding:12px; margin-bottom:15px; border-radius:8px; background:var(--border-light); color:var(--text-main); font-weight:600;">Belum ada tarikh dipilih.</div>
-                <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+                <div id="adminClosedSelectionSummary">Belum ada tarikh dipilih.</div>
+                <div id="adminClosedDateActions">
                     <button type="button" class="btn btn-sm btn-outline" onclick="clearAdminClosedDateSelection()">Kosongkan Pilihan</button>
                 </div>
 
-                <div class="custom-calendar" id="adminVisualCalendar" style="border-color: var(--danger);">
+                <div class="custom-calendar" id="adminVisualCalendar">
                     <div class="cal-header">
-                        <button class="cal-btn" onclick="changeAdminCalMonth(-1)" style="color: var(--danger); border-color: var(--danger);">&lt;</button>
-                        <div id="adminCalMonthYear" style="color: var(--danger);">Bulan Tahun</div>
-                        <button class="cal-btn" onclick="changeAdminCalMonth(1)" style="color: var(--danger); border-color: var(--danger);">&gt;</button>
+                        <button class="cal-btn text-danger border-danger" onclick="changeAdminCalMonth(-1)">&lt;</button>
+                        <div id="adminCalMonthYear">Bulan Tahun</div>
+                        <button class="cal-btn text-danger border-danger" onclick="changeAdminCalMonth(1)">&gt;</button>
                     </div>
                     <div class="cal-weekdays"><div>Aha</div><div>Isn</div><div>Sel</div><div>Rab</div><div>Kha</div><div>Jum</div><div>Sab</div></div>
                     <div class="cal-days" id="adminCalDaysContainer"></div>
                     <div class="cal-legend">
-                        <span><i class="legend-box" style="background:rgba(220,53,69,.18); border:1px solid var(--danger);"></i>Cuti khas</span>
-                        <span><i class="legend-box" style="background:rgba(201,154,75,.12); border:1px dashed var(--warning);"></i>Tutup jadual mingguan</span>
+                        <span><i class="legend-box" id="calLegendSpecialIcon"></i>Cuti khas</span>
+                        <span><i class="legend-box" id="calLegendWeeklyClosureIcon"></i>Tutup jadual mingguan</span>
                     </div>
                 </div>
 
-                <button class="btn btn-action" id="btnAddClosedDate" style="width: 100%; background: var(--danger); border-color: var(--danger);" onclick="addClosedDate()">REKOD CUTI</button>
-                <div style="margin-top: 20px;"><div id="adminClosedDatesList"></div></div>
+                <button class="btn btn-action" id="btnAddClosedDate" onclick="addClosedDate()">REKOD CUTI</button>
+                <div class="mt-20"><div id="adminClosedDatesList"></div></div>
             </div>
 
             <!-- TETAPAN SERVIS -->
             <div class="panel-box">
-                <h3 class="admin-setting-title" style="margin-bottom: 15px;">TETAPAN SERVIS & DURASI</h3>
-                <div id="adminEditServiceForm" style="display:none; background: rgba(23, 162, 184, 0.05); padding: 20px; border: 1px solid var(--info); border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="color: var(--info); margin-bottom: 10px;">Kemas Kini Servis</h4>
+                <h3 class="admin-setting-title mb-15">TETAPAN SERVIS & DURASI</h3>
+                <div id="adminEditServiceForm">
+                    <h4 class="text-info mb-10">Kemas Kini Servis</h4>
                     <input type="hidden" id="editSvcId">
-                    <div class="input-group" style="margin-top:0;">
+                    <div class="input-group mt-0">
                         <label for="editSvcProfile">Profil Logik:</label>
                         <select id="editSvcProfile" onchange="applyServiceProfile('edit')">
                             <option value="">-- Pilih Profil Logik --</option>
@@ -1691,9 +1816,9 @@
                             <option value="hair_addon">Servis Tambahan Rambut</option>
                             <option value="custom">Tetapan Tersuai</option>
                         </select>
-                        <div id="editSvcProfileSummary" style="margin-top:8px; padding:10px; border-radius:6px; background:var(--border-light); color:var(--text-muted); font-size:0.85rem; line-height:1.45;"></div>
+                        <div id="editSvcProfileSummary"></div>
                     </div>
-                    <div class="input-group" style="margin-top:0;">
+                    <div class="input-group mt-0">
                         <label for="editSvcName">Nama Servis:</label>
                         <input type="text" id="editSvcName" placeholder="Nama Servis">
                     </div>
@@ -1733,9 +1858,9 @@
                             </select>
                         </div>
                     </div>
-                    <div style="display:flex; gap:10px; margin-top: 15px;">
-                        <button class="btn btn-info" style="flex:1;" onclick="saveServiceEdit()">SIMPAN KEMAS KINI</button>
-                        <button class="btn btn-reset" style="flex:1;" onclick="document.getElementById('adminEditServiceForm').style.display='none'">BATAL</button>
+                    <div class="d-flex gap-10 mt-15">
+                        <button class="btn btn-info flex-1" onclick="saveServiceEdit()">SIMPAN KEMAS KINI</button>
+                        <button class="btn btn-reset flex-1" onclick="document.getElementById('adminEditServiceForm').style.display='none'">BATAL</button>
                     </div>
                 </div>
 
@@ -1745,10 +1870,10 @@
                 </div>
                 <p class="service-sort-hint">Seret servis menggunakan pemegang di sebelah kiri untuk mengubah keutamaan. Turutan teratas akan dipaparkan dahulu kepada pelanggan.</p>
                 <div id="serviceOrderNotice" class="service-order-notice" role="status" aria-live="polite"></div>
-                <div id="adminServicesList" style="margin-bottom: 20px;"></div>
+                <div id="adminServicesList"></div>
 
-                <div style="background: var(--border-light); padding: 15px; border-radius: 8px; border: 1px dashed var(--border-color);">
-                    <h4 style="font-size: 1rem; color: var(--text-main); margin-bottom: 10px;">Tambah Servis Baru</h4>
+                <div id="adminAddServiceBox">
+                    <h4 id="addServiceHeading">Tambah Servis Baru</h4>
                     <div class="input-group">
                         <label for="newSvcProfile">Profil Logik:</label>
                         <select id="newSvcProfile" onchange="applyServiceProfile('new')">
@@ -1761,7 +1886,7 @@
                             <option value="hair_addon">Servis Tambahan Rambut</option>
                             <option value="custom">Tetapan Tersuai</option>
                         </select>
-                        <div id="newSvcProfileSummary" style="margin-top:8px; padding:10px; border-radius:6px; background:var(--card-bg); color:var(--text-muted); font-size:0.85rem; line-height:1.45;"></div>
+                        <div id="newSvcProfileSummary"></div>
                     </div>
                     <div class="input-group"><label for="newSvcName">Nama Servis:</label><input type="text" id="newSvcName" placeholder="Nama Servis (Cth: Cuci Janggut)"></div>
                     <div class="input-row">
@@ -1794,14 +1919,14 @@
                             </select>
                         </div>
                     </div>
-                    <button class="btn btn-outline" style="margin-top: 15px; width: 100%; border-color: var(--primary-color); color: var(--primary-color);" onclick="addService()">+ TAMBAH SERVIS</button>
+                    <button class="btn btn-outline mt-15 w-full border-primary text-primary" onclick="addService()">+ TAMBAH SERVIS</button>
                 </div>
             </div>
 
             <!-- OTHER SETTINGS... -->
             <div class="panel-box">
-                <h3 class="admin-setting-title" style="margin-bottom: 15px;">TETAPAN WAKTU OPERASI</h3>
-                <p class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">Tetapkan waktu berasingan untuk setiap hari. Waktu operasi dan tempahan dipaparkan dalam waktu Malaysia (GMT+8).</p>
+                <h3 class="admin-setting-title mb-15">TETAPAN WAKTU OPERASI</h3>
+                <p class="text-muted fs-85 mb-15">Tetapkan waktu berasingan untuk setiap hari. Waktu operasi dan tempahan dipaparkan dalam waktu Malaysia (GMT+8).</p>
                 <div class="weekly-hours-tabs" role="tablist" aria-label="Pilih hari untuk waktu operasi">
                     <button type="button" class="weekly-hours-tab" id="opDay1" aria-pressed="false" onclick="selectOperationalDay(1)">Isnin</button>
                     <button type="button" class="weekly-hours-tab" id="opDay2" aria-pressed="false" onclick="selectOperationalDay(2)">Selasa</button>
@@ -1820,66 +1945,66 @@
                     <span><strong>Tutup Sepanjang Hari</strong><small>Walk-in dan Tempahan Online tidak tersedia pada hari ini.</small></span>
                 </label>
                 <div id="operationalTimeFields" class="operational-time-fields">
-                    <p class="text-muted" style="font-size:0.85rem; margin-bottom:5px;">Pilih terus daripada senarai masa setiap 15 minit. Pilih “Tiada rehat” jika waktu rehat tidak digunakan.</p>
+                    <p class="text-muted fs-85 mb-5">Pilih terus daripada senarai masa setiap 15 minit. Pilih “Tiada rehat” jika waktu rehat tidak digunakan.</p>
                     <div class="input-row">
                         <div><label for="opOpen">Buka Kedai:</label><select id="opOpen" onchange="refreshCloseTimeOptions()"></select></div>
                         <div><label for="opClose">Tutup Kedai:</label><select id="opClose" onchange="refreshBreakTimeOptions()"></select></div>
                     </div>
-                    <hr style="border-color: var(--border-color); margin: 20px 0;">
+                    <hr class="border-subtle my-20">
                     <div class="input-row">
-                        <div><label for="br1Start" style="color:var(--danger);">Mula Rehat 1:</label><select id="br1Start" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
-                        <div><label for="br1End" style="color:var(--danger);">Tamat Rehat 1:</label><select id="br1End" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
+                        <div><label for="br1Start" class="text-danger">Mula Rehat 1:</label><select id="br1Start" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
+                        <div><label for="br1End" class="text-danger">Tamat Rehat 1:</label><select id="br1End" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
                     </div>
-                    <div class="input-row" style="margin-top: 15px;">
-                        <div><label for="br2Start" style="color:var(--danger);">Mula Rehat 2:</label><select id="br2Start" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
-                        <div><label for="br2End" style="color:var(--danger);">Tamat Rehat 2:</label><select id="br2End" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
+                    <div class="input-row mt-15">
+                        <div><label for="br2Start" class="text-danger">Mula Rehat 2:</label><select id="br2Start" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
+                        <div><label for="br2End" class="text-danger">Tamat Rehat 2:</label><select id="br2End" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
                     </div>
-                    <p id="operationalHoursNotice" role="status" aria-live="polite" style="display:none; margin-top:12px; padding:10px 12px; color:var(--warning); background:color-mix(in srgb, var(--warning) 10%, transparent); border-left:3px solid var(--warning); border-radius:6px; font-size:0.85rem;"></p>
+                    <p id="operationalHoursNotice" role="status" aria-live="polite"></p>
                 </div>
-                <button class="btn" id="saveOperationalHoursBtn" style="margin-top: 20px; width: 100%;" onclick="saveOperationalHours()">SIMPAN WAKTU HARI</button>
-                <hr style="border-color:var(--border-color); margin:20px 0;">
-                <div class="input-row" style="align-items:flex-end;">
+                <button class="btn" id="saveOperationalHoursBtn" onclick="saveOperationalHours()">SIMPAN WAKTU HARI</button>
+                <hr class="border-subtle my-20">
+                <div class="input-row items-end">
                     <div>
                         <label for="adminBookingAdvanceDaysInput">Had Tempahan Online (Hari Ke Hadapan):</label>
                         <input type="number" id="adminBookingAdvanceDaysInput" min="1" max="365" step="1">
                     </div>
-                    <div><button class="btn btn-info" style="width:100%;" onclick="saveBookingAdvanceDaysSetting()">SIMPAN HAD TEMPAHAN</button></div>
+                    <div><button class="btn btn-info w-full" onclick="saveBookingAdvanceDaysSetting()">SIMPAN HAD TEMPAHAN</button></div>
                 </div>
             </div>
 
             <div class="panel-box">
-                <h3 class="admin-setting-title" style="margin-bottom: 15px;">KAWALAN KERUSI & HAD GILIRAN</h3>
-                <div class="input-group" style="margin-bottom: 15px;">
+                <h3 class="admin-setting-title mb-15">KAWALAN KERUSI & HAD GILIRAN</h3>
+                <div class="input-group mb-15">
                     <label for="adminMaxQueueInput">Had Maksimum Giliran Menunggu:</label>
                     <input type="number" id="adminMaxQueueInput" min="1">
                 </div>
-                <button class="btn btn-info" style="width:100%; margin-bottom:15px;" onclick="saveMaxQueueSetting()">SIMPAN HAD GILIRAN</button>
-                <div class="input-row" style="align-items:flex-end; margin-bottom:15px;">
+                <button class="btn btn-info w-full mb-15" onclick="saveMaxQueueSetting()">SIMPAN HAD GILIRAN</button>
+                <div class="input-row items-end mb-15">
                     <div>
                         <label for="adminSeatCountInput">Jumlah Kerusi:</label>
                         <input type="number" id="adminSeatCountInput" min="1" max="20" step="1">
                     </div>
-                    <div><button class="btn btn-info" style="width:100%;" onclick="saveSeatCountSetting()">SIMPAN JUMLAH KERUSI</button></div>
+                    <div><button class="btn btn-info w-full" onclick="saveSeatCountSetting()">SIMPAN JUMLAH KERUSI</button></div>
                 </div>
-                <div id="adminSeatControls" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:25px;"></div>
-                <hr style="border-color:var(--border-color); margin:24px 0;">
-                <h4 style="margin-bottom:6px;">Tukang Gunting Bertugas</h4>
-                <p class="text-muted" style="font-size:0.82rem; margin-bottom:14px;">Nama tukang gunting wajib diisi sebelum kerusi boleh diaktifkan. Nama dikekalkan apabila kerusi ditutup supaya mudah dibuka semula, dan boleh ditukar ketika kerusi tidak aktif.</p>
+                <div id="adminSeatControls"></div>
+                <hr id="seatSectionDivider">
+                <h4 id="barberAssignmentHeading">Tukang Gunting Bertugas</h4>
+                <p class="text-muted fs-82 mb-14">Nama tukang gunting wajib diisi sebelum kerusi boleh diaktifkan. Nama dikekalkan apabila kerusi ditutup supaya mudah dibuka semula, dan boleh ditukar ketika kerusi tidak aktif.</p>
                 <div id="adminBarberAssignments" class="barber-assignment-grid"></div>
-                <button class="btn btn-action" style="width:100%; margin-top:14px;" onclick="saveBarberAssignments()">SIMPAN PASUKAN BERTUGAS</button>
+                <button class="btn btn-action" id="btnSaveBarberAssignments" onclick="saveBarberAssignments()">SIMPAN PASUKAN BERTUGAS</button>
             </div>
         </div>
-    </div>
+    </main>
 
     <dialog id="adminCancelDialog" class="app-dialog" aria-labelledby="adminCancelDialogTitle">
         <div class="app-dialog-content">
-            <h3 id="adminCancelDialogTitle" style="color:var(--danger); margin-bottom:10px;">Sahkan Pembatalan</h3>
-            <p id="adminCancelDialogSummary" class="text-muted" style="margin-bottom:15px;"></p>
-            <label for="adminCancelReason" style="display:block; margin-bottom:8px;">Sebab Pembatalan:</label>
+            <h3 id="adminCancelDialogTitle">Sahkan Pembatalan</h3>
+            <p id="adminCancelDialogSummary" class="text-muted"></p>
+            <label for="adminCancelReason" class="d-block mb-8">Sebab Pembatalan:</label>
             <textarea id="adminCancelReason" maxlength="240" placeholder="Masukkan sebab yang jelas"></textarea>
-            <div style="display:flex; gap:10px; margin-top:18px;">
-                <button type="button" class="btn btn-reset" style="flex:1;" onclick="closeAdminCancelDialog()">KEMBALI</button>
-                <button type="button" class="btn btn-action" style="flex:1; background:var(--danger); border-color:var(--danger);" onclick="confirmAdminCancellation()">SAHKAN BATAL</button>
+            <div id="adminCancelDialogActions">
+                <button type="button" class="btn btn-reset flex-1" onclick="closeAdminCancelDialog()">KEMBALI</button>
+                <button type="button" class="btn btn-action" id="btnConfirmAdminCancellation" onclick="confirmAdminCancellation()">SAHKAN BATAL</button>
             </div>
         </div>
     </dialog>
@@ -1887,7 +2012,7 @@
     <dialog id="staffLoginDialog" class="app-dialog" aria-labelledby="staffLoginDialogTitle">
         <div class="app-dialog-content">
             <h3 id="staffLoginDialogTitle">Log Masuk Kakitangan</h3>
-            <p class="text-muted" style="font-size:0.82rem; margin-bottom:14px;">Akaun kakitangan dicipta oleh Admin melalui jemputan e-mel — tiada pendaftaran sendiri.</p>
+            <p class="text-muted fs-82 mb-14">Akaun kakitangan dicipta oleh Admin melalui jemputan e-mel — tiada pendaftaran sendiri.</p>
             <form id="staffLoginForm" onsubmit="event.preventDefault(); submitStaffLogin()">
                 <div class="input-group">
                     <label for="staffLoginEmail">E-mel:</label>
@@ -1897,10 +2022,10 @@
                     <label for="staffLoginPassword">Kata Laluan:</label>
                     <input type="password" id="staffLoginPassword" required autocomplete="current-password">
                 </div>
-                <p id="staffLoginError" class="text-muted" style="color:var(--danger); display:none; margin-bottom:10px;"></p>
-                <div style="display:flex; gap:10px; margin-top:10px;">
-                    <button type="button" class="btn btn-reset" style="flex:1;" onclick="closeStaffLoginDialog()">BATAL</button>
-                    <button type="submit" class="btn btn-action" style="flex:1;">LOG MASUK</button>
+                <p id="staffLoginError" class="text-muted"></p>
+                <div class="d-flex gap-10 mt-10">
+                    <button type="button" class="btn btn-reset flex-1" onclick="closeStaffLoginDialog()">BATAL</button>
+                    <button type="submit" class="btn btn-action flex-1">LOG MASUK</button>
                 </div>
             </form>
         </div>
@@ -1909,14 +2034,14 @@
     <dialog id="setPasswordDialog" class="app-dialog" aria-labelledby="setPasswordDialogTitle">
         <div class="app-dialog-content">
             <h3 id="setPasswordDialogTitle">Tetapkan Kata Laluan</h3>
-            <p class="text-muted" style="font-size:0.82rem; margin-bottom:14px;">Anda telah dijemput sebagai kakitangan. Tetapkan kata laluan untuk akaun anda sebelum meneruskan.</p>
+            <p class="text-muted fs-82 mb-14">Anda telah dijemput sebagai kakitangan. Tetapkan kata laluan untuk akaun anda sebelum meneruskan.</p>
             <form id="setPasswordForm" onsubmit="event.preventDefault(); submitSetPassword()">
                 <div class="input-group">
                     <label for="setPasswordInput">Kata Laluan Baharu:</label>
                     <input type="password" id="setPasswordInput" minlength="8" required autocomplete="new-password">
                 </div>
-                <p id="setPasswordError" class="text-muted" style="color:var(--danger); display:none; margin-bottom:10px;"></p>
-                <button type="submit" class="btn btn-action" style="width:100%;">SIMPAN KATA LALUAN</button>
+                <p id="setPasswordError" class="text-muted"></p>
+                <button type="submit" class="btn btn-action w-full">SIMPAN KATA LALUAN</button>
             </form>
         </div>
     </dialog>
