@@ -71,5 +71,27 @@ eq('slot running past closing is rejected', S.isSlotAvailable({ time: '21:40', d
 eq('slot on a closed day is rejected', S.isSlotAvailable({ time: '15:00', duration: 30, ops: { ...OPS, closed: true }, activeSeats: { 1: true }, nowMinutes: at(9) }), false);
 eq('valid slot is accepted', S.isSlotAvailable({ time: '15:00', duration: 30, ops: OPS, activeSeats: { 1: true }, nowMinutes: at(9) }), true);
 
+console.log('\nOvernight schedule crossing midnight  (round 20, midnight-crossing fix)');
+{
+    // open 18:00, close 01:00 -- close <= open, so this day's hours cross
+    // midnight. Every raw clock-time earlier than `open` is the post-midnight
+    // TAIL of this same business day, extended onto minutes 1440+ (see
+    // businessMinutes' doc in js/domain/time.js). atNext() writes that tail
+    // in the same "hours:minutes" shape as at(), just past the 24h mark.
+    const OVERNIGHT_OPS = { open: '18:00', close: '01:00', break1Start: '23:30', break1End: '00:30', break2Start: '', break2End: '' };
+    const OVERNIGHT_NO_BREAK = { open: '18:00', close: '01:00', break1Start: '', break1End: '', break2Start: '', break2End: '' };
+    const atNext = (h, m = 0) => 1440 + h * 60 + m;
+
+    eq('waiting 23:45+60 is delayed past the midnight-crossing break', S.moveServicePastBreak(at(23, 45), 60, OVERNIGHT_OPS), atNext(0, 30));
+    eq('waiting 23:00+30 ends exactly at break start, NOT pushed', S.moveServicePastBreak(at(23, 0), 30, OVERNIGHT_OPS), at(23, 0));
+    eq('a raw post-midnight start (00:30) is understood as this business day\'s tail, not delayed further', S.moveServicePastBreak(30, 20, OVERNIGHT_OPS), atNext(0, 30));
+    eq('getServiceEnd wraps a raw post-midnight start onto the business-day axis', S.getServiceEnd(30, 45, OVERNIGHT_OPS, { inProgress: true }), atNext(1, 15));
+
+    eq('overnight slot after midnight is accepted', S.isSlotAvailable({ time: '00:00', duration: 30, ops: OVERNIGHT_NO_BREAK, activeSeats: { 1: true }, nowMinutes: at(19) }), true);
+    eq('overnight slot inside the midnight-crossing break is rejected', S.isSlotAvailable({ time: '00:00', duration: 60, ops: OVERNIGHT_OPS, activeSeats: { 1: true }, nowMinutes: at(19) }), false);
+    eq('overnight slot running past a post-midnight close is rejected', S.isSlotAvailable({ time: '00:45', duration: 30, ops: OVERNIGHT_OPS, activeSeats: { 1: true }, nowMinutes: at(19) }), false);
+    eq('overnight slot right after the midnight-crossing break is accepted', S.isSlotAvailable({ time: '00:30', duration: 20, ops: OVERNIGHT_OPS, activeSeats: { 1: true }, nowMinutes: at(19) }), true);
+}
+
 console.log(`\n${passed} passed, ${failed.length} failed`);
 if (failed.length) process.exit(1);

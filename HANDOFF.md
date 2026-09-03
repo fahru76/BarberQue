@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 2 September 2026
+**Date:** 3 September 2026
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -28,7 +28,8 @@ no storage, no wall clock — `nowMinutes` and `ops` are passed in.
   **0 mismatches**. This proves the extraction changed no behaviour. Keep it until
   `index.html` is retired, then delete it with `build/legacy.cjs`.
 
-Last run: 15 passed / 0 failed, 20,000 comparisons / 0 mismatches.
+Last run: 23 passed / 0 failed (was 15; +8 overnight-schedule fixtures), 20,000
+comparisons / 0 mismatches.
 
 ### Done — step 2: database, applied and verified
 
@@ -1314,6 +1315,122 @@ deploy.
 
 ---
 
+## Done — overnight (midnight-crossing) shop schedule support + mobile-number disclaimer
+
+**Date:** 3 September 2026. Requested directly: "No support for a same-day shop schedule
+that crosses midnight (e.g. 18:00–01:00)", plus a general disclaimer that a customer's
+mobile number is required to use the barber service.
+
+**Mobile-number disclaimer:** both customer forms' phone-field note (walk-in and online
+booking) now states the number is required to join/book, used only for status/WhatsApp
+notifications, and not shared with third parties — was previously silent on *why* the
+number is needed at all.
+
+**Overnight schedule — three options were presented, highlighted for a decision before
+building:** (1) keep same-day storage, just fix the minute-math so a crossing schedule
+is usable but a 00:30 walk-in/booking is still filed under the calendar day it physically
+occurred on; (2) **shift to a business day** — a booking/ticket taken in the post-midnight
+tail is understood as belonging to the day the shift *opened* (like a bar/club reporting a
+"Friday night" that runs past midnight); (3) a hybrid. **The user chose option 2**,
+explicitly — the more invasive option, not the recommended lighter one — because it
+matches how a real shift-based business actually reports its night.
+
+**Root cause:** every hours/break/slot-availability comparison, in four separate places,
+assumed `close > open` and silently broke for `close <= open` (an overnight day). Also
+found (and this was the whole reason a byte-for-byte "just fix the math" fix wasn't
+enough): `js/domain/time.js`/`scheduler.js` are a pure, tested reference layer that
+**index.html never actually imports** — it keeps its own independent inline duplicate of
+every scheduling function. Both had to be fixed for real behaviour to change.
+
+**The fix — a "business-minutes" extension** (`crossesMidnight(ops)` / `businessMinutes(minutes, ops)`,
+added to `js/domain/time.js` and duplicated inline in `index.html`): a day whose `close`
+is at/before its `open` crosses midnight; its `close` (and any break time that's also past
+midnight) is then understood as `+1440`, and any raw clock-time earlier than `open` is
+understood as the post-midnight TAIL of the *same* business day — there's no other valid
+reading of "a time before this day opened, on a day that closes after midnight". A
+same-day config is completely unaffected (`crossesMidnight` is false, so `businessMinutes`
+is a no-op everywhere) — confirmed zero-regression via `tests/differential.test.mjs`'s
+20,000-case fuzzer, whose ops generator only ever produces `close > open`.
+
+Wired into every call site that does "is now/this slot within hours" math: `getOpHours()`'s
+default now resolves through a new `getCurrentBusinessDate()` (mirrors "today" but returns
+*yesterday* during yesterday's still-running overnight tail); the daily ticket
+counter/suffix; `intervalOverlapsBreak`/`getConfiguredBreaks`/`moveServicePastBreak`/
+`getServiceEnd`/`findNextSeatStart`/`getQueueOccupancyIntervals`/`isAppointmentSlotAvailable`;
+`bookTicket()`'s walk-in gate; `markAppointmentArrived()`'s "Hadir" gate; the customer
+booking form's `generateTimeSlots()` (previously generated **zero** slots at all for an
+overnight day — the loop bound itself assumed `close > open`); `estimateQueueWaitMinutes`/
+`buildWaitByRecordId` (previously passed a literal-calendar "today" into a function now
+gated on business-date, which would have silently returned no wait estimate during an
+overnight tail); the admin dashboard's "today's bookings" list; and the daily sales report
+(now buckets by `getBusinessDateForTimestamp(completedAt)`, a new helper that generalizes
+`getCurrentBusinessDate()` to any past moment — needed because the "shift to a business
+day" model is specifically about correct shift-based reporting).
+
+The admin hours editor was hard-rejecting `open >= close` outright (an admin could not
+even *save* an overnight config before this) — relaxed to reject only `open === close`
+(a zero-length day), with the break-time validation, the open/close/break `<select>`
+option-population logic (three separate places built these dropdowns; all assumed
+same-day), and the pending-cleared-break-notice logic all rewritten to interpret times via
+`businessMinutes`. The customer booking form labels a post-midnight slot "(esok pagi)" so
+it's not misread as landing on the picked calendar date.
+
+`js/domain/scheduler.js` was updated in lockstep (imports `businessMinutes` from
+`time.js`, wraps every internal minute value the same way index.html's duplicates do), and
+8 new fixtures were added to `tests/domain/scheduler.test.mjs` covering an 18:00–01:00 day:
+break-crossing-midnight delay/no-delay, a raw post-midnight start being understood as the
+same business day's tail, and slot-availability across the crossing break/close. **23
+passed, 0 failed** (was 15); differential suite still 20,000/0 mismatches.
+
+**Server-side mirror** (`supabase/migrations/20260903000100_overnight_schedule.sql`, a new
+additive migration — the two functions it touches were `create or replace`d, not edited in
+their original files): `_appointment_hours_ok()` got the identical `crossesMidnight`/extend
+treatment in PL/pgSQL; `next_ticket_number()`'s daily counter now resets via a new
+`_current_business_date()` helper (mirrors the client one, reading the same
+`weekly_op_hours` shop setting) instead of literal Malaysia midnight. Verified inside a
+`begin; ... rollback;` transaction against a temporary overnight `shop_settings` override
+before applying for real (accept/reject slots at the right minutes, break rejection,
+past-close rejection), plus an isolated hardcoded-input check of the "yesterday's shift
+is still running" branch (can't otherwise exercise on demand against real `now()`).
+Applied and confirmed against the *actual* live `shop_settings` row afterward (still a
+same-day 09:00–22:00 config) — unaffected, as expected. `get_advisors(security)`:
+no new findings; `tests/sql-consistency.mjs` updated to know the new
+`_current_business_date` function name and passes clean.
+
+**Deliberately not covered** (reporting-only "today"/"this month" displays, lower priority
+than operational correctness — can the shop actually stay open and serve/bookable
+correctly across midnight, which is done):
+- The monthly sales report still buckets by literal calendar month/year of
+  `completedAt` — a ticket completed just after midnight on the 1st (the tail of the
+  previous month's last overnight shift) would land in the new month's report instead of
+  the old month's. Only matters once a month, only for a shop with an overnight schedule
+  spanning a month boundary.
+- `getAffectedUpcomingAppointments()` (the "these bookings will be affected" warning shown
+  when an admin edits weekly hours) still uses literal `getLocalYMD()` as its "upcoming"
+  cutoff, not `getCurrentBusinessDate()`.
+- The visual booking/closed-date calendars' lower bound ("can't pick a past date") stays
+  literal-calendar — this was a deliberate call, not an oversight: a customer picking a
+  *calendar* date to book is a different question from "what's the operationally active
+  business day right now", and the calendar-based answer is the correct one there.
+- The break-time `<select>` dropdowns list post-midnight options in raw clock order (they
+  sort before the evening options, e.g. "00:00" appears above "18:00") rather than "time
+  since opening" order — correct, just a minor UX polish opportunity if it comes up.
+
+**Verified:** `node --check` on the extracted module script (clean after every edit pass);
+`npm test` (23/23 domain fixtures, 20,000/0 differential); `tests/sql-consistency.mjs`
+clean; the new SQL verified pre-apply inside a rolled-back transaction, then re-checked
+against the live database afterward; a standalone Node probe re-implementing
+`getCurrentBusinessDate()`/`businessMinutes()` verbatim from the index.html source,
+fed a fake wall clock, confirmed the exact day-boundary case (00:30 Wednesday still
+resolves to Tuesday's overnight shift; 02:00 Wednesday, past Tuesday's 01:00 close,
+correctly resolves to Wednesday's own day). **Not** verified: an actual live-browser
+session with an overnight config configured and the system clock crossing real midnight
+(impractical to trigger on demand) — the admin can now at least *save* such a config,
+which itself was previously impossible and is confirmed via the validation-relaxation
+code path above.
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
@@ -1321,9 +1438,6 @@ deploy.
   nothing sends. Either wire a provider or soften the copy — this is a promise to the
   customer, not just dead code.
 - `<main>` / `<header>` / `<footer>` still at zero; ~195 inline `style=` attributes.
-- Same-day time model: an 18:00–01:00 shop still cannot be configured. Needs a
-  business-day offset **before** the server stores schedules, since it changes the meaning
-  of persisted values.
 - **No initial hydration for queues/appointments on page load** (found 2 September 2026
   while testing the nav-bar change above). Step 7 wired live *change* events but never a
   "fetch current state now" call on load — a device that was off/reloaded while changes
@@ -1348,8 +1462,12 @@ deploy.
 ## Files
 
 ```
-js/domain/time.js                                   pure, tested
-js/domain/scheduler.js                              pure, tested
+js/domain/time.js                                   pure, tested; crossesMidnight()/
+                                                     businessMinutes() added for overnight
+                                                     schedule support
+js/domain/scheduler.js                              pure, tested; every internal minute
+                                                     value now runs through businessMinutes()
+                                                     for overnight schedule support
 js/supabaseConfig.js                                URL + publishable key
 js/supabaseClient.js                                creates the client (CDN import, no bundler)
 js/repositories/queueRepository.js                  step 3: wired for takeTicket/cancelOwn only;
@@ -1400,7 +1518,15 @@ index.html                                          the running app; bookTicket(
                                                      staff member's display_name ("Ubah Nama");
                                                      admin panel's URL slug changed from
                                                      ?view=admin to ?view=fahru76 (VIEW_SLUGS) --
-                                                     obscurity only, on-page "ADMIN" label unchanged
+                                                     obscurity only, on-page "ADMIN" label unchanged;
+                                                     overnight (midnight-crossing) shop schedule
+                                                     support -- crossesMidnight()/businessMinutes()/
+                                                     getCurrentBusinessDate()/
+                                                     getBusinessDateForTimestamp() added; hours
+                                                     editor validation + break/close <select>
+                                                     population rewritten to allow close <= open;
+                                                     mobile-number disclaimer added to both
+                                                     customer forms' phone-field notes
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
@@ -1413,9 +1539,14 @@ supabase/migrations/20260902000900_realtime_live_refresh.sql  step 7, applied an
 supabase/migrations/20260902001000_admin_cancel_record.sql    admin-cancel bugfix, applied and verified
 supabase/migrations/20260902001100_seat_assignment_authorization.sql  seat-assignment
                                                      authorization, applied and verified
+supabase/migrations/20260903000100_overnight_schedule.sql     overnight (midnight-crossing)
+                                                     schedule support -- _current_business_date()
+                                                     added, next_ticket_number()/
+                                                     _appointment_hours_ok() replaced,
+                                                     applied and verified
 supabase/functions/invite-barber/index.ts           deployed, verify_jwt=true, re-checks
                                                      is_admin() itself before inviting anyone
-tests/domain/scheduler.test.mjs                     15 fixtures
+tests/domain/scheduler.test.mjs                     23 fixtures (was 15; +8 overnight-schedule)
 tests/differential.test.mjs                         20,000-case parity check
 tests/sql-consistency.mjs                           static migration linter
 tests/live-smoke.mjs                                queueRepository against the live DB; npm run test:live; not run by `npm test`

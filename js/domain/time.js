@@ -68,3 +68,38 @@ export function dayIndexFromDate(dateString) {
     if (!match) return null;
     return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))).getUTCDay();
 }
+
+/**
+ * Overnight-schedule support (e.g. open 18:00, close 01:00).
+ *
+ * The scheduler's whole minute-axis is 0..1439 ("minutes since this business
+ * day's midnight"), which silently assumed `close` always came after `open`.
+ * Rather than introduce a second axis, a day whose hours cross midnight is
+ * modelled as simply running PAST 1439: its `close` (and any break that's
+ * also past midnight) is understood as `close + 1440`, and any candidate
+ * clock-time that's earlier than `open` is understood as the post-midnight
+ * TAIL of the same business day, not the following one — there is no other
+ * valid meaning for "in this business day's schedule, at a time before it
+ * opened". A same-day config (`close > open`) is completely unaffected:
+ * `crossesMidnight` is false, so `businessMinutes` is a no-op everywhere.
+ */
+
+/** True when a day's own close time is at/before its open time -- e.g. 18:00-01:00. */
+export function crossesMidnight(ops) {
+    const open = timeToMinutes(ops?.open);
+    const close = timeToMinutes(ops?.close);
+    return open >= 0 && close >= 0 && close <= open;
+}
+
+/**
+ * Extends a raw clock-time-in-minutes (0..1439) onto the business day's own
+ * continuous axis. Only ever adds a calendar day, and only when `ops` crosses
+ * midnight and `minutes` is earlier than that day's `open` -- every other
+ * value (a same-day config, or a time at/after opening) passes through
+ * unchanged. Negative/non-finite input (the `-1`/`NaN` sentinels used
+ * elsewhere for "not configured") also passes through unchanged.
+ */
+export function businessMinutes(minutes, ops) {
+    if (!Number.isFinite(minutes) || minutes < 0) return minutes;
+    return crossesMidnight(ops) && minutes < timeToMinutes(ops?.open) ? minutes + 1440 : minutes;
+}

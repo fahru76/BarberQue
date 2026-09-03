@@ -9,7 +9,7 @@
  * differential test suite asserts that against randomised inputs.
  */
 
-import { timeToMinutes, shopMinutesOfDay } from './time.js';
+import { timeToMinutes, shopMinutesOfDay, businessMinutes } from './time.js';
 
 export const AVG_WAIT_MINUTES = 25;
 
@@ -22,7 +22,10 @@ export const BREAK_POLICY = 'finish_in_progress';
 
 export function getConfiguredBreaks(ops) {
     return [['break1Start', 'break1End'], ['break2Start', 'break2End']]
-        .map(([startKey, endKey]) => [timeToMinutes(ops?.[startKey]), timeToMinutes(ops?.[endKey])])
+        .map(([startKey, endKey]) => [
+            businessMinutes(timeToMinutes(ops?.[startKey]), ops),
+            businessMinutes(timeToMinutes(ops?.[endKey]), ops)
+        ])
         .filter(([start, end]) => start >= 0 && end > start)
         .sort((first, second) => first[0] - second[0]);
 }
@@ -33,7 +36,7 @@ export function intervalOverlapsBreak(start, end, ops) {
 
 /** Start time for a service that has NOT begun: delayed so it never straddles a break. */
 export function moveServicePastBreak(start, duration, ops) {
-    let adjustedStart = start;
+    let adjustedStart = businessMinutes(start, ops);
     for (const [breakStart, breakEnd] of getConfiguredBreaks(ops)) {
         if (adjustedStart < breakEnd && adjustedStart + duration > breakStart) adjustedStart = breakEnd;
     }
@@ -42,6 +45,7 @@ export function moveServicePastBreak(start, duration, ops) {
 
 /** End time for any service. `inProgress` selects the configured break policy. */
 export function getServiceEnd(start, duration, ops, { inProgress = false } = {}) {
+    start = businessMinutes(start, ops);
     if (!inProgress || BREAK_POLICY === 'finish_in_progress') return start + duration;
     let end = start + duration;
     for (const [breakStart, breakEnd] of getConfiguredBreaks(ops)) {
@@ -107,6 +111,9 @@ export function buildOccupancyIntervals({ queues = [], appointments = [], active
     const seatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
     const seatSchedules = new Map(seatNumbers.map(seat => [seat, []]));
     const intervals = [];
+    // Extends onto the business day's own axis -- see businessMinutes doc. A
+    // same-day `ops` (the overwhelming majority) passes through unchanged.
+    nowMinutes = businessMinutes(nowMinutes, ops);
 
     queues.filter(queue => queue.status === 'serving').forEach(queue => {
         const seatNumber = Number(queue.seat);
@@ -130,9 +137,9 @@ export function buildOccupancyIntervals({ queues = [], appointments = [], active
 
     if (seatNumbers.length) {
         [...appointments]
-            .sort((first, second) => timeToMinutes(first.time) - timeToMinutes(second.time))
+            .sort((first, second) => businessMinutes(timeToMinutes(first.time), ops) - businessMinutes(timeToMinutes(second.time), ops))
             .forEach(appointment => {
-                const start = timeToMinutes(appointment.time);
+                const start = businessMinutes(timeToMinutes(appointment.time), ops);
                 const appointmentInterval = {
                     start,
                     end: start + (Number(appointment.duration) || AVG_WAIT_MINUTES)
@@ -169,16 +176,18 @@ export function buildOccupancyIntervals({ queues = [], appointments = [], active
 /** @returns {number|null} minutes until service starts, or null when unschedulable. */
 export function estimateWaitMinutes({ queues, appointments, activeSeats, ops, nowMinutes, ticketId }) {
     if (!Object.values(activeSeats || {}).some(Boolean)) return null;
+    const resolvedNowMinutes = businessMinutes(nowMinutes, ops);
     const interval = buildOccupancyIntervals({ queues, appointments, activeSeats, ops, nowMinutes })
         .find(item => item.recordId === ticketId);
-    return interval ? Math.max(0, Math.ceil(interval.start - nowMinutes)) : null;
+    return interval ? Math.max(0, Math.ceil(interval.start - resolvedNowMinutes)) : null;
 }
 
 /** Map of recordId to wait minutes, so a render pass runs one simulation instead of N. */
 export function buildWaitByRecordId({ queues, appointments, activeSeats, ops, nowMinutes }) {
     if (!Object.values(activeSeats || {}).some(Boolean)) return new Map();
+    const resolvedNowMinutes = businessMinutes(nowMinutes, ops);
     return new Map(buildOccupancyIntervals({ queues, appointments, activeSeats, ops, nowMinutes })
-        .map(interval => [interval.recordId, Math.max(0, Math.ceil(interval.start - nowMinutes))]));
+        .map(interval => [interval.recordId, Math.max(0, Math.ceil(interval.start - resolvedNowMinutes))]));
 }
 
 /** How many waiting customers are ahead of this ticket, honouring fast-pass priority. */
@@ -195,15 +204,15 @@ export function isSlotAvailable({ time, duration, ops, activeSeats, appointments
     if (seats === 0) return false;
     if (ops?.closed) return false;
 
-    const start = timeToMinutes(time);
+    const start = businessMinutes(timeToMinutes(time), ops);
     const end = start + duration;
-    if (start < timeToMinutes(ops?.open) || end > timeToMinutes(ops?.close)) return false;
+    if (start < timeToMinutes(ops?.open) || end > businessMinutes(timeToMinutes(ops?.close), ops)) return false;
     if (intervalOverlapsBreak(start, end, ops)) return false;
-    if (nowMinutes !== null && start <= nowMinutes) return false;
+    if (nowMinutes !== null && start <= businessMinutes(nowMinutes, ops)) return false;
 
     for (let minute = start; minute < end; minute += 1) {
         const appointmentConcurrency = appointments.reduce((count, appointment) => {
-            const appointmentStart = timeToMinutes(appointment.time);
+            const appointmentStart = businessMinutes(timeToMinutes(appointment.time), ops);
             const appointmentEnd = appointmentStart + (Number(appointment.duration) || AVG_WAIT_MINUTES);
             return count + (minute >= appointmentStart && minute < appointmentEnd ? 1 : 0);
         }, 0);

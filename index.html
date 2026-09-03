@@ -1313,7 +1313,7 @@
                         <label for="customerPhoneInput">Nombor WhatsApp:</label>
                         <input type="tel" id="customerPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true">
                     </div>
-                    <div class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">Anggaran masa giliran mungkin berubah mengikut keadaan operasi semasa. Sebarang perubahan masa akan dimaklumkan melalui WhatsApp.</div>
+                    <div class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">Nombor WhatsApp diperlukan untuk menyertai giliran ini — digunakan semata-mata untuk memaklumkan status giliran anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Anggaran masa giliran mungkin berubah mengikut keadaan operasi semasa.</div>
                     
                     <div class="input-group">
                         <label id="walkinServicesLabel">Pilih Servis:</label>
@@ -1377,7 +1377,7 @@
                         <label for="bookPhoneInput">Nombor WhatsApp:</label>
                         <input type="tel" id="bookPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true">
                     </div>
-                    <div class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">Masa tempahan mungkin berubah mengikut keadaan operasi semasa. Sebarang perubahan masa akan dimaklumkan melalui WhatsApp.</div>
+                    <div class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">Nombor WhatsApp diperlukan untuk membuat tempahan ini — digunakan semata-mata untuk memaklumkan status tempahan anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Masa tempahan mungkin berubah mengikut keadaan operasi semasa.</div>
                     <div class="input-group">
                         <label id="bookingServicesLabel">Pilih Servis:</label>
                         <div class="service-category-tabs">
@@ -3260,6 +3260,31 @@
             return (parseInt(parts[0]) * 60) + parseInt(parts[1]);
         }
 
+        /**
+         * Overnight-schedule support (e.g. open 18:00, close 01:00).
+         *
+         * Every scheduling function below works on a 0..1439 "minutes since
+         * this business day's midnight" axis, which silently assumed `close`
+         * always came after `open`. Rather than add a second axis, a day
+         * whose hours cross midnight is modelled as running PAST 1439: its
+         * `close` (and any break that's also past midnight) is understood as
+         * `close + 1440`, and any candidate clock-time earlier than `open` is
+         * understood as the post-midnight TAIL of the SAME business day --
+         * there's no other valid meaning for "a time before this day opened,
+         * on a day that closes after midnight". A same-day config (`close >
+         * open`) is completely unaffected: crossesMidnight() is false, so
+         * businessMinutes() is a no-op everywhere it's used below.
+         */
+        function crossesMidnight(ops) {
+            const open = timeToMinutes(ops?.open);
+            const close = timeToMinutes(ops?.close);
+            return open >= 0 && close >= 0 && close <= open;
+        }
+        function businessMinutes(minutes, ops) {
+            if (!Number.isFinite(minutes) || minutes < 0) return minutes;
+            return crossesMidnight(ops) && minutes < timeToMinutes(ops?.open) ? minutes + 1440 : minutes;
+        }
+
         function formatOperationalTimeLabel(timeValue) {
             const [hourText, minuteText] = String(timeValue).split(':');
             const hour = Number.parseInt(hourText, 10);
@@ -3300,29 +3325,35 @@
                 timeValues.push(`${hour}:${minute}`);
             }
 
+            // ops used only to interpret break-select candidates on the overnight axis
+            // (a close time at/before open means "next day" -- see businessMinutes doc).
+            const opsForSelects = { open: effectiveOpen, close: effectiveClose };
+            const bm = value => businessMinutes(timeToMinutes(value), opsForSelects);
             selectConfigs.forEach(([id, storedValue, optional]) => {
                 const select = document.getElementById(id);
                 if (!select) return;
                 const isDirty = select.dataset.dirty === 'true';
                 const displayedValue = select.value;
                 const isBreakSelect = id.startsWith('br');
+                // A close time no longer has to be later than open on the same clock --
+                // only the exact same instant as open is meaningless (a zero-length day).
                 const values = id === 'opClose'
-                    ? timeValues.filter(value => timeToMinutes(value) > timeToMinutes(effectiveOpen))
+                    ? timeValues.filter(value => timeToMinutes(value) !== timeToMinutes(effectiveOpen))
                     : id === 'opOpen'
-                        ? timeValues.filter(value => timeToMinutes(value) < 23 * 60 + 45)
-                        : timeValues.filter(value => timeToMinutes(value) >= timeToMinutes(effectiveOpen) && timeToMinutes(value) <= timeToMinutes(effectiveClose));
+                        ? timeValues.filter(value => timeToMinutes(value) <= 23 * 60 + 45)
+                        : timeValues.filter(value => bm(value) >= timeToMinutes(effectiveOpen) && bm(value) <= bm(effectiveClose));
                 const storedMinutes = timeToMinutes(storedValue);
                 const storedValueIsAllowed = id === 'opClose'
-                    ? storedMinutes > timeToMinutes(effectiveOpen)
-                    : !isBreakSelect || (storedMinutes >= timeToMinutes(effectiveOpen) && storedMinutes <= timeToMinutes(effectiveClose));
+                    ? storedMinutes !== timeToMinutes(effectiveOpen)
+                    : !isBreakSelect || (bm(storedValue) >= timeToMinutes(effectiveOpen) && bm(storedValue) <= bm(effectiveClose));
                 if (storedValueIsAllowed && /^\d{2}:\d{2}$/.test(storedValue || '') && !values.includes(storedValue)) {
                     values.push(storedValue);
                     values.sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
                 }
                 const displayedMinutes = timeToMinutes(displayedValue);
                 const displayedValueIsAllowed = id === 'opClose'
-                    ? displayedMinutes > timeToMinutes(effectiveOpen)
-                    : !isBreakSelect || (displayedMinutes >= timeToMinutes(effectiveOpen) && displayedMinutes <= timeToMinutes(effectiveClose));
+                    ? displayedMinutes !== timeToMinutes(effectiveOpen)
+                    : !isBreakSelect || (bm(displayedValue) >= timeToMinutes(effectiveOpen) && bm(displayedValue) <= bm(effectiveClose));
                 if (isDirty && displayedValueIsAllowed && /^\d{2}:\d{2}$/.test(displayedValue || '') && !values.includes(displayedValue)) {
                     values.push(displayedValue);
                     values.sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
@@ -3366,7 +3397,12 @@
             const previousClose = closeSelect.value;
             const openMinutes = timeToMinutes(openSelect.value);
             const values = [];
-            for (let minutes = openMinutes + 15; minutes < 24 * 60; minutes += 15) {
+            // Every close time is valid except the exact same instant as open (a
+            // zero-length day) -- a close at/before open now means "next day"
+            // (see businessMinutes doc), so options run from just after open,
+            // wrapping through midnight, back to just before it.
+            for (let offset = 15; offset < 24 * 60; offset += 15) {
+                const minutes = (openMinutes + offset) % 1440;
                 values.push(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
             }
             closeSelect.replaceChildren(...values.map(value => {
@@ -3407,22 +3443,26 @@
 
         function clearOperationalHoursNoticeIfResolved({ allowWindowResolution = false, openMinutes = null, closeMinutes = null } = {}) {
             const data = getOperationalHoursFormData();
+            const opsForBreaks = { open: data.open, close: data.close };
+            const bm = value => businessMinutes(timeToMinutes(value), opsForBreaks);
+            const dataOpenMinutes = timeToMinutes(data.open);
+            const dataCloseMinutes = bm(data.close);
             pendingClearedBreaks = pendingClearedBreaks.filter(startId => {
                 const pair = OPERATION_BREAK_PAIRS.find(item => item.startId === startId);
                 if (!pair) return false;
                 const start = data[pair.startKey];
                 const end = data[pair.endKey];
-                const startMinutes = timeToMinutes(start);
-                const endMinutes = timeToMinutes(end);
+                const startMinutes = bm(start);
+                const endMinutes = bm(end);
                 const restoredWithValidPair = Boolean(start && end) && startMinutes < endMinutes &&
-                    startMinutes >= timeToMinutes(data.open) && endMinutes <= timeToMinutes(data.close);
+                    startMinutes >= dataOpenMinutes && endMinutes <= dataCloseMinutes;
                 if (restoredWithValidPair) {
                     delete pendingClearedBreakValues[startId];
                     return false;
                 }
                 const snapshot = pendingClearedBreakValues[startId];
-                const snapshotStartMinutes = timeToMinutes(snapshot?.startValue);
-                const snapshotEndMinutes = timeToMinutes(snapshot?.endValue);
+                const snapshotStartMinutes = bm(snapshot?.startValue);
+                const snapshotEndMinutes = bm(snapshot?.endValue);
                 const originalFitsCurrentWindow = allowWindowResolution && snapshot?.startValue && snapshot?.endValue &&
                     snapshotStartMinutes < snapshotEndMinutes && snapshotStartMinutes >= openMinutes && snapshotEndMinutes <= closeMinutes;
                 if (originalFitsCurrentWindow && !start && !end) {
@@ -3448,30 +3488,35 @@
             const openSelect = document.getElementById('opOpen');
             const closeSelect = document.getElementById('opClose');
             if (!openSelect || !closeSelect || document.getElementById('opClosed')?.checked) return;
+            const opsForBreaks = { open: openSelect.value, close: closeSelect.value };
+            const bm = value => businessMinutes(timeToMinutes(value), opsForBreaks);
             const openMinutes = timeToMinutes(openSelect.value);
-            const closeMinutes = timeToMinutes(closeSelect.value);
+            // closeMinutes runs past 1439 for an overnight day (see businessMinutes
+            // doc) so a break's own candidate times below must be compared through
+            // the same bm() lens, not raw clock minutes.
+            const closeMinutes = bm(closeSelect.value);
             const values = [];
             if (openMinutes >= 0 && closeMinutes > openMinutes) {
-                for (let minutes = 0; minutes < 24 * 60; minutes += 15) {
-                    if (minutes >= openMinutes && minutes <= closeMinutes) {
-                        values.push(`${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`);
-                    }
+                for (let minutes = openMinutes; minutes <= closeMinutes; minutes += 15) {
+                    const wrapped = minutes % 1440;
+                    const value = `${String(Math.floor(wrapped / 60)).padStart(2, '0')}:${String(wrapped % 60).padStart(2, '0')}`;
+                    if (!values.includes(value)) values.push(value);
                 }
             }
             Object.values(pendingClearedBreakValues).flatMap(snapshot => [snapshot?.startValue, snapshot?.endValue]).forEach(value => {
-                const minutes = timeToMinutes(value);
+                const minutes = bm(value);
                 if (minutes >= openMinutes && minutes <= closeMinutes && !values.includes(value)) values.push(value);
             });
-            values.sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+            values.sort((a, b) => bm(a) - bm(b));
             const previousValues = {};
             OPERATION_BREAK_PAIRS.flatMap(({ startId, endId }) => [startId, endId]).forEach(id => {
                 const select = document.getElementById(id);
                 const previousValue = select?.value || '';
                 previousValues[id] = previousValue;
-                const previousMinutes = timeToMinutes(previousValue);
+                const previousMinutes = bm(previousValue);
                 if (previousMinutes >= openMinutes && previousMinutes <= closeMinutes && !values.includes(previousValue)) {
                     values.push(previousValue);
-                    values.sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+                    values.sort((a, b) => bm(a) - bm(b));
                 }
             });
             const rebuild = (select, previousValue) => {
@@ -3666,7 +3711,11 @@
         }
 
         function getDailyQueueCounter() {
-            const today = getLocalYMD();
+            // getCurrentBusinessDate(), not getLocalYMD() -- an overnight shift
+            // (e.g. 18:00-01:00) must not have its local fallback counter reset
+            // out from under it at literal midnight (see next_ticket_number()'s
+            // matching server-side fix for the same reasoning).
+            const today = getCurrentBusinessDate();
             if (localStorage.getItem('queueCounterDate') !== today) {
                 safeSetItem('queueCounterDate', today);
                 safeSetItem('queueCounter', '1');
@@ -3676,12 +3725,12 @@
         }
 
         function saveDailyQueueCounter(nextCounter) {
-            safeSetItem('queueCounterDate', getLocalYMD());
+            safeSetItem('queueCounterDate', getCurrentBusinessDate());
             safeSetItem('queueCounter', String(nextCounter));
         }
 
         function getDailyTicketSuffix() {
-            return getLocalYMD().replace(/-/g, '');
+            return getCurrentBusinessDate().replace(/-/g, '');
         }
 
         // DATA STORE
@@ -3871,8 +3920,9 @@
         function estimateQueueWaitMinutes(queues, ticketId, activeSeats) {
             const seatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
             if (!seatNumbers.length) return null;
-            const nowMinutes = getMalaysiaCurrentMinutes();
-            const today = getLocalYMD();
+            const today = getCurrentBusinessDate();
+            const ops = getOpHours(today);
+            const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
             const appointments = getAppointments().filter(appointment => appointment.date === today && appointment.status === 'upcoming');
             const interval = getQueueOccupancyIntervals(today, appointments, queues, activeSeats).find(item => item.recordId === ticketId);
             return interval ? Math.max(0, Math.ceil(interval.start - nowMinutes)) : null;
@@ -3880,11 +3930,12 @@
 
         function buildWaitByRecordId(queues, activeSeats, appointments = null) {
             if (!Object.values(activeSeats).some(Boolean)) return new Map();
-            const today = getLocalYMD();
+            const today = getCurrentBusinessDate();
+            const ops = getOpHours(today);
             const todayAppointments = appointments
                 ? appointments.filter(appointment => appointment.date === today && appointment.status === 'upcoming')
                 : getAppointments().filter(appointment => appointment.date === today && appointment.status === 'upcoming');
-            const nowMinutes = getMalaysiaCurrentMinutes();
+            const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
             return new Map(getQueueOccupancyIntervals(today, todayAppointments, queues, activeSeats)
                 .map(interval => [interval.recordId, Math.max(0, Math.ceil(interval.start - nowMinutes))]));
         }
@@ -3996,7 +4047,7 @@
         }
 
         function getSelectedOperationalDay() {
-            if (!Number.isInteger(selectedOperationalDay)) selectedOperationalDay = getDayIndexFromDate(getLocalYMD());
+            if (!Number.isInteger(selectedOperationalDay)) selectedOperationalDay = getDayIndexFromDate(getCurrentBusinessDate());
             return selectedOperationalDay;
         }
 
@@ -4008,8 +4059,63 @@
             return weekly;
         }
 
-        function getOpHours(dateString = getLocalYMD()) {
+        function getOpHours(dateString = getCurrentBusinessDate()) {
             return getWeeklyOpHours()[getDayIndexFromDate(dateString)];
+        }
+
+        /**
+         * Which calendar date's hours currently govern "is the shop open
+         * right now" -- almost always today, EXCEPT in the early-morning tail
+         * of an overnight shift (e.g. 18:00-01:00) that opened yesterday and
+         * hasn't reached its close time yet. Everything that means "today,
+         * operationally" (walk-in gating, the daily ticket counter/suffix,
+         * getOpHours()'s own default) should resolve through this rather than
+         * getLocalYMD() directly, so a shop open past midnight doesn't have
+         * its walk-in queue and ticket numbering reset out from under it at
+         * literal midnight.
+         */
+        function getCurrentBusinessDate() {
+            const todayStr = getLocalYMD();
+            const todayOps = getOpHours(todayStr);
+            const nowMin = getMalaysiaCurrentMinutes();
+            // Today's own business day has unambiguously started once we're
+            // at/after its own open time (or it has none configured) --
+            // covers every normal, non-crossing day with zero behaviour change.
+            if (!todayOps.open || nowMin >= timeToMinutes(todayOps.open)) return todayStr;
+            // Otherwise, the only way we could still be "in business" is that
+            // YESTERDAY's shift crossed midnight and its close time (an
+            // early-AM time expressed on TODAY's clock) hasn't arrived yet.
+            const yesterdayStr = getLocalYMD(Date.now() - 86400000);
+            const yesterdayOps = getOpHours(yesterdayStr);
+            if (!yesterdayOps.closed && crossesMidnight(yesterdayOps) && nowMin < timeToMinutes(yesterdayOps.close)) {
+                return yesterdayStr;
+            }
+            return todayStr;
+        }
+
+        /**
+         * Generalizes getCurrentBusinessDate() to an arbitrary past moment
+         * instead of "now" -- needed to correctly attribute a ticket that was
+         * completed (or created) during an overnight tail (e.g. 00:30, on a
+         * shift that opened 18:00 the previous day) to the business day the
+         * shift OPENED, not the calendar day the clock displayed at that
+         * moment. Used for sales/report bucketing under the "shift to a
+         * business day" model.
+         */
+        function getBusinessDateForTimestamp(value) {
+            const dateStr = getLocalYMD(value);
+            if (!dateStr) return dateStr;
+            const ops = getOpHours(dateStr);
+            const parts = getMalaysiaDateTimeParts(value);
+            const minutes = parts ? (parts.hour * 60) + parts.minute : null;
+            if (minutes === null) return dateStr;
+            if (!ops.open || minutes >= timeToMinutes(ops.open)) return dateStr;
+            const prevDateStr = getLocalYMD(timestampToMillis(value) - 86400000);
+            const prevOps = getOpHours(prevDateStr);
+            if (!prevOps.closed && crossesMidnight(prevOps) && minutes < timeToMinutes(prevOps.close)) {
+                return prevDateStr;
+            }
+            return dateStr;
         }
         function getClosedDates() { const value = readJSON('closedDates', []); return Array.isArray(value) ? value : []; }
         function saveClosedDates(dates) { return safeSetItem('closedDates', dates); }
@@ -4324,18 +4430,30 @@
 
         function getOperationalHoursValidationError(data) {
             if (data.closed === true) return '';
-            if (!data.open || !data.close || timeToMinutes(data.open) >= timeToMinutes(data.close)) {
-                return "Waktu operasi tidak sah. Waktu tutup mesti selepas waktu buka.";
+            if (!data.open || !data.close || timeToMinutes(data.open) === timeToMinutes(data.close)) {
+                return "Waktu operasi tidak sah. Waktu tutup mesti berbeza daripada waktu buka.";
             }
+            // A close time at/before open is valid -- it means hours cross
+            // midnight (e.g. 18:00-01:00), not a same-day error. See the
+            // businessMinutes doc: every break comparison below is expressed
+            // on the shop's own continuous axis, where such a close (and any
+            // break time that's also past midnight) runs past 1439.
+            const ops = { open: data.open, close: data.close };
+            const bm = value => businessMinutes(timeToMinutes(value), ops);
+            const openMinutes = timeToMinutes(data.open);
+            const closeMinutes = bm(data.close);
             for (const [startKey, endKey] of [['break1Start','break1End'], ['break2Start','break2End']]) {
                 const start = data[startKey], end = data[endKey];
                 if (Boolean(start) !== Boolean(end)) return "Setiap waktu rehat mesti mempunyai masa mula dan tamat.";
-                if (start && (timeToMinutes(start) >= timeToMinutes(end) || timeToMinutes(start) < timeToMinutes(data.open) || timeToMinutes(end) > timeToMinutes(data.close))) {
-                    return "Waktu rehat mesti berada dalam waktu operasi dan masa tamat mestilah selepas masa mula.";
+                if (start) {
+                    const startMinutes = bm(start), endMinutes = bm(end);
+                    if (startMinutes >= endMinutes || startMinutes < openMinutes || endMinutes > closeMinutes) {
+                        return "Waktu rehat mesti berada dalam waktu operasi dan masa tamat mestilah selepas masa mula.";
+                    }
                 }
             }
-            const b1Start = timeToMinutes(data.break1Start), b1End = timeToMinutes(data.break1End);
-            const b2Start = timeToMinutes(data.break2Start), b2End = timeToMinutes(data.break2End);
+            const b1Start = data.break1Start ? bm(data.break1Start) : -1, b1End = data.break1Start ? bm(data.break1End) : -1;
+            const b2Start = data.break2Start ? bm(data.break2Start) : -1, b2End = data.break2Start ? bm(data.break2End) : -1;
             if (b1Start >= 0 && b2Start >= 0 && b1Start < b2End && b2Start < b1End) {
                 return "Waktu Rehat 1 dan Rehat 2 tidak boleh bertindih.";
             }
@@ -4389,9 +4507,9 @@
             const affected = getAffectedUpcomingAppointments(dayIndex, appointments);
             if (normalizedOps.closed) return affected;
             const openMinutes = timeToMinutes(normalizedOps.open);
-            const closeMinutes = timeToMinutes(normalizedOps.close);
+            const closeMinutes = businessMinutes(timeToMinutes(normalizedOps.close), normalizedOps);
             return affected.filter(appointment => {
-                const start = timeToMinutes(appointment.time);
+                const start = businessMinutes(timeToMinutes(appointment.time), normalizedOps);
                 const parsedDuration = Number(appointment.duration);
                 const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : AVG_WAIT_MINUTES;
                 const end = start + duration;
@@ -5411,8 +5529,8 @@
 
         function intervalOverlapsBreak(start, end, ops) {
             return [['break1Start','break1End'], ['break2Start','break2End']].some(([startKey, endKey]) => {
-                const breakStart = timeToMinutes(ops[startKey]);
-                const breakEnd = timeToMinutes(ops[endKey]);
+                const breakStart = businessMinutes(timeToMinutes(ops[startKey]), ops);
+                const breakEnd = businessMinutes(timeToMinutes(ops[endKey]), ops);
                 return breakStart >= 0 && breakEnd >= 0 && start < breakEnd && end > breakStart;
             });
         }
@@ -5421,13 +5539,13 @@
 
         function getConfiguredBreaks(ops) {
             return [['break1Start','break1End'], ['break2Start','break2End']]
-                .map(([startKey, endKey]) => [timeToMinutes(ops[startKey]), timeToMinutes(ops[endKey])])
+                .map(([startKey, endKey]) => [businessMinutes(timeToMinutes(ops[startKey]), ops), businessMinutes(timeToMinutes(ops[endKey]), ops)])
                 .filter(([breakStart, breakEnd]) => breakStart >= 0 && breakEnd > breakStart)
                 .sort((a, b) => a[0] - b[0]);
         }
 
         function moveServicePastBreak(start, duration, ops) {
-            let adjustedStart = start;
+            let adjustedStart = businessMinutes(start, ops);
             for (const [breakStart, breakEnd] of getConfiguredBreaks(ops)) {
                 if (adjustedStart < breakEnd && adjustedStart + duration > breakStart) adjustedStart = breakEnd;
             }
@@ -5435,6 +5553,7 @@
         }
 
         function getServiceEnd(start, duration, ops, { inProgress = false } = {}) {
+            start = businessMinutes(start, ops);
             if (!inProgress || BREAK_POLICY === 'finish_in_progress') return start + duration;
             let end = start + duration;
             for (const [breakStart, breakEnd] of getConfiguredBreaks(ops)) {
@@ -5466,11 +5585,11 @@
         }
 
         function getQueueOccupancyIntervals(date, appointmentRecords = null, queueRecords = null, activeSeatMap = null) {
-            if (date !== getLocalYMD()) return [];
+            if (date !== getCurrentBusinessDate()) return [];
             const activeSeats = activeSeatMap || getActiveSeats();
             const seatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
-            const nowMinutes = getMalaysiaCurrentMinutes();
             const ops = getOpHours(date);
+            const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
             const queues = Array.isArray(queueRecords) ? queueRecords : getQueues();
             const seatSchedules = new Map(seatNumbers.map(seat => [seat, []]));
             const intervals = [];
@@ -5494,10 +5613,11 @@
             });
 
             const appointments = appointmentRecords || getAppointments().filter(appointment => appointment.date === date && appointment.status === 'upcoming');
-            if (seatNumbers.length) [...appointments].sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time)).forEach(appointment => {
+            if (seatNumbers.length) [...appointments].sort((a, b) => businessMinutes(timeToMinutes(a.time), ops) - businessMinutes(timeToMinutes(b.time), ops)).forEach(appointment => {
+                const appointmentStart = businessMinutes(timeToMinutes(appointment.time), ops);
                 const appointmentInterval = {
-                    start: timeToMinutes(appointment.time),
-                    end: timeToMinutes(appointment.time) + (Number(appointment.duration) || AVG_WAIT_MINUTES)
+                    start: appointmentStart,
+                    end: appointmentStart + (Number(appointment.duration) || AVG_WAIT_MINUTES)
                 };
                 const availableSeat = seatNumbers.find(seat => !seatSchedules.get(seat).some(interval => intervalsOverlap(interval, appointmentInterval)));
                 const selectedSeat = availableSeat !== undefined
@@ -5528,18 +5648,19 @@
             if (seats === 0) return false;
             const ops = getOpHours(date);
             if (ops.closed) return false;
-            const start = timeToMinutes(time);
+            const start = businessMinutes(timeToMinutes(time), ops);
             const end = start + duration;
-            if (start < timeToMinutes(ops.open) || end > timeToMinutes(ops.close) || intervalOverlapsBreak(start, end, ops)) return false;
-            if (date === getLocalYMD()) {
-                if (start <= getMalaysiaCurrentMinutes()) return false;
+            const closeMinutes = businessMinutes(timeToMinutes(ops.close), ops);
+            if (start < timeToMinutes(ops.open) || end > closeMinutes || intervalOverlapsBreak(start, end, ops)) return false;
+            if (date === getCurrentBusinessDate()) {
+                if (start <= businessMinutes(getMalaysiaCurrentMinutes(), ops)) return false;
             }
 
             const existing = availabilityContext?.appointments || getAppointments().filter(a => a.date === date && a.status === 'upcoming' && a.id !== excludeAppointmentId);
             const queueIntervals = availabilityContext?.queueIntervals || getQueueOccupancyIntervals(date, existing, null, activeSeats);
             for (let minute = start; minute < end; minute += 1) {
                 const appointmentConcurrency = existing.reduce((count, app) => {
-                    const appStart = timeToMinutes(app.time);
+                    const appStart = businessMinutes(timeToMinutes(app.time), ops);
                     const appEnd = appStart + (Number(app.duration) || AVG_WAIT_MINUTES);
                     return count + (minute >= appStart && minute < appEnd ? 1 : 0);
                 }, 0);
@@ -5584,9 +5705,9 @@
 
             const ops = getOpHours();
             if (ops.closed) return alert("Kedai tidak beroperasi pada hari ini.");
-            const currentMinutes = getMalaysiaCurrentMinutes();
-            const closeMinutes = timeToMinutes(ops.close);
-            if (getClosedDates().includes(getLocalYMD())) return alert("Kedai ditutup pada hari ini.");
+            const currentMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
+            const closeMinutes = businessMinutes(timeToMinutes(ops.close), ops);
+            if (getClosedDates().includes(getCurrentBusinessDate())) return alert("Kedai ditutup pada hari ini.");
             if (currentMinutes < timeToMinutes(ops.open) || currentMinutes >= closeMinutes) {
                 return alert("Walk-in tidak dibuka pada waktu ini.");
             }
@@ -5681,7 +5802,9 @@
                 s.innerHTML='<option value="">TARIKH TIDAK TERSEDIA / TIADA SLOT</option>'; s.disabled = true; return;
             }
             
-            let start = timeToMinutes(ops.open); let end = timeToMinutes(ops.close);
+            // end runs past 1439 for an overnight day (e.g. 18:00-01:00) so this
+            // loop still finds its post-midnight slots -- see businessMinutes doc.
+            let start = timeToMinutes(ops.open); let end = businessMinutes(timeToMinutes(ops.close), ops);
             let available = 0;
             const excludedAppointmentId = bookingChangeMode?.type === 'reschedule' ? bookingChangeMode.appointmentId : '';
             const contextAppointments = getAppointments().filter(appointment => appointment.date === d && appointment.status === 'upcoming' && appointment.id !== excludedAppointmentId);
@@ -5691,10 +5814,16 @@
                 activeSeats
             };
             while(start + duration <= end) {
-                let h = Math.floor(start/60).toString().padStart(2,'0'); let m = (start%60).toString().padStart(2,'0');
+                const wrapped = start % 1440;
+                let h = Math.floor(wrapped/60).toString().padStart(2,'0'); let m = (wrapped%60).toString().padStart(2,'0');
                 const time = `${h}:${m}`;
+                // start >= 1440 means this slot is the post-midnight tail of the
+                // shift that OPENED on date `d` (the "shift to a business day"
+                // model) -- label it so a customer doesn't read e.g. 00:30 as
+                // being on date `d` itself.
+                const label = start >= 1440 ? `${time} (esok pagi)` : time;
                 if (isAppointmentSlotAvailable(d, time, duration, excludedAppointmentId, availabilityContext)) {
-                    s.insertAdjacentHTML('beforeend', `<option value="${time}">${time}</option>`);
+                    s.insertAdjacentHTML('beforeend', `<option value="${time}">${label}</option>`);
                     available += 1;
                 }
                 start += 30;
@@ -6010,13 +6139,13 @@
             const apps = getAppointments();
             const app = apps.find(a => a.id === appId);
             if (!app || app.status !== 'upcoming') return;
-            if (app.date !== getLocalYMD()) return alert("Hanya tempahan hari ini boleh didaftarkan tiba.");
+            if (app.date !== getCurrentBusinessDate()) return alert("Hanya tempahan hari ini boleh didaftarkan tiba.");
             const ops = getOpHours(app.date);
-            const start = timeToMinutes(app.time);
+            const start = businessMinutes(timeToMinutes(app.time), ops);
             const parsedDuration = Number(app.duration);
             const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : AVG_WAIT_MINUTES;
             const end = start + duration;
-            const outsideOperatingHours = ops.closed || !Number.isFinite(start) || start < timeToMinutes(ops.open) || end > timeToMinutes(ops.close) || intervalOverlapsBreak(start, end, ops);
+            const outsideOperatingHours = ops.closed || !Number.isFinite(start) || start < timeToMinutes(ops.open) || end > businessMinutes(timeToMinutes(ops.close), ops) || intervalOverlapsBreak(start, end, ops);
             if (outsideOperatingHours && !confirm(`Tempahan ${app.time} berada di luar waktu operasi atau bertindih waktu rehat hari ini. Daftarkan tiba juga?`)) return;
             const queues = getQueues();
             if (queues.some(q => q.id === appId && ['waiting','serving'].includes(q.status))) return alert("Tempahan ini sudah berada dalam giliran.");
@@ -6571,7 +6700,7 @@
             document.getElementById('tvUpcoming').innerHTML = waitingList.map(q => `<div class="upcoming-item" style="background:var(--border-light); padding:10px 15px; border-radius:6px; font-weight:bold; font-size:1.2rem; border-left:3px solid var(--primary-color);">${escapeHTML(getDisplayTicketId(q))}<br><span style="font-size:0.9rem; font-weight:normal; color:var(--text-muted);">${escapeHTML(q.name)}</span></div>`).join('');
             document.getElementById('tv-closed-notice').style.display = isShopOpen ? 'none' : 'block';
 
-            const today = getLocalYMD();
+            const today = getCurrentBusinessDate();
             const todayAppointments = appointments.filter(a => a.date === today && a.status === 'upcoming').sort((a,b) => String(a.time).localeCompare(String(b.time)));
             document.getElementById('todayDateStr').innerText = today;
             document.getElementById('todayBookingList').innerHTML = todayAppointments.map(a => `
@@ -6679,8 +6808,8 @@
             // Reports Rendering
             let targQ = []; let tSales = 0;
             if(currentReportType === 'daily') {
-                let tStr = getLocalYMD();
-                targQ = queues.filter(q => q.status === 'done' && q.completedAt && getLocalYMD(q.completedAt) === tStr);
+                let tStr = getCurrentBusinessDate();
+                targQ = queues.filter(q => q.status === 'done' && q.completedAt && getBusinessDateForTimestamp(q.completedAt) === tStr);
             } else {
                 const malaysiaNow = getMalaysiaDateTimeParts();
                 let lM = malaysiaNow.month === 1 ? 12 : malaysiaNow.month - 1;
