@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 4 September 2026 (updated: live `seats` realtime channel — barber-app's Panggil/Selesai gating no longer goes stale)
+**Date:** 4 September 2026 (updated: initial hydration for queues/appointments on page load)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1741,20 +1741,65 @@ production per step 7 above, plus the static checks that could run.
 
 ---
 
+## Done — initial hydration for queues/appointments on page load
+
+Requested directly: fix the "no initial hydration for queues/appointments on page
+load" gap flagged in the "Still open" list below (found 2 September 2026 while testing
+the nav-bar change, same window step 7 shipped in). Step 7 wired live *change* events
+but never a "fetch current state now" call on load — a device that was off, or had
+this tab reloaded, while a change happened elsewhere (another device called next,
+completed service, took a walk-in ticket, or changed an appointment) would show
+whatever was already in `localStorage` until the next live event — which might be
+minutes away, or might never come before someone actually looks at the screen.
+
+**Fix:** `refreshQueuesFromServer()`/`refreshAppointmentsFromServer()` are now called
+once each, unconditionally, right where the suggested fix in the "Still open" note
+pointed — inside `window.onStaffAuthChange`, in the same guarded blocks that already
+arm `queueChannelUnsubscribe`/`appointmentChannelUnsubscribe`. This was the only safe
+hook available: `initData()` runs synchronously, before the deferred
+`<script type="module">` bridge has set `window.QueueRepo`/`AppointmentRepo` at all
+(see the block comment above that module tag), so calling either function from inside
+`initData()` would throw. The channel-arming blocks are the established "the bridge
+module is ready" signal instead — exactly the "right after the realtime channels are
+armed" option the note already named.
+
+- The queues call sits inside `if (!queueChannelUnsubscribe) { ... }`, the same guard
+  that already makes that block run exactly once per page load, for every view
+  (anon customer/display devices go through `refreshQueuesFromServer()`'s existing
+  anon-safe `listQueues()` path, staff devices through `listTodayQueuesFull()`, same
+  as the live-event path already did).
+- The appointments call sits inside `if (staffSession && !appointmentChannelUnsubscribe) { ... }`
+  — fires every time a staff session newly appears, not just literal page load, which
+  is correct: a fresh sign-in (including one after a sign-out earlier in the same tab)
+  is exactly when this device's view of appointments is most likely to already be
+  stale.
+- **No new merge logic needed** — the exact concern the note raised
+  ("needs the same care given to the merge-by-id design in step 7"). Both functions
+  already exist and already go through `mergeServerRows()` for the live-event path;
+  this reuses them completely unchanged, so the same "merge into local history, never
+  wholesale-replace it" guarantee (older completed/cancelled rows kept for reports are
+  never in these result sets, so are never touched) applies identically here.
+
+**Verification performed:** both `<script>` blocks re-extracted and `node --check`ed
+clean; `npm test` (23/23) and `tests/sql-consistency.mjs` clean; a headless-Chromium
+check with `window.QueueRepo`/`AppointmentRepo`/`SeatRepo` stubbed (real ones can't
+initialize in this sandbox — see the seats-channel section above for why) confirmed
+the actual call sequence: `window.onStaffAuthChange` fired with no session hydrates
+queues exactly once and never touches appointments; a second call simulating a staff
+sign-in hydrates appointments and does NOT re-fetch queues; a longer sequence
+(`INITIAL` → `SIGNED_IN` → `TOKEN_REFRESHED` → `SIGNED_OUT` → `SIGNED_IN` again)
+confirmed queues stays fetched exactly once for the whole page lifetime while
+appointments correctly re-fetches on each fresh sign-in (twice total) and does not
+re-fetch on the token-refresh event in between.
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
   forms, so every customer is asked for contact details for WhatsApp notifications that
   nothing sends. Either wire a provider or soften the copy — this is a promise to the
   customer, not just dead code.
-- **No initial hydration for queues/appointments on page load** (found 2 September 2026
-  while testing the nav-bar change above). Step 7 wired live *change* events but never a
-  "fetch current state now" call on load — a device that was off/reloaded while changes
-  happened elsewhere shows stale local data until the next live event. Likely fix:
-  call `refreshQueuesFromServer()`/`refreshAppointmentsFromServer()` once, unconditionally,
-  during `initData()` or right after the realtime channels are armed — needs the same
-  care given to the merge-by-id design in step 7 (must not wholesale-overwrite local
-  history) before making that change.
 - **Bootstrap admin account's `display_name` is still `fahru76`** (email-derived, from
   before `invite-barber` existed). The rename control now exists (admin-app's "Ubah
   Nama" button, added 2 September 2026) — this is no longer an engineering task, just a
@@ -1882,7 +1927,15 @@ index.html                                          the running app; bookTicket(
                                                      scheduleSeatRefresh ->
                                                      refreshSeatServerState() -- fixes
                                                      barber-app's Panggil/Selesai gating
-                                                     going stale while the tab stays open
+                                                     going stale while the tab stays open;
+                                                     refreshQueuesFromServer()/
+                                                     refreshAppointmentsFromServer() now
+                                                     also called once, unconditionally,
+                                                     inside onStaffAuthChange right after
+                                                     each realtime channel arms -- fixes
+                                                     stale data on page load/reload
+                                                     before the first live event, reusing
+                                                     the existing merge-by-id path
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified

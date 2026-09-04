@@ -2561,6 +2561,25 @@
             // module has set window.QueueRepo at all.
             if (!queueChannelUnsubscribe) {
                 queueChannelUnsubscribe = window.QueueRepo.subscribeQueueChanges(scheduleQueueRefresh);
+                // Step 7 follow-up (see HANDOFF.md -- "no initial hydration for
+                // queues/appointments on page load"): the channel above only ever
+                // fires on a FUTURE change. A device that was off, or had this tab
+                // reloaded, while a change happened elsewhere (another device
+                // called next / completed service / took a walk-in ticket) would
+                // otherwise show whatever was already in localStorage until the
+                // next live event -- which might be minutes away, or never, if
+                // nothing changes again before someone looks at the screen. This
+                // is the "fetch current state now" call that was missing: it
+                // reuses refreshQueuesFromServer() as-is, so the exact same
+                // merge-by-id logic (mergeServerRows()) that already protects the
+                // live-event path also protects this one -- local `queues` history
+                // (older completed/cancelled tickets, kept for reports) is only
+                // ever merged into, never wholesale-replaced. Runs exactly once,
+                // gated by the same `!queueChannelUnsubscribe` guard as the
+                // channel itself, and works for every view (anon customer/display
+                // devices get the anon-safe listQueues() path inside
+                // refreshQueuesFromServer(), same as they always have).
+                refreshQueuesFromServer();
             }
             // Only staff ever benefit from a live appointments feed (see the
             // declaration comment above) -- arm it the moment a session appears,
@@ -2568,6 +2587,14 @@
             // it running for whoever's on this device next.
             if (staffSession && !appointmentChannelUnsubscribe) {
                 appointmentChannelUnsubscribe = window.AppointmentRepo.subscribeAppointmentChanges(scheduleAppointmentRefresh);
+                // Same "fetch current state now" fix as the queues block above,
+                // and for the same reason -- refreshAppointmentsFromServer()
+                // already merges by id via mergeServerRows(), so this is safe to
+                // call unconditionally here too. Fires every time a session
+                // newly appears (not just the very first page load), which is
+                // correct: a fresh sign-in is exactly when this device's view of
+                // appointments is most likely to already be stale.
+                refreshAppointmentsFromServer();
             } else if (!staffSession && appointmentChannelUnsubscribe) {
                 appointmentChannelUnsubscribe();
                 appointmentChannelUnsubscribe = null;
