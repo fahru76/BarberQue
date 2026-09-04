@@ -2187,7 +2187,7 @@
          overwrites local `shopServices` with what it returns. -->
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
-        import { listSeats, setSeatAssignment } from './js/repositories/seatRepository.js';
+        import { listSeats, setSeatAssignment, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings } from './js/repositories/shopSettingsRepository.js';
         import {
@@ -2197,7 +2197,7 @@
         } from './js/repositories/appointmentRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
-        window.SeatRepo = { listSeats, setSeatAssignment };
+        window.SeatRepo = { listSeats, setSeatAssignment, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices };
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings };
         window.AppointmentRepo = {
@@ -2461,12 +2461,24 @@
         // Step 7 (see HANDOFF.md): cross-device live updates. queueChannelUnsubscribe
         // is armed once at page load regardless of view/session (every view benefits
         // from at least the anon-safe refresh -- see setupRealtimeSubscriptions()
-        // below). appointmentChannelUnsubscribe is armed/disarmed from
-        // onStaffAuthChange instead: only staff ever call listActiveAppointments(),
-        // so there is no reason for a customer's or the TV's browser tab to hold an
-        // appointments WAL subscription open that will never do anything useful.
+        // below). appointmentChannelUnsubscribe and seatChannelUnsubscribe are both
+        // armed/disarmed from onStaffAuthChange instead: only staff ever call
+        // listActiveAppointments()/have any use for seatServerState (barber-app's
+        // Panggil/Selesai gating, admin-app's seat-assignment dropdowns), so there is
+        // no reason for a customer's or the TV's browser tab to hold either WAL
+        // subscription open when it will never do anything useful.
+        //
+        // seatChannelUnsubscribe specifically closes the gap flagged in HANDOFF.md's
+        // "Still open" list: refreshSeatServerState() used to only ever run once, on
+        // switchView('barber-app') -- if admin reassigned a seat (or opened/closed
+        // one) while a barber's tab was already sitting on barber-app, that barber's
+        // "Panggil"/"Selesai" gating wouldn't pick up the change until they left and
+        // re-entered the view (or reloaded). Now a `seats` row change on ANY device
+        // triggers a debounced refreshSeatServerState() here, the same "something
+        // changed, go refetch" pattern as the queue/appointment channels above.
         let queueChannelUnsubscribe = null;
         let appointmentChannelUnsubscribe = null;
+        let seatChannelUnsubscribe = null;
 
         function getViewIdFromLocation() {
             const slug = new URLSearchParams(window.location.search).get('view');
@@ -2559,6 +2571,14 @@
             } else if (!staffSession && appointmentChannelUnsubscribe) {
                 appointmentChannelUnsubscribe();
                 appointmentChannelUnsubscribe = null;
+            }
+            // Same arm-on-session/disarm-on-signout treatment for seats -- see the
+            // declaration comment above for why this one exists.
+            if (staffSession && !seatChannelUnsubscribe) {
+                seatChannelUnsubscribe = window.SeatRepo.subscribeSeatChanges(scheduleSeatRefresh);
+            } else if (!staffSession && seatChannelUnsubscribe) {
+                seatChannelUnsubscribe();
+                seatChannelUnsubscribe = null;
             }
             // Fires when someone lands on an invite or password-reset link: Supabase
             // has already established a session for them, but the account has no
@@ -7183,6 +7203,14 @@
             }
         }
         const scheduleAppointmentRefresh = debounce(refreshAppointmentsFromServer, 400);
+
+        // refreshSeatServerState() (defined above, next to seatServerState itself)
+        // already does its own try/catch + console.warn on failure and calls
+        // updateUI() once it has fresh data -- same "never surface a missed live
+        // refresh to the user" posture as refreshQueuesFromServer()/
+        // refreshAppointmentsFromServer() above, so it's reused directly here
+        // rather than duplicated.
+        const scheduleSeatRefresh = debounce(refreshSeatServerState, 400);
 
         // Browser back/forward between the four ?view= URLs. Deliberately does
         // NOT re-run applyKioskModeFromURL()'s body-class toggle -- a kiosk

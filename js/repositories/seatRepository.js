@@ -72,3 +72,32 @@ export async function setSeatAssignment(seatNo, { active, staffId }) {
     raiseOnError(error);
     return { seatNo: data.seat_no, active: data.active, barberId: data.barber_id };
 }
+
+/**
+ * Step 7 follow-up (see HANDOFF.md — "no live refresh of seatServerState
+ * while barber-app stays open"): same pattern as queueRepository.js's
+ * subscribeQueueChanges()/appointmentRepository.js's
+ * subscribeAppointmentChanges() — this module stays the only one that talks
+ * to public.seats over the Supabase client, index.html just gets a plain
+ * "something changed, go refetch" callback. `public.seats` is already in
+ * the `supabase_realtime` publication (Supabase's default for a table
+ * created without being excluded — see the comment at the top of
+ * supabase/migrations/20260902000900_realtime_live_refresh.sql), so no
+ * migration is needed here, only this subscription.
+ *
+ * Deliberately does NOT hand the payload's row data to the caller, same
+ * reasoning as subscribeQueueChanges(): the callback is only ever a trigger
+ * to re-fetch through listSeats() above, which applies RLS/column grants
+ * correctly on its own rather than trusting whatever shape Realtime's
+ * postgres_changes payload happens to broadcast.
+ *
+ * @param {() => void} onChange
+ * @returns {() => void} call to unsubscribe.
+ */
+export function subscribeSeatChanges(onChange) {
+    const channel = supabase
+        .channel('seats-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'seats' }, onChange)
+        .subscribe();
+    return () => supabase.removeChannel(channel);
+}

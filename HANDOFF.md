@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 4 September 2026 (updated: fixed a dead mobile-layout CSS selector for admin-list rows)
+**Date:** 4 September 2026 (updated: live `seats` realtime channel — barber-app's Panggil/Selesai gating no longer goes stale)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1688,6 +1688,59 @@ reasoning used throughout this cleanup series.
 
 ---
 
+## Done — live `seats` realtime channel (barber-app's Panggil/Selesai gating no longer goes stale)
+
+Requested directly: fix the "no live refresh of `seatServerState` while barber-app
+stays open" gap flagged in the "Still open" list below. `refreshSeatServerState()`
+(added with the seat-assignment authorization fix) used to only ever run once, on
+`switchView('barber-app')` — if admin reassigned a seat, or opened/closed one, while a
+barber's tab was already sitting on barber-app, that barber's "Panggil"/"Selesai"
+gating wouldn't pick up the change until they left and re-entered the view (or
+reloaded).
+
+**Fix, mirroring step 7's existing queue/appointment realtime channels exactly** (same
+"module owns the table, index.html just gets a refetch trigger" shape as
+`subscribeQueueChanges()`/`subscribeAppointmentChanges()`):
+
+- `seatRepository.js` gets a new `subscribeSeatChanges(onChange)`, subscribing to
+  `postgres_changes` on `public.seats` and handing back an unsubscribe function — no
+  migration needed, `public.seats` was already in the `supabase_realtime` publication
+  (see the comment at the top of
+  `supabase/migrations/20260902000900_realtime_live_refresh.sql`, which already notes
+  this in passing while explaining why *appointments* needed to be added explicitly).
+- `index.html` arms/disarms a `seatChannelUnsubscribe` the moment a staff session
+  appears/clears, same as `appointmentChannelUnsubscribe` — only staff ever have any
+  use for `seatServerState` (barber-app's call/complete gating, admin-app's
+  seat-assignment dropdowns), so there's no reason for a customer's or the TV's tab to
+  hold this WAL subscription open.
+- The callback is `scheduleSeatRefresh`, a 400ms-debounced `refreshSeatServerState()`
+  (same debounce helper and interval already used for the queue/appointment channels,
+  so a burst of seat writes in quick succession — e.g. saving several barber
+  assignments at once — lands as one refetch, not several overlapping ones).
+  `refreshSeatServerState()` already called `updateUI()` on success and
+  `console.warn()`-only on failure (never surfaced to the barber), so it needed no
+  changes itself — just a live trigger instead of only a one-time call on view entry.
+- **Side effect, not scope creep:** `updateUI()` already calls `renderBarberAssignments()`
+  every time, which recomputes its own change-detection signature from
+  `seatServerState` and re-renders only when it actually changed (and skips entirely
+  while an admin has an unsaved dropdown edit pending, `select[data-dirty="true"]`) —
+  so admin-app's own seat-assignment dropdowns now also stay live across devices, for
+  free, without any separate wiring.
+
+**Verification performed:** `node --check` on `seatRepository.js` and both re-extracted
+`<script>` blocks, clean; `npm test` (23/23) and `tests/sql-consistency.mjs` clean.
+**Not** tested end-to-end against the live Supabase project: this sandbox's network
+egress blocks `esm.sh` (the CDN `supabaseClient.js` imports `@supabase/supabase-js`
+from), so the whole `<script type="module">` bridge — `window.QueueRepo`/`SeatRepo`/
+`AppointmentRepo`/`AuthRepo`, not just the new piece — fails to initialize in a
+headless-Chromium check here the same way it would on any machine with no route to
+that CDN; this is a pre-existing sandbox limitation, not something introduced by this
+change. Confidence instead comes from mirroring `subscribeQueueChanges()`/
+`subscribeAppointmentChanges()` line-for-line, both already proven working in
+production per step 7 above, plus the static checks that could run.
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
@@ -1702,12 +1755,6 @@ reasoning used throughout this cleanup series.
   during `initData()` or right after the realtime channels are armed — needs the same
   care given to the merge-by-id design in step 7 (must not wholesale-overwrite local
   history) before making that change.
-- **No live refresh of `seatServerState` while barber-app stays open.** Same class of
-  gap as above, smaller blast radius: `refreshSeatServerState()` (added with the
-  seat-assignment authorization fix) only runs once, on entering barber-app. If admin
-  reassigns a seat while a barber's tab is already sitting on barber-app, that barber's
-  "Panggil"/"Selesai" gating won't pick up the change until they leave and re-enter the
-  view (or reload). No `seats` realtime channel exists yet to fix this properly.
 - **Bootstrap admin account's `display_name` is still `fahru76`** (email-derived, from
   before `invite-barber` existed). The rename control now exists (admin-app's "Ubah
   Nama" button, added 2 September 2026) — this is no longer an engineering task, just a
@@ -1737,7 +1784,10 @@ js/repositories/queueRepository.js                  step 3: wired for takeTicket
                                                      bug found via live testing)
 js/repositories/authRepository.js                   step 4: sign-in/out, invite, staff list;
                                                      setStaffStatus() now also accepts displayName
-js/repositories/seatRepository.js                   step 4b: listSeats/setSeatAssignment
+js/repositories/seatRepository.js                   step 4b: listSeats/setSeatAssignment;
+                                                     subscribeSeatChanges() added (seats
+                                                     realtime channel, closes the barber-app
+                                                     stale-gating gap)
 js/repositories/serviceRepository.js                step 5a: services catalog CRUD + reorder
 js/repositories/shopSettingsRepository.js           step 5b: singleton shop_settings get/create/update
 js/repositories/appointmentRepository.js            step 6: booking + fast-pass RPC wrappers;
@@ -1825,7 +1875,14 @@ index.html                                          the running app; bookTicket(
                                                      actual attribute text) repointed
                                                      to .admin-list-item.flex-row, now
                                                      actually collapses those 4 rows to
-                                                     a column layout under 768px
+                                                     a column layout under 768px; seats
+                                                     realtime channel armed/disarmed
+                                                     alongside the appointments one in
+                                                     onStaffAuthChange, debounced via
+                                                     scheduleSeatRefresh ->
+                                                     refreshSeatServerState() -- fixes
+                                                     barber-app's Panggil/Selesai gating
+                                                     going stale while the tab stays open
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
