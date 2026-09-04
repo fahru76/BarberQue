@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 4 September 2026 (updated: remaining 40 inline `style=` inside `<script>` blocks converted to CSS classes)
+**Date:** 4 September 2026 (updated: fixed a dead mobile-layout CSS selector for admin-list rows)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1625,8 +1625,9 @@ conditional class in the template literal instead of a conditional inline style,
 `class="badge ${s.active ? 'badge-success' : 'badge-danger'}"` — same runtime
 behaviour, just expressed as a class toggle rather than a style toggle.
 
-**Two things found and preserved as-is (not fixed — out of scope for a pure
-refactor):**
+**One thing found and preserved as-is at the time (out of scope for a pure
+refactor), later fixed on request — see "Done — dead mobile-layout selector for
+admin-list rows fixed" below:**
 
 - `.serving-seat .q-num` (a descendant selector, specificity two classes) already sets
   `font-size` for the TV seat-number display; the removed inline
@@ -1638,17 +1639,6 @@ refactor):**
   descendant selector, placed later in the stylesheet, so it wins on source order the
   same way the inline style used to win outright. Verified in a headless browser:
   computed `font-size` is `56px` (3.5rem) both before and after.
-- A `@media (max-width: 768px)` rule, `.admin-list-item[style*="flex-direction:
-  row"] { flex-direction: column !important; ... }`, was clearly meant to collapse
-  five of these list rows to a column layout on small screens. Its selector text has a
-  space after the colon (`"flex-direction: row"`) but every actual inline style in the
-  file wrote it with no space (`flex-direction:row`) — so this rule has never matched
-  anything, on any screen size, since it was written. Removing the inline `style=`
-  attributes (replaced with a `.flex-row` class on those five rows) doesn't change
-  this: the selector still matches zero elements, exactly as before. Left as a
-  pre-existing dead rule rather than "fixed" by repointing it at `.flex-row`, since
-  making it start working would be a real behaviour change on mobile, not a pure
-  refactor. Flagging here in case fixing it is ever wanted on purpose.
 
 **Verification performed:** both `<script>` blocks re-extracted and `node --check`ed
 clean; `npm test` (23/23) and `tests/sql-consistency.mjs` clean (neither touches this
@@ -1663,6 +1653,38 @@ checked rendered output against the plan (`getTargetBadgeHTML('dewasa')` compute
 `background-color: rgb(243, 156, 18)` = `#f39c12` as designed; the TV seat number's
 computed `font-size` came back `56px`/3.5rem, confirming the specificity fix above
 actually works, not just in theory).
+
+---
+
+## Done — dead mobile-layout selector for admin-list rows fixed
+
+Requested directly, as a follow-up to the pre-existing bug flagged (not fixed) in the
+stage-3 inline-style cleanup above: `.admin-list-item[style*="flex-direction: row"] {
+flex-direction: column !important; align-items: flex-start !important; }` under
+`@media (max-width: 768px)`. Its selector text has a space after the colon
+(`"flex-direction: row"`), but every actual inline style in the file wrote it with no
+space (`flex-direction:row`), so this rule never matched anything, on any screen size,
+since it was written — the four admin-list rows it was meant to collapse to a column
+layout on phones (unservable-booking list, cancelable-queue list, cancelable-booking
+list, closed-dates list) have always rendered in their row layout even on narrow
+screens.
+
+**Fix:** the selector now targets the `.flex-row` class those four rows already carry
+(added during the stage-3 cleanup, `flex-direction:row` as a reusable class instead of
+an inline style) — `.admin-list-item.flex-row { flex-direction: column !important;
+align-items: flex-start !important; }`. Same rule, same four elements, just matched by
+class instead of by a substring of an attribute that no longer exists.
+
+**Verification performed:** headless Chromium (`playwright`) computed-style check on a
+`.admin-list-item.flex-row` element at both viewport widths — at the default (desktop)
+width `flex-direction` is `row` / `align-items` is `center` (unaffected, matching the
+`.flex-row`/`.items-center` classes); resized to `400px` wide, the same element comes
+back `flex-direction: column` / `align-items: flex-start`, confirming the media query
+now actually fires. `npm test` (23/23) and `tests/sql-consistency.mjs` clean; grepped
+the whole file for any other `[style*=...]` attribute selector (none) and for any
+remaining `style="` inside a `<script>` block (none). **Not** tested: an actual visual
+screenshot at a phone width — the computed-style check above is the substitute, same
+reasoning used throughout this cleanup series.
 
 ---
 
@@ -1796,7 +1818,14 @@ index.html                                          the running app; bookTicket(
                                                      class strings instead of
                                                      conditional inline styles; zero
                                                      style="..." left inside either
-                                                     <script> block
+                                                     <script> block; dead mobile-layout
+                                                     selector .admin-list-item[style*=
+                                                     "flex-direction: row"] (never
+                                                     matched -- space mismatch vs the
+                                                     actual attribute text) repointed
+                                                     to .admin-list-item.flex-row, now
+                                                     actually collapses those 4 rows to
+                                                     a column layout under 768px
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
