@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 3 September 2026 (updated same day: semantic-HTML/inline-style cleanup)
+**Date:** 4 September 2026 (updated: alert()/confirm() → styled pop-up dialogs)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1514,6 +1514,92 @@ reasoning that made the original ~195 inline styles safe to move in the first pl
 
 ---
 
+## Done — every native `alert()`/`confirm()` replaced with a styled pop-up dialog
+
+Requested directly: "there are several notifications in this app, can you make them
+into a pop-up like the admin login pop-up example." Every one of the app's ~150
+`alert()` calls and 13 `confirm()` calls — previously the browser's own unstyled
+native message/confirm box — now shows as a `<dialog class="app-dialog">`, the exact
+same styling as the existing admin-login / cancel / set-password pop-ups (dark
+backdrop, rounded card, `<h3>` title, `.btn`/`.btn-action`/`.btn-reset` buttons).
+
+**Two new reusable functions** (`showAlertDialog(message, {title})` and
+`showConfirmDialog(message, {title})`, defined near the top of the classic
+`<script>` block) back two new dialogs, `#appAlertDialog` (OK button only) and
+`#appConfirmDialog` (Batal/Sahkan). Both return a Promise — `showAlertDialog`
+resolves once OK is dismissed, `showConfirmDialog` resolves `true`/`false` for
+Sahkan/Batal — so every call site could `await` them exactly where the native
+`alert()`/`confirm()` used to block. Pressing Esc (the `<dialog>` `cancel` event)
+is treated the same as clicking Batal/OK.
+
+**Why this touched so much code:** native `alert()`/`confirm()` block the entire
+page until dismissed; a custom `<dialog>` cannot — it just returns a Promise. That
+meant every function containing one of these ~165 calls had to become `async`, and
+every call site had to change from `alert(x)`/`confirm(x)` to
+`(await showAlertDialog(x))`/`(await showConfirmDialog(x))`, or the code after it
+would run before the user ever saw the message. This was done as a scripted,
+AST-based transform (via `acorn`), not hand-editing 165 spots individually:
+
+- Parsed both `<script>` blocks, found every bare `alert(...)`/`confirm(...)` call
+  and its innermost enclosing function.
+- 140 of the 165 calls already sat inside a function that was already `async`
+  (most of the app's admin/booking logic already awaits Supabase calls) — those
+  just got the call site rewritten in place.
+- The other 30 calls (21 distinct functions — 17 named functions plus 4 anonymous
+  event-handler/`setTimeout` callbacks, e.g. `sourceImage.onerror = () => {...}`)
+  were not `async` yet; each was checked individually for whether its return value
+  is ever used by a caller before being marked `async` (a function that becomes
+  `async` starts returning a Promise instead of its real value — a caller doing
+  `if (!theFunction())` would silently break, since a Promise is always truthy).
+  29 of the 30 are invoked only from `onclick`/`onchange`/event-handler assignments
+  or `setTimeout`, where nothing reads the return value — safe to just add `async`.
+- **One exception needed a real fix, not just `async`:** `confirmIfActingOnSelf(id)`
+  (guards `toggleStaffActive`/`setStaffRole` against an admin deactivating/demoting
+  their own account without confirming) is called as
+  `if (!confirmIfActingOnSelf(id)) return refreshStaffList();` — its boolean return
+  value IS consumed by the caller. Marking it `async` without fixing the caller
+  would have made that guard **always pass** (a Promise is truthy, so `!` on it is
+  always `false`) — i.e. an admin could deactivate/demote their own account with no
+  confirmation at all. Both call sites (already inside `async function`s) were
+  updated to `if (!(await confirmIfActingOnSelf(id))) ...` as part of the same
+  change.
+- One message (`notifyOnce()`'s in-page fallback when a browser Notification can't
+  be shown) used to concatenate `${title}\n\n${message}` into one string, relying on
+  `alert()` rendering `\n` as a line break. The dialog's message is a `<p>`, which
+  by default collapses `\n` to a space — fixed two ways: the title is now passed as
+  the dialog's actual title (`showAlertDialog(message, {title})`) instead of being
+  glued into the message text, and `#appAlertDialogMessage`/`#appConfirmDialogMessage`
+  got `white-space: pre-line` so any other message that embeds `\n\n` for
+  readability (e.g. `saveOperationalHours()`'s "these N tempahan no longer fit the
+  new hours" list) still renders its line breaks.
+- `confirm()`'s handling was **not** simplified to "just show a native box a bit
+  longer" — the request was specifically to convert it too, with the async/Promise
+  restructuring needed to keep "if the user clicks Sahkan, only then proceed"
+  correct, not just cosmetic.
+
+**Verification performed:** both `<script>` blocks re-extracted and `node --check`ed
+clean after the transform (this alone proves no `await` ended up outside an `async`
+function — that's a hard syntax error in a classic (non-module) script, not just a
+lint
+warning); a second, independent AST pass confirmed all 170
+`showAlertDialog`/`showConfirmDialog` call sites are wrapped in `await` with no
+exceptions, and a third independent AST pass confirmed all 226 `await` expressions
+in the file (not just the new ones) sit inside a function whose `async` flag is
+`true`; tag-balance counts before/after (all balanced, `dialog` count 3→5); grepped
+for a local parameter/variable named literally `alert`/`confirm` that could have
+been mistaken for the global functions (none found); `npm test` 23/23 and
+`tests/sql-consistency.mjs` clean (neither touches this change, run anyway). **Not**
+tested: an actual rendered browser session clicking through every one of the ~165
+messages — no browser is available in this sandbox, so the same AST/syntax-level
+reasoning used for the earlier semantic-HTML cleanup stands in for it here.
+
+**Deliberately unchanged:** the two error `<p>` elements that already lived inside
+existing dialogs (`staffLoginError`, `setPasswordError`) — those were never
+`alert()`/`confirm()` calls to begin with, they're inline validation text within a
+dialog that's already open, so there was nothing to convert.
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
@@ -1622,7 +1708,19 @@ index.html                                          the running app; bookTicket(
                                                      nav wrapped in <header>; the four
                                                      view-section roots are now <main>; 40
                                                      inline styles remain, all inside
-                                                     <script>-block template literals
+                                                     <script>-block template literals;
+                                                     all ~150 alert()/~13 confirm()
+                                                     calls replaced with
+                                                     showAlertDialog()/
+                                                     showConfirmDialog() (new
+                                                     #appAlertDialog/#appConfirmDialog
+                                                     pop-ups matching the admin-login
+                                                     dialog style) -- 21 functions
+                                                     newly async as a result;
+                                                     confirmIfActingOnSelf() caller
+                                                     guard fixed to await it (was a
+                                                     silent security regression risk
+                                                     from just marking it async)
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified

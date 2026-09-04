@@ -1277,6 +1277,11 @@
         #adminCancelDialogSummary { margin-bottom:15px; }
         #staffLoginError { color:var(--danger); display:none; margin-bottom:10px; }
         #setPasswordError { color:var(--danger); display:none; margin-bottom:10px; }
+        /* alert()/confirm() messages sometimes embed \n\n for readability (e.g. a list
+           of affected appointments) -- pre-line preserves those line breaks the same
+           way the native alert()/confirm() box always rendered them, while still
+           wrapping normally and collapsing runs of plain spaces. */
+        #appAlertDialogMessage, #appConfirmDialogMessage { white-space: pre-line; }
     
         /* Extracted from inline style="" attributes (semantic-HTML/inline-style cleanup, stage 2) */
         .border-danger { border-color:var(--danger); }
@@ -2046,6 +2051,25 @@
         </div>
     </dialog>
 
+    <dialog id="appAlertDialog" class="app-dialog" aria-labelledby="appAlertDialogTitle">
+        <div class="app-dialog-content">
+            <h3 id="appAlertDialogTitle">Notis</h3>
+            <p id="appAlertDialogMessage" class="text-muted"></p>
+            <button type="button" class="btn btn-action w-full mt-15" id="appAlertDialogOkBtn">OK</button>
+        </div>
+    </dialog>
+
+    <dialog id="appConfirmDialog" class="app-dialog" aria-labelledby="appConfirmDialogTitle">
+        <div class="app-dialog-content">
+            <h3 id="appConfirmDialogTitle">Sahkan Tindakan</h3>
+            <p id="appConfirmDialogMessage" class="text-muted"></p>
+            <div class="d-flex gap-10 mt-15">
+                <button type="button" class="btn btn-reset flex-1" id="appConfirmDialogCancelBtn">Batal</button>
+                <button type="button" class="btn btn-action flex-1" id="appConfirmDialogOkBtn">Sahkan</button>
+            </div>
+        </div>
+    </dialog>
+
     <!-- =============== SUPABASE BRIDGE (migration steps 3 + 4) ===============
          Module scripts run deferred, after the whole document has parsed, so
          window.QueueRepo / window.AuthRepo are not guaranteed to exist the
@@ -2272,6 +2296,57 @@
         const DEFAULT_SHOP_NAME = 'Syam Barber Shop';
         const DEFAULT_SHOP_LOCATION = 'Kerteh';
         const DEFAULT_MAP_QUERY = 'FCQQ+X6 Kerteh, Terengganu';
+
+        // ============= NOTIFICATION DIALOGS (replaces native alert()/confirm()) =============
+        // Every alert()/confirm() in this file was replaced with these two functions so
+        // that every message the app shows uses the same styled <dialog> as the admin
+        // login pop-up, instead of the browser's unstyled native box. Both return a
+        // Promise so call sites `await` them exactly where the native functions used to
+        // block -- showAlertDialog() resolves once OK is dismissed (mirroring alert()'s
+        // "nothing happens until acknowledged"), showConfirmDialog() resolves true/false
+        // for Sahkan/Batal (mirroring confirm()'s return value). Every function that
+        // calls either of these had to become `async` -- see each call site.
+        function showAlertDialog(message, opts = {}) {
+            return new Promise(resolve => {
+                const dialog = document.getElementById('appAlertDialog');
+                document.getElementById('appAlertDialogTitle').textContent = opts.title || 'Notis';
+                document.getElementById('appAlertDialogMessage').textContent = message;
+                const okBtn = document.getElementById('appAlertDialogOkBtn');
+                const finish = () => {
+                    okBtn.removeEventListener('click', onOk);
+                    dialog.removeEventListener('cancel', onOk);
+                    if (typeof dialog.close === 'function') dialog.close(); else dialog.removeAttribute('open');
+                    resolve();
+                };
+                const onOk = (e) => { if (e) e.preventDefault(); finish(); };
+                okBtn.addEventListener('click', onOk);
+                dialog.addEventListener('cancel', onOk);
+                if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+            });
+        }
+
+        function showConfirmDialog(message, opts = {}) {
+            return new Promise(resolve => {
+                const dialog = document.getElementById('appConfirmDialog');
+                document.getElementById('appConfirmDialogTitle').textContent = opts.title || 'Sahkan Tindakan';
+                document.getElementById('appConfirmDialogMessage').textContent = message;
+                const okBtn = document.getElementById('appConfirmDialogOkBtn');
+                const cancelBtn = document.getElementById('appConfirmDialogCancelBtn');
+                const finish = (result) => {
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    dialog.removeEventListener('cancel', onCancel);
+                    if (typeof dialog.close === 'function') dialog.close(); else dialog.removeAttribute('open');
+                    resolve(result);
+                };
+                const onOk = () => finish(true);
+                const onCancel = (e) => { if (e) e.preventDefault(); finish(false); };
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+                dialog.addEventListener('cancel', onCancel);
+                if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+            });
+        }
 
         // ============= STAFF AUTH (migration step 4) =============
         // staffSession / staffProfile are kept in sync by window.onStaffAuthChange,
@@ -2520,7 +2595,7 @@
                 const dialog = document.getElementById('setPasswordDialog');
                 if (typeof dialog.close === 'function') dialog.close(); else dialog.removeAttribute('open');
                 history.replaceState(null, '', window.location.pathname);
-                alert('Kata laluan berjaya ditetapkan.');
+                (await showAlertDialog('Kata laluan berjaya ditetapkan.'));
             } catch (error) {
                 errorEl.textContent = 'Gagal menetapkan kata laluan. Cuba semula.';
                 errorEl.style.display = 'block';
@@ -2535,7 +2610,7 @@
             errorEl.style.display = 'none';
             try {
                 await window.AuthRepo.inviteBarber(email, name);
-                alert(`Jemputan dihantar ke ${email}.`);
+                (await showAlertDialog(`Jemputan dihantar ke ${email}.`));
                 document.getElementById('inviteBarberForm').reset();
                 await refreshStaffList();
             } catch (error) {
@@ -2627,7 +2702,7 @@
             const input = document.getElementById(`staffNameInput-${id}`);
             if (!input) return;
             const displayName = input.value.trim();
-            if (!displayName) return alert('Nama tidak boleh kosong.');
+            if (!displayName) return (await showAlertDialog('Nama tidak boleh kosong.'));
             try {
                 await window.AuthRepo.setStaffStatus(id, { displayName });
                 await refreshStaffList();
@@ -2635,35 +2710,35 @@
                 // staff_name_key_uidx (23505) means another staff member
                 // already has this name (case/whitespace-insensitive) -- see
                 // authRepository.js's setStaffStatus() comment.
-                alert(error.cause?.code === '23505'
+                (await showAlertDialog(error.cause?.code === '23505'
                     ? 'Nama ini telah digunakan oleh kakitangan lain.'
-                    : (error.message || 'Gagal mengemaskini nama.'));
+                    : (error.message || 'Gagal mengemaskini nama.')));
                 console.warn(error);
             }
         }
 
-        function confirmIfActingOnSelf(id) {
-            return id !== staffProfile?.id || confirm('Ini akaun anda sendiri. Teruskan?');
+        async function confirmIfActingOnSelf(id) {
+            return id !== staffProfile?.id || (await showConfirmDialog('Ini akaun anda sendiri. Teruskan?'));
         }
 
         async function toggleStaffActive(id, active) {
-            if (!confirmIfActingOnSelf(id)) return refreshStaffList();
+            if (!(await confirmIfActingOnSelf(id))) return refreshStaffList();
             try {
                 await window.AuthRepo.setStaffStatus(id, { active });
                 await refreshStaffList();
             } catch (error) {
-                alert('Gagal mengemaskini status kakitangan.');
+                (await showAlertDialog('Gagal mengemaskini status kakitangan.'));
                 console.warn(error);
             }
         }
 
         async function setStaffRole(id, role) {
-            if (!confirmIfActingOnSelf(id)) return refreshStaffList();
+            if (!(await confirmIfActingOnSelf(id))) return refreshStaffList();
             try {
                 await window.AuthRepo.setStaffStatus(id, { role });
                 await refreshStaffList();
             } catch (error) {
-                alert('Gagal menukar peranan kakitangan.');
+                (await showAlertDialog('Gagal menukar peranan kakitangan.'));
                 console.warn(error);
             }
         }
@@ -2826,10 +2901,10 @@
             return `https://www.google.com/maps?q=${encodeURIComponent(String(queryValue || '').trim())}&z=17&output=embed`;
         }
 
-        function searchAdminMapLocations() {
+        async function searchAdminMapLocations() {
             const input = document.getElementById('adminMapSearchInput');
             const query = String(input?.value || '').replace(/\s+/g, ' ').trim();
-            if (query.length < 3) return alert('Masukkan nama kedai atau alamat sekurang-kurangnya 3 aksara.');
+            if (query.length < 3) return (await showAlertDialog('Masukkan nama kedai atau alamat sekurang-kurangnya 3 aksara.'));
             document.getElementById('adminMapQuery').value = query;
             document.getElementById('adminGoogleMapFrame').src = getGoogleMapEmbedLink(query);
             const locationInput = document.getElementById('adminMapLocationName');
@@ -3006,14 +3081,14 @@
             });
         }
 
-        function createAnnouncementLink() {
+        async function createAnnouncementLink() {
             const editor = document.getElementById('adminAnnouncementEditor');
             editor.focus();
             restoreAnnouncementSelection();
             let link = String(prompt('Masukkan pautan (https://...)') || '').trim();
             if (!link) return;
             if (!/^(?:https?:\/\/|mailto:)/i.test(link)) link = `https://${link}`;
-            try { new URL(link); } catch { return alert('Pautan tidak sah.'); }
+            try { new URL(link); } catch { return (await showAlertDialog('Pautan tidak sah.')); }
             document.execCommand('createLink', false, link);
             editor.dataset.dirty = 'true';
             saveAnnouncementSelection();
@@ -3081,17 +3156,17 @@
             return sanitizeAnnouncementHTML(draft.innerHTML).length;
         }
 
-        function uploadAnnouncementImage(input) {
+        async function uploadAnnouncementImage(input) {
             const file = input.files?.[0];
             if (!file) return;
             if (!/^image\/(?:png|jpeg|webp|gif)$/.test(file.type) || file.size > 8 * 1024 * 1024) {
                 input.value = '';
-                return alert('Pilih gambar PNG, JPG, WEBP atau GIF bersaiz maksimum 8 MB.');
+                return (await showAlertDialog('Pilih gambar PNG, JPG, WEBP atau GIF bersaiz maksimum 8 MB.'));
             }
             const reader = new FileReader();
             reader.onload = () => {
                 const sourceImage = new Image();
-                sourceImage.onload = () => {
+                sourceImage.onload = async () => {
                     const scale = Math.min(1, 1200 / Math.max(sourceImage.width, sourceImage.height));
                     const canvas = document.createElement('canvas');
                     canvas.width = Math.max(1, Math.round(sourceImage.width * scale));
@@ -3103,12 +3178,12 @@
                     if (dataUrl.length > ANNOUNCEMENT_IMAGE_DATA_URL_LIMIT) {
                         replaceAnnouncementImageTarget = null;
                         input.value = '';
-                        return alert('Gambar masih terlalu besar selepas dikecilkan. Pilih gambar yang lebih kecil.');
+                        return (await showAlertDialog('Gambar masih terlalu besar selepas dikecilkan. Pilih gambar yang lebih kecil.'));
                     }
                     if (getAnnouncementDraftSizeWithImage(dataUrl, altText) > ANNOUNCEMENT_HTML_LIMIT) {
                         replaceAnnouncementImageTarget = null;
                         input.value = '';
-                        return alert('Gambar ini akan melebihi had saiz pengumuman. Sila padam gambar lain dahulu.');
+                        return (await showAlertDialog('Gambar ini akan melebihi had saiz pengumuman. Sila padam gambar lain dahulu.'));
                     }
                     if (replaceAnnouncementImageTarget && document.getElementById('adminAnnouncementEditor').contains(replaceAnnouncementImageTarget)) {
                         replaceAnnouncementImageTarget.src = dataUrl;
@@ -3120,23 +3195,23 @@
                     replaceAnnouncementImageTarget = null;
                     input.value = '';
                 };
-                sourceImage.onerror = () => {
+                sourceImage.onerror = async () => {
                     replaceAnnouncementImageTarget = null;
                     input.value = '';
-                    alert('Gambar tidak dapat dibaca.');
+                    (await showAlertDialog('Gambar tidak dapat dibaca.'));
                 };
                 sourceImage.src = reader.result;
             };
-            reader.onerror = () => {
+            reader.onerror = async () => {
                 replaceAnnouncementImageTarget = null;
                 input.value = '';
-                alert('Fail gambar tidak dapat dibaca.');
+                (await showAlertDialog('Fail gambar tidak dapat dibaca.'));
             };
             reader.readAsDataURL(file);
         }
 
-        function alignAnnouncementImage(alignment) {
-            if (!selectedAnnouncementImage || !document.getElementById('adminAnnouncementEditor').contains(selectedAnnouncementImage)) return alert('Klik gambar dalam editor terlebih dahulu.');
+        async function alignAnnouncementImage(alignment) {
+            if (!selectedAnnouncementImage || !document.getElementById('adminAnnouncementEditor').contains(selectedAnnouncementImage)) return (await showAlertDialog('Klik gambar dalam editor terlebih dahulu.'));
             const align = ['left','center','right'].includes(alignment) ? alignment : 'center';
             selectedAnnouncementImage.dataset.align = align;
             selectedAnnouncementImage.style.cssText = getAnnouncementImageStyle(align, selectedAnnouncementImage.dataset.width);
@@ -3144,8 +3219,8 @@
             updateAnnouncementImageStatus(selectedAnnouncementImage);
         }
 
-        function resizeAnnouncementImage(widthValue) {
-            if (!selectedAnnouncementImage || !document.getElementById('adminAnnouncementEditor').contains(selectedAnnouncementImage)) return alert('Klik gambar dalam editor terlebih dahulu.');
+        async function resizeAnnouncementImage(widthValue) {
+            if (!selectedAnnouncementImage || !document.getElementById('adminAnnouncementEditor').contains(selectedAnnouncementImage)) return (await showAlertDialog('Klik gambar dalam editor terlebih dahulu.'));
             const width = Math.min(100, Math.max(10, Number.parseInt(widthValue, 10) || 75));
             selectedAnnouncementImage.dataset.width = String(width);
             selectedAnnouncementImage.style.cssText = getAnnouncementImageStyle(selectedAnnouncementImage.dataset.align, width);
@@ -3237,14 +3312,14 @@
         async function saveShopNameSetting() {
             const appName = String(document.getElementById('adminAppNameInput')?.value || '').replace(/\s+/g, ' ').trim();
             const shopName = String(document.getElementById('adminShopNameInput')?.value || '').replace(/\s+/g, ' ').trim();
-            if (!appName) return alert('Nama aplikasi wajib diisi.');
-            if (!shopName) return alert('Nama kedai wajib diisi.');
+            if (!appName) return (await showAlertDialog('Nama aplikasi wajib diisi.'));
+            if (!shopName) return (await showAlertDialog('Nama kedai wajib diisi.'));
             const mapQuery = String(document.getElementById('adminMapQuery')?.value || '').replace(/\s+/g, ' ').trim();
             const locationName = String(document.getElementById('adminMapLocationName')?.value || '').trim();
-            if (!mapQuery || !locationName) return alert('Cari dan semak pin Google Maps serta isi nama lokasi terlebih dahulu.');
+            if (!mapQuery || !locationName) return (await showAlertDialog('Cari dan semak pin Google Maps serta isi nama lokasi terlebih dahulu.'));
             const shopMapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
             const sync = await syncShopSettingsToServer({ appName, shopName, shopMapLink, shopMapQuery: mapQuery, shopMapAddress: mapQuery, shopLocationName: locationName });
-            if (!sync.ok) return alert(sync.error?.message || 'Identiti dan lokasi kedai gagal disimpan. Sila cuba lagi.');
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || 'Identiti dan lokasi kedai gagal disimpan. Sila cuba lagi.'));
             const saved = commitStorageTransaction({
                 appName,
                 shopName,
@@ -3253,11 +3328,11 @@
                 shopMapAddress: mapQuery,
                 shopLocationName: locationName
             }, { raw: true });
-            if (!saved.ok) return alert('Identiti dan lokasi kedai gagal disimpan. Sila cuba lagi.');
+            if (!saved.ok) return (await showAlertDialog('Identiti dan lokasi kedai gagal disimpan. Sila cuba lagi.'));
             mapSelectionDirty = false;
             markAdminInputsSaved(['adminAppNameInput','adminShopNameInput','adminMapSearchInput','adminMapLocationName']);
             updateUI();
-            alert(`Identiti kedai berjaya disimpan. Lokasi pelanggan kini: ${locationName}.`);
+            (await showAlertDialog(`Identiti kedai berjaya disimpan. Lokasi pelanggan kini: ${locationName}.`));
         }
 
         async function saveAnnouncementSetting() {
@@ -3265,11 +3340,11 @@
             const html = sanitizeAnnouncementHTML(editor?.innerHTML || '');
             if (html.length > ANNOUNCEMENT_HTML_LIMIT) {
                 const imageCount = (html.match(/<img\b/gi) || []).length;
-                return alert(
+                return (await showAlertDialog(
                     `Pengumuman terlalu besar (${(html.length / 1048576).toFixed(2)} MB, ${imageCount} gambar). ` +
                     `Had adalah ${(ANNOUNCEMENT_HTML_LIMIT / 1048576).toFixed(2)} MB supaya ruang storan kekal ` +
                     'untuk data giliran. Sila kurangkan bilangan atau saiz gambar.'
-                );
+                ));
             }
             const plainContainer = document.createElement('div');
             plainContainer.innerHTML = html;
@@ -3278,16 +3353,16 @@
             const enabled = document.getElementById('adminAnnouncementEnabled')?.checked === true;
             const shopAnnouncementHtml = hasContent ? html : '';
             const sync = await syncShopSettingsToServer({ shopAnnouncementHtml, shopAnnouncement: text, shopAnnouncementEnabled: enabled });
-            if (!sync.ok) return alert(sync.error?.message || 'Pengumuman gagal disimpan. Sila cuba lagi.');
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || 'Pengumuman gagal disimpan. Sila cuba lagi.'));
             const saved = commitStorageTransaction({ shopAnnouncementHtml, shopAnnouncement: text, shopAnnouncementEnabled: String(enabled) }, { raw: true });
-            if (!saved.ok) return alert('Pengumuman gagal disimpan. Gambar mungkin terlalu besar untuk storan browser.');
+            if (!saved.ok) return (await showAlertDialog('Pengumuman gagal disimpan. Gambar mungkin terlalu besar untuk storan browser.'));
             announcementCache.initialized = false;
             markAdminInputsSaved(['adminAnnouncementEnabled']);
             delete editor.dataset.dirty;
             updateUI();
-            alert(hasContent && enabled
+            (await showAlertDialog(hasContent && enabled
                 ? 'Pengumuman berjaya disimpan dan kini dipaparkan kepada pelanggan.'
-                : 'Pengumuman berjaya disimpan dan kini disembunyikan daripada pelanggan.');
+                : 'Pengumuman berjaya disimpan dan kini disembunyikan daripada pelanggan.'));
         }
 
         function renderShopIdentitySettings() {
@@ -3773,7 +3848,7 @@
                 }
             }
             if (!nativeShown && document.visibilityState === 'visible') {
-                setTimeout(() => alert(`${title}\n\n${message}`), 50);
+                setTimeout(async () => (await showAlertDialog(message, { title })), 50);
             }
         }
 
@@ -4412,8 +4487,8 @@
         }
 
         // P1 Fix: Clean wipe without triggering iframe sandbox refresh block
-        function resetSystem() {
-            if(confirm("Padam SEMUA data kedai dan transaksi? Ini tidak boleh diundur.")) {
+        async function resetSystem() {
+            if((await showConfirmDialog("Padam SEMUA data kedai dan transaksi? Ini tidak boleh diundur."))) {
                 localStorage.clear();
                 sessionStorage.clear();
                 clearAllAdminDirtyFlags();
@@ -4442,12 +4517,12 @@
                 window.currentCustomerTicket = null;
                 setCustomerMode('walkin');
                 refreshServiceConfigurationUI();
-                alert("Sistem telah dikosongkan sepenuhnya.");
+                (await showAlertDialog("Sistem telah dikosongkan sepenuhnya."));
             }
         }
 
         // UI & NAVIGATION
-        function switchView(viewId, btnElement, fromNav = true) {
+        async function switchView(viewId, btnElement, fromNav = true) {
             // Session gate (migration step 4): the nav buttons for these two panels
             // are still always visible and clickable — same as before auth existed —
             // but reaching the panel itself now requires a signed-in, active staff
@@ -4460,11 +4535,11 @@
             if (viewId === 'barber-app' || viewId === 'admin-app') {
                 if (!staffSession) { openStaffLoginDialog(); return; }
                 if (!staffProfile || !staffProfile.active) {
-                    alert('Akaun kakitangan anda belum diaktifkan oleh Admin.');
+                    (await showAlertDialog('Akaun kakitangan anda belum diaktifkan oleh Admin.'));
                     return;
                 }
                 if (viewId === 'admin-app' && staffProfile.role !== 'admin') {
-                    alert('Panel ini untuk Admin sahaja.');
+                    (await showAlertDialog('Panel ini untuk Admin sahaja.'));
                     return;
                 }
             }
@@ -4522,11 +4597,11 @@
             const message = nextStatus === 'closed'
                 ? "Tutup operasi kedai sekarang? Walk-in dan operasi semasa akan disekat, tetapi Tempahan Online untuk tarikh akan datang kekal tersedia."
                 : "Buka operasi kedai sekarang?";
-            if (!confirm(message)) return;
+            if (!(await showConfirmDialog(message))) return;
 
             const changedAt = getUTCISOString();
             const sync = await syncShopSettingsToServer({ shopStatus: nextStatus, shopStatusChangedAtUtc: changedAt });
-            if (!sync.ok) return alert(sync.error?.message || "Status kedai gagal disimpan. Sila cuba lagi.");
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Status kedai gagal disimpan. Sila cuba lagi."));
             safeSetItem('shopStatus', nextStatus);
             safeSetItem('shopStatusChangedAtUtc', changedAt);
             updateUI();
@@ -4535,13 +4610,13 @@
         async function saveMaxQueueSetting() {
             const input = document.getElementById('adminMaxQueueInput');
             const value = Number.parseInt(input.value, 10);
-            if (!Number.isInteger(value) || value < 1 || value > 999) return alert("Had giliran mesti nombor bulat antara 1 hingga 999.");
+            if (!Number.isInteger(value) || value < 1 || value > 999) return (await showAlertDialog("Had giliran mesti nombor bulat antara 1 hingga 999."));
             const sync = await syncShopSettingsToServer({ maxQueue: value });
-            if (!sync.ok) return alert(sync.error?.message || "Had giliran gagal disimpan. Sila cuba lagi.");
-            if (!safeSetItem('maxQueue', String(value))) return alert("Had giliran gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi.");
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Had giliran gagal disimpan. Sila cuba lagi."));
+            if (!safeSetItem('maxQueue', String(value))) return (await showAlertDialog("Had giliran gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi."));
             markAdminInputsSaved(['adminMaxQueueInput']);
             updateUI();
-            alert(`Had maksimum giliran dikemas kini kepada ${value}.`);
+            (await showAlertDialog(`Had maksimum giliran dikemas kini kepada ${value}.`));
         }
 
         function getOperationalHoursFormData() {
@@ -4605,10 +4680,10 @@
             if (copyButton) copyButton.textContent = `SALIN ${label.toUpperCase()} KE SEMUA HARI`;
         }
 
-        function selectOperationalDay(day) {
+        async function selectOperationalDay(day) {
             if (!OPERATION_DAY_ORDER.includes(day) || day === getSelectedOperationalDay()) return;
             const hasUnsavedChanges = OPERATION_TIME_INPUT_IDS.some(id => document.getElementById(id)?.dataset.dirty === 'true');
-            if (hasUnsavedChanges && !confirm("Perubahan waktu hari ini belum disimpan. Tukar hari dan abaikan perubahan tersebut?")) return;
+            if (hasUnsavedChanges && !(await showConfirmDialog("Perubahan waktu hari ini belum disimpan. Tukar hari dan abaikan perubahan tersebut?"))) return;
             markAdminInputsSaved(OPERATION_TIME_INPUT_IDS);
             selectedOperationalDay = day;
             operationalTimeOptionsSignature = '';
@@ -4670,37 +4745,37 @@
             const data = getOperationalHoursFormData();
             const onScreenDay = document.getElementById('selectedOperationalDayLabel')?.textContent || '';
             if (!onScreenDay.includes(OPERATION_DAY_LABELS[day])) {
-                return alert("Paparan hari tidak sepadan. Sila pilih semula hari sebelum menyimpan.");
+                return (await showAlertDialog("Paparan hari tidak sepadan. Sila pilih semula hari sebelum menyimpan."));
             }
             const validationError = getOperationalHoursValidationError(data);
-            if (validationError) return alert(validationError);
+            if (validationError) return (await showAlertDialog(validationError));
             const weekly = getWeeklyOpHours();
             const nextOps = normalizeOpHours(data);
             const unservable = getNewlyUnservableAppointments(day, weekly[day], nextOps);
             if (unservable.length) {
-                const proceed = confirm(
+                const proceed = (await showConfirmDialog(
                     `${unservable.length} tempahan tidak lagi berada dalam waktu operasi ${OPERATION_DAY_LABELS[day]}:\n\n` +
                     `${formatUnservableAppointmentDetails(unservable)}\n\n` +
                     `Simpan tetapan baharu? Tempahan tersebut TIDAK akan dibatalkan secara automatik. ` +
                     `Sila hubungi pelanggan atau uruskan tempahan secara manual.`
-                );
+                ));
                 if (!proceed) return;
             }
             weekly[day] = nextOps;
             const sync = await syncShopSettingsToServer({ weeklyOpHours: weekly });
-            if (!sync.ok) return alert(sync.error?.message || "Waktu operasi gagal disimpan. Sila cuba lagi.");
-            if (!safeSetItem('weeklyOpHours', weekly)) return alert("Waktu operasi gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi.");
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Waktu operasi gagal disimpan. Sila cuba lagi."));
+            if (!safeSetItem('weeklyOpHours', weekly)) return (await showAlertDialog("Waktu operasi gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi."));
             markAdminInputsSaved(OPERATION_TIME_INPUT_IDS);
             operationalTimeOptionsSignature = '';
             resetOperationalHoursNotice();
-            alert(`Waktu operasi ${OPERATION_DAY_LABELS[day]} disimpan.`);
+            (await showAlertDialog(`Waktu operasi ${OPERATION_DAY_LABELS[day]} disimpan.`));
             updateUI();
         }
 
         async function copyOperationalHoursToAllDays() {
             const data = getOperationalHoursFormData();
             const validationError = getOperationalHoursValidationError(data);
-            if (validationError) return alert(validationError);
+            if (validationError) return (await showAlertDialog(validationError));
             const label = OPERATION_DAY_LABELS[getSelectedOperationalDay()];
             const nextOps = normalizeOpHours(data);
             const appointments = getAppointments();
@@ -4719,26 +4794,26 @@
                   `Tempahan tersebut TIDAK akan dibatalkan secara automatik.`
                 : '';
             const message = `${baseMessage}${impactMessage}\n\nTeruskan?`;
-            if (!confirm(message)) return;
+            if (!(await showConfirmDialog(message))) return;
             const replacementWeekly = {};
             OPERATION_DAY_ORDER.forEach(day => { replacementWeekly[day] = { ...nextOps }; });
             const sync = await syncShopSettingsToServer({ weeklyOpHours: replacementWeekly });
-            if (!sync.ok) return alert(sync.error?.message || "Waktu operasi semua hari gagal disimpan. Sila cuba lagi.");
-            if (!safeSetItem('weeklyOpHours', replacementWeekly)) return alert("Waktu operasi semua hari gagal disimpan. Sila cuba lagi.");
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Waktu operasi semua hari gagal disimpan. Sila cuba lagi."));
+            if (!safeSetItem('weeklyOpHours', replacementWeekly)) return (await showAlertDialog("Waktu operasi semua hari gagal disimpan. Sila cuba lagi."));
             markAdminInputsSaved(OPERATION_TIME_INPUT_IDS);
             operationalTimeOptionsSignature = '';
             resetOperationalHoursNotice();
-            alert(`Waktu ${label} telah disalin ke semua hari.`);
+            (await showAlertDialog(`Waktu ${label} telah disalin ke semua hari.`));
             updateUI();
         }
 
         async function saveBookingAdvanceDaysSetting() {
             const input = document.getElementById('adminBookingAdvanceDaysInput');
             const days = Number.parseInt(input.value, 10);
-            if (!Number.isInteger(days) || days < 1 || days > 365) return alert("Had tempahan mesti nombor bulat antara 1 hingga 365 hari.");
+            if (!Number.isInteger(days) || days < 1 || days > 365) return (await showAlertDialog("Had tempahan mesti nombor bulat antara 1 hingga 365 hari."));
             const sync = await syncShopSettingsToServer({ bookingAdvanceDays: days });
-            if (!sync.ok) return alert(sync.error?.message || "Had tempahan gagal disimpan. Sila cuba lagi.");
-            if (!safeSetItem('bookingAdvanceDays', String(days))) return alert("Had tempahan gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi.");
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Had tempahan gagal disimpan. Sila cuba lagi."));
+            if (!safeSetItem('bookingAdvanceDays', String(days))) return (await showAlertDialog("Had tempahan gagal disimpan. Sila kosongkan ruang pelayar dan cuba lagi."));
             markAdminInputsSaved(['adminBookingAdvanceDaysInput']);
             if (document.getElementById('bookDateInput').value && !isOnlineBookingDateAllowed(document.getElementById('bookDateInput').value)) {
                 calSelectedDate = '';
@@ -4747,7 +4822,7 @@
                 document.getElementById('bookTimeInput').disabled = true;
             }
             updateUI();
-            alert(`Tempahan Online dibenarkan sehingga ${days} hari ke hadapan.`);
+            (await showAlertDialog(`Tempahan Online dibenarkan sehingga ${days} hari ke hadapan.`));
         }
 
         function getSeatNumbers() {
@@ -4839,7 +4914,7 @@
             container.dataset.signature = signature;
         }
 
-        function saveBarberAssignments() {
+        async function saveBarberAssignments() {
             const assignments = {};
             const staffIdsBySeat = {};
             for (const seat of getSeatNumbers()) {
@@ -4847,11 +4922,11 @@
                 staffIdsBySeat[seat] = select?.value || '';
                 assignments[seat] = normalizeBarberName(getStaffDisplayName(staffIdsBySeat[seat]));
             }
-            if (!Object.values(assignments).some(Boolean)) return alert("Pilih sekurang-kurangnya seorang tukang gunting yang bertugas.");
+            if (!Object.values(assignments).some(Boolean)) return (await showAlertDialog("Pilih sekurang-kurangnya seorang tukang gunting yang bertugas."));
             const activeSeats = getActiveSeats();
             const activeSeatWithoutName = getSeatNumbers().find(seat => activeSeats[seat] && !assignments[seat]);
-            if (activeSeatWithoutName) return alert(`Tukang gunting Kerusi ${activeSeatWithoutName} tidak boleh dikosongkan ketika kerusi masih aktif. Tutup kerusi dahulu.`);
-            if (!safeSetItem('barberAssignments', assignments)) return alert("Tukang gunting gagal disimpan. Sila cuba lagi.");
+            if (activeSeatWithoutName) return (await showAlertDialog(`Tukang gunting Kerusi ${activeSeatWithoutName} tidak boleh dikosongkan ketika kerusi masih aktif. Tutup kerusi dahulu.`));
+            if (!safeSetItem('barberAssignments', assignments)) return (await showAlertDialog("Tukang gunting gagal disimpan. Sila cuba lagi."));
             document.querySelectorAll('#adminBarberAssignments select').forEach(select => delete select.dataset.dirty);
             appendAuditEvent('barber_assignments_updated', 'shop_setting', 'barberAssignments', 'admin', { assignments });
             Promise.all(getSeatNumbers().map(seat =>
@@ -4859,18 +4934,18 @@
             )).then(() => refreshStaffList());
             renderBarberAssignments(true);
             updateUI();
-            alert("Pasukan bertugas telah disimpan. Servis baharu akan direkodkan mengikut tukang gunting ini.");
+            (await showAlertDialog("Pasukan bertugas telah disimpan. Servis baharu akan direkodkan mengikut tukang gunting ini."));
         }
 
         async function saveSeatCountSetting() {
             const input = document.getElementById('adminSeatCountInput');
             const newCount = Number.parseInt(input.value, 10);
-            if (!Number.isInteger(newCount) || newCount < 1 || newCount > 20) return alert("Jumlah kerusi mesti nombor bulat antara 1 hingga 20.");
+            if (!Number.isInteger(newCount) || newCount < 1 || newCount > 20) return (await showAlertDialog("Jumlah kerusi mesti nombor bulat antara 1 hingga 20."));
 
             const currentCount = getSeatCount();
             if (newCount < currentCount) {
                 const occupiedRemovedSeat = getQueues().find(queue => queue.status === 'serving' && Number(queue.seat) > newCount);
-                if (occupiedRemovedSeat) return alert(`Kerusi ${occupiedRemovedSeat.seat} masih melayan ${occupiedRemovedSeat.id}. Selesaikan pelanggan sebelum mengurangkan jumlah kerusi.`);
+                if (occupiedRemovedSeat) return (await showAlertDialog(`Kerusi ${occupiedRemovedSeat.seat} masih melayan ${occupiedRemovedSeat.id}. Selesaikan pelanggan sebelum mengurangkan jumlah kerusi.`));
             }
 
             const currentSeats = getActiveSeats();
@@ -4882,22 +4957,22 @@
                 nextBarbers[seat] = currentBarbers[seat] || '';
             }
             const sync = await syncShopSettingsToServer({ seatCount: newCount });
-            if (!sync.ok) return alert(sync.error?.message || "Bilangan kerusi gagal disimpan. Sila cuba lagi.");
-            if (!safeSetItem('seatCount', String(newCount))) return alert("Bilangan kerusi gagal disimpan. Sila cuba lagi.");
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Bilangan kerusi gagal disimpan. Sila cuba lagi."));
+            if (!safeSetItem('seatCount', String(newCount))) return (await showAlertDialog("Bilangan kerusi gagal disimpan. Sila cuba lagi."));
             saveActiveSeats(nextSeats);
             safeSetItem('barberAssignments', nextBarbers);
             markAdminInputsSaved(['adminSeatCountInput']);
             updateUI();
             generateTimeSlots();
-            alert(`Jumlah kerusi dikemas kini kepada ${newCount}.`);
+            (await showAlertDialog(`Jumlah kerusi dikemas kini kepada ${newCount}.`));
         }
 
-        function toggleSeatStatus(seatNum) {
-            if (!Number.isInteger(seatNum) || seatNum < 1 || seatNum > getSeatCount()) return alert("Nombor kerusi tidak sah.");
+        async function toggleSeatStatus(seatNum) {
+            if (!Number.isInteger(seatNum) || seatNum < 1 || seatNum > getSeatCount()) return (await showAlertDialog("Nombor kerusi tidak sah."));
             const queues = getQueues();
             const activeSeats = getActiveSeats();
             if (activeSeats[seatNum] && queues.some(q => q.status === 'serving' && q.seat === seatNum)) {
-                alert(`Kerusi ${seatNum} sedang melayan pelanggan. Sila 'Selesai' dahulu sebelum menutup kerusi.`);
+                (await showAlertDialog(`Kerusi ${seatNum} sedang melayan pelanggan. Sila 'Selesai' dahulu sebelum menutup kerusi.`));
                 return;
             }
             const assignments = getBarberAssignments();
@@ -4906,13 +4981,13 @@
             const requestedBarberName = normalizeBarberName(getStaffDisplayName(requestedStaffId) || assignments[seatNum]);
             const change = buildSeatStatusChange(activeSeats, assignments, seatNum, requestedBarberName);
             if (!change.ok) {
-                alert(`Tukang gunting wajib dipilih sebelum Kerusi ${seatNum} boleh diaktifkan.`);
+                (await showAlertDialog(`Tukang gunting wajib dipilih sebelum Kerusi ${seatNum} boleh diaktifkan.`));
                 select?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 select?.focus({ preventScroll: true });
                 return;
             }
             const result = commitStorageTransaction({ activeSeats: change.seats, barberAssignments: change.assignments });
-            if (!result.ok) return alert("Status kerusi gagal disimpan. Sila cuba lagi.");
+            if (!result.ok) return (await showAlertDialog("Status kerusi gagal disimpan. Sila cuba lagi."));
             if (select) delete select.dataset.dirty;
             appendAuditEvent(change.activating ? 'seat_activated_with_barber' : 'seat_closed_barber_retained', 'seat', String(seatNum), 'admin', {
                 seat: seatNum,
@@ -5015,22 +5090,22 @@
             let target = document.getElementById('newSvcTarget').value;
             let category = document.getElementById('newSvcCategory').value;
             let type = document.getElementById('newSvcType').value;
-            if(!profile) { alert("Pilih Profil Logik untuk servis ini."); return; }
-            if(!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(duration) || duration <= 0) { alert("Masukkan nama, harga positif dan masa servis yang sah."); return; }
+            if(!profile) { (await showAlertDialog("Pilih Profil Logik untuk servis ini.")); return; }
+            if(!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(duration) || duration <= 0) { (await showAlertDialog("Masukkan nama, harga positif dan masa servis yang sah.")); return; }
             let svcs = getServices();
-            if (svcs.some(s => String(s.name).toLowerCase() === name.toLowerCase())) return alert("Nama servis ini sudah wujud.");
-            if (!window.ServiceRepo?.createService) { alert("Ciri tambah servis belum sedia. Sila muat semula halaman."); return; }
+            if (svcs.some(s => String(s.name).toLowerCase() === name.toLowerCase())) return (await showAlertDialog("Nama servis ini sudah wujud."));
+            if (!window.ServiceRepo?.createService) { (await showAlertDialog("Ciri tambah servis belum sedia. Sila muat semula halaman.")); return; }
             const id = createServiceId();
             try {
                 await window.ServiceRepo.createService({ id, name, priceRm: price, durationMinutes: duration, category, target, type });
             } catch (error) {
-                alert(error.message || "Tambah servis gagal. Sila cuba lagi."); return;
+                (await showAlertDialog(error.message || "Tambah servis gagal. Sila cuba lagi.")); return;
             }
             svcs.push({ id, name, price, duration, active: true, profile, target, category, type });
             saveServices(svcs);
             syncServiceOrderToServer(svcs);
             document.getElementById('newSvcName').value = ""; document.getElementById('newSvcPrice').value = ""; document.getElementById('newSvcDuration').value = "";
-            alert("Servis baharu ditambah."); refreshServiceConfigurationUI();
+            (await showAlertDialog("Servis baharu ditambah.")); refreshServiceConfigurationUI();
         }
 
         function editServiceClick(serviceId) {
@@ -5059,25 +5134,25 @@
             let nTarget = document.getElementById('editSvcTarget').value;
             let nCategory = document.getElementById('editSvcCategory').value;
             let nType = document.getElementById('editSvcType').value;
-            if(!nProfile) { alert("Pilih Profil Logik untuk servis ini."); return; }
-            if(!nName || !Number.isFinite(nPrice) || nPrice <= 0 || !Number.isInteger(nDur) || nDur <= 0) { alert("Lengkapkan maklumat dengan nilai positif."); return; }
+            if(!nProfile) { (await showAlertDialog("Pilih Profil Logik untuk servis ini.")); return; }
+            if(!nName || !Number.isFinite(nPrice) || nPrice <= 0 || !Number.isInteger(nDur) || nDur <= 0) { (await showAlertDialog("Lengkapkan maklumat dengan nilai positif.")); return; }
             let svcs = getServices();
             const index = svcs.findIndex(service => service.id === serviceId);
-            if (index < 0) return alert("Servis ini telah dipadam atau berubah di skrin lain. Buka semula borang Edit.");
+            if (index < 0) return (await showAlertDialog("Servis ini telah dipadam atau berubah di skrin lain. Buka semula borang Edit."));
             if (svcs.some(service => service.id !== serviceId && String(service.name).toLocaleLowerCase('ms-MY') === nName.toLocaleLowerCase('ms-MY'))) {
-                return alert("Nama servis ini sudah wujud.");
+                return (await showAlertDialog("Nama servis ini sudah wujud."));
             }
-            if (!window.ServiceRepo?.updateService) { alert("Ciri kemas kini servis belum sedia. Sila muat semula halaman."); return; }
+            if (!window.ServiceRepo?.updateService) { (await showAlertDialog("Ciri kemas kini servis belum sedia. Sila muat semula halaman.")); return; }
             try {
                 await window.ServiceRepo.updateService(serviceId, { name: nName, priceRm: nPrice, durationMinutes: nDur, category: nCategory, target: nTarget, type: nType });
             } catch (error) {
-                alert(error.message || "Kemas kini servis gagal. Sila cuba lagi."); return;
+                (await showAlertDialog(error.message || "Kemas kini servis gagal. Sila cuba lagi.")); return;
             }
             if(svcs[index]) {
                 svcs[index].name = nName; svcs[index].price = nPrice; svcs[index].duration = nDur; svcs[index].profile = nProfile; svcs[index].target = nTarget; svcs[index].category = nCategory; svcs[index].type = nType;
                 saveServices(svcs);
                 adminServiceTab = nCategory;
-                document.getElementById('adminEditServiceForm').style.display = 'none'; alert("Servis dikemas kini."); refreshServiceConfigurationUI();
+                document.getElementById('adminEditServiceForm').style.display = 'none'; (await showAlertDialog("Servis dikemas kini.")); refreshServiceConfigurationUI();
             }
         }
 
@@ -5086,11 +5161,11 @@
             const index = svcs.findIndex(service => service.id === serviceId);
             if(index < 0) return;
             const nextActive = !svcs[index].active;
-            if (!window.ServiceRepo?.updateService) { alert("Ciri kemas kini servis belum sedia. Sila muat semula halaman."); return; }
+            if (!window.ServiceRepo?.updateService) { (await showAlertDialog("Ciri kemas kini servis belum sedia. Sila muat semula halaman.")); return; }
             try {
                 await window.ServiceRepo.updateService(serviceId, { active: nextActive });
             } catch (error) {
-                alert(error.message || "Kemas kini status servis gagal. Sila cuba lagi."); return;
+                (await showAlertDialog(error.message || "Kemas kini status servis gagal. Sila cuba lagi.")); return;
             }
             svcs[index].active = nextActive;
             saveServices(svcs);
@@ -5101,12 +5176,12 @@
             let svcs = getServices();
             const index = svcs.findIndex(service => service.id === serviceId);
             if(index < 0) return;
-            if(!confirm(`Padam servis ini?`)) return;
-            if (!window.ServiceRepo?.deleteService) { alert("Ciri padam servis belum sedia. Sila muat semula halaman."); return; }
+            if(!(await showConfirmDialog(`Padam servis ini?`))) return;
+            if (!window.ServiceRepo?.deleteService) { (await showAlertDialog("Ciri padam servis belum sedia. Sila muat semula halaman.")); return; }
             try {
                 await window.ServiceRepo.deleteService(serviceId);
             } catch (error) {
-                alert(error.message || "Padam servis gagal. Sila cuba lagi."); return;
+                (await showAlertDialog(error.message || "Padam servis gagal. Sila cuba lagi.")); return;
             }
             svcs.splice(index, 1);
             saveServices(svcs);
@@ -5129,11 +5204,11 @@
             return services.map(service => service.category === category ? remaining[categoryIndex++] : service);
         }
 
-        function persistServicePriority(sourceId, targetId, placeAfter = false) {
+        async function persistServicePriority(sourceId, targetId, placeAfter = false) {
             const services = getServices();
             const reordered = reorderServicesWithinCategory(services, sourceId, targetId, placeAfter);
             if (reordered.map(service => service.id).join('|') === services.map(service => service.id).join('|')) return false;
-            if (!saveServices(reordered)) return alert("Turutan servis gagal disimpan. Sila cuba lagi.");
+            if (!saveServices(reordered)) return (await showAlertDialog("Turutan servis gagal disimpan. Sila cuba lagi."));
             appendAuditEvent('service_priority_updated', 'shop_service', sourceId, 'admin', { targetId, placeAfter });
             // Display order only (server `sort_order`) — best-effort, same as
             // syncSeatAssignmentToServer; never blocks the local reorder above.
@@ -5421,10 +5496,10 @@
             const candidateKey = document.getElementById('fastPassCandidate').value;
             const candidate = getFastPassCandidate(candidateKey);
             const reason = document.getElementById('fastPassReason').value.trim();
-            if (!candidate) return alert("Pilih pelanggan Walk-in atau Tempahan Online yang masih aktif.");
-            if (reason.length < 3) return alert("Masukkan sebab kelulusan yang jelas.");
+            if (!candidate) return (await showAlertDialog("Pilih pelanggan Walk-in atau Tempahan Online yang masih aktif."));
+            if (reason.length < 3) return (await showAlertDialog("Masukkan sebab kelulusan yang jelas."));
             const record = candidate.record;
-            if (!confirm(`Luluskan keutamaan senyap untuk ${record.name} (${record.id}) menggunakan servis sedia ada?`)) return;
+            if (!(await showConfirmDialog(`Luluskan keutamaan senyap untuk ${record.name} (${record.id}) menggunakan servis sedia ada?`))) return;
             // Step 6: approve_fast_pass() is a SECURITY DEFINER RPC (not a plain
             // write-through like updateService()) so approved_by can be set from
             // auth.uid() server-side rather than a client-supplied value -- see
@@ -5435,9 +5510,9 @@
                 approved = await window.AppointmentRepo.approveFastPass(candidate.source, record.id, reason);
             } catch (error) {
                 console.warn('Kelulusan Laluan Pantas gagal.', error);
-                return alert("Kelulusan gagal disimpan. Sila cuba lagi.");
+                return (await showAlertDialog("Kelulusan gagal disimpan. Sila cuba lagi."));
             }
-            if (!approved) return alert("Rekod ini telah berubah. Sila pilih semula.");
+            if (!approved) return (await showAlertDialog("Rekod ini telah berubah. Sila pilih semula."));
             const approvedAt = getUTCISOString();
             record.isFastPass = true;
             record.fastPassApproved = true;
@@ -5448,13 +5523,13 @@
             if (candidate.source === 'queue') {
                 const queues = getQueues();
                 const index = queues.findIndex(queue => queue.id === record.id && queue.status === 'waiting');
-                if (index < 0) return alert("Rekod giliran telah berubah. Sila pilih semula.");
+                if (index < 0) return (await showAlertDialog("Rekod giliran telah berubah. Sila pilih semula."));
                 queues[index] = record;
                 saveQueues(queues);
             } else {
                 const appointments = getAppointments();
                 const index = appointments.findIndex(appointment => appointment.id === record.id && appointment.status === 'upcoming');
-                if (index < 0) return alert("Rekod tempahan telah berubah. Sila pilih semula.");
+                if (index < 0) return (await showAlertDialog("Rekod tempahan telah berubah. Sila pilih semula."));
                 appointments[index] = record;
                 saveAppointments(appointments);
             }
@@ -5462,22 +5537,22 @@
             document.getElementById('fastPassCandidate').value = '';
             document.getElementById('fastPassReason').value = '';
             updateUI();
-            alert(`${record.id} diluluskan menggunakan servis asal. Keutamaan tidak akan dipaparkan kepada pelanggan lain.`);
+            (await showAlertDialog(`${record.id} diluluskan menggunakan servis asal. Keutamaan tidak akan dipaparkan kepada pelanggan lain.`));
         }
 
         async function revokeFastPass(candidateKey) {
             const candidate = getFastPassCandidate(candidateKey);
-            if (!candidate || (getQueuePriority(candidate.record) !== 0 && !candidate.record.fastPassApproved)) return alert("Kelulusan ini tidak lagi aktif.");
+            if (!candidate || (getQueuePriority(candidate.record) !== 0 && !candidate.record.fastPassApproved)) return (await showAlertDialog("Kelulusan ini tidak lagi aktif."));
             const record = candidate.record;
-            if (!confirm(`Tarik balik keutamaan untuk ${record.id} - ${record.name}? Pelanggan kekal dalam rekod asal.`)) return;
+            if (!(await showConfirmDialog(`Tarik balik keutamaan untuk ${record.id} - ${record.name}? Pelanggan kekal dalam rekod asal.`))) return;
             let revoked;
             try {
                 revoked = await window.AppointmentRepo.revokeFastPass(candidate.source, record.id);
             } catch (error) {
                 console.warn('Penarikan balik Laluan Pantas gagal.', error);
-                return alert("Penarikan balik gagal disimpan. Sila cuba lagi.");
+                return (await showAlertDialog("Penarikan balik gagal disimpan. Sila cuba lagi."));
             }
-            if (!revoked) return alert("Rekod ini telah berubah. Sila pilih semula.");
+            if (!revoked) return (await showAlertDialog("Rekod ini telah berubah. Sila pilih semula."));
             record.isFastPass = false;
             record.fastPassApproved = false;
             record.revokedBy = 'Admin';
@@ -5498,11 +5573,11 @@
             updateUI();
         }
 
-        function adminCancelRecord(source, recordId) {
+        async function adminCancelRecord(source, recordId) {
             const isValid = source === 'queue'
                 ? getQueues().some(queue => queue.id === recordId && queue.status === 'waiting')
                 : source === 'appointment' && getAppointments().some(appointment => appointment.id === recordId && appointment.status === 'upcoming');
-            if (!isValid) return alert("Rekod ini tidak lagi boleh dibatalkan.");
+            if (!isValid) return (await showAlertDialog("Rekod ini tidak lagi boleh dibatalkan."));
             pendingAdminCancellation = { source, recordId };
             document.getElementById('adminCancelDialogSummary').textContent = `${recordId} akan dibatalkan dan pelanggan akan dimaklumkan melalui saluran yang tersedia.`;
             document.getElementById('adminCancelReason').value = '';
@@ -5522,11 +5597,11 @@
         async function confirmAdminCancellation() {
             if (!pendingAdminCancellation) return closeAdminCancelDialog();
             const reason = document.getElementById('adminCancelReason').value.trim();
-            if (reason.length < 3) return alert("Pembatalan Admin memerlukan sebab yang jelas.");
+            if (reason.length < 3) return (await showAlertDialog("Pembatalan Admin memerlukan sebab yang jelas."));
             const { source, recordId } = pendingAdminCancellation;
             if (source !== 'queue' && source !== 'appointment') {
                 closeAdminCancelDialog();
-                return alert("Jenis rekod tidak sah.");
+                return (await showAlertDialog("Jenis rekod tidak sah."));
             }
 
             // Bugfix (see HANDOFF.md): admin_cancel_record() is a SECURITY DEFINER
@@ -5544,11 +5619,11 @@
             } catch (error) {
                 console.warn('Pembatalan Admin gagal disimpan.', error);
                 closeAdminCancelDialog();
-                return alert("Pembatalan gagal disimpan. Sila semak rekod dan cuba lagi.");
+                return (await showAlertDialog("Pembatalan gagal disimpan. Sila semak rekod dan cuba lagi."));
             }
             if (!cancelled) {
                 closeAdminCancelDialog();
-                return alert("Rekod ini tidak lagi boleh dibatalkan (mungkin telah berubah).");
+                return (await showAlertDialog("Rekod ini tidak lagi boleh dibatalkan (mungkin telah berubah)."));
             }
 
             try {
@@ -5594,14 +5669,14 @@
                 }
             }
             updateUI();
-            alert("Pembatalan direkodkan. Notifikasi aplikasi dan WhatsApp yang layak telah dimasukkan ke outbox.");
+            (await showAlertDialog("Pembatalan direkodkan. Notifikasi aplikasi dan WhatsApp yang layak telah dimasukkan ke outbox."));
             } catch (error) {
                 // The server-side cancellation already succeeded at this point --
                 // only the local mirror/notification bookkeeping failed. The next
                 // realtime refresh (this action's own UPDATE fires the queues/
                 // appointments channel) or a page reload will reconcile the view.
                 console.error('Pembatalan berjaya di server tetapi kemaskini tempatan gagal.', error);
-                alert("Pembatalan berjaya direkodkan, tetapi paparan tempatan gagal dikemaskini. Muat semula halaman jika perlu.");
+                (await showAlertDialog("Pembatalan berjaya direkodkan, tetapi paparan tempatan gagal dikemaskini. Muat semula halaman jika perlu."));
             } finally {
                 closeAdminCancelDialog();
             }
@@ -5797,49 +5872,49 @@
         }
 
         async function bookTicket() {
-            if(localStorage.getItem('shopStatus') === 'closed') return alert("Kedai sedang ditutup.");
+            if(localStorage.getItem('shopStatus') === 'closed') return (await showAlertDialog("Kedai sedang ditutup."));
             let activeSeatsObj = getActiveSeats();
             let activeSCount = Object.values(activeSeatsObj).filter(Boolean).length;
-            if (activeSCount === 0) return alert("Semua kerusi ditutup.");
+            if (activeSCount === 0) return (await showAlertDialog("Semua kerusi ditutup."));
 
             let queues = getQueues();
             const activeTicket = localStorage.getItem('activeTicket');
             if (activeTicket && queues.some(q => q.id === activeTicket && ['waiting','serving'].includes(q.status))) {
                 window.currentCustomerTicket = activeTicket;
                 updateUI();
-                return alert("Anda masih mempunyai tiket aktif.");
+                return (await showAlertDialog("Anda masih mempunyai tiket aktif."));
             }
             let waitingList = sortWaitingQueue(queues.filter(q => q.status === 'waiting'));
             const walkinWaitingCount = waitingList.filter(isWalkinQueue).length;
             let maxQ = parseInt(localStorage.getItem('maxQueue')) || 10;
-            if (walkinWaitingCount >= maxQ) return alert("Giliran Walk-in penuh.");
+            if (walkinWaitingCount >= maxQ) return (await showAlertDialog("Giliran Walk-in penuh."));
 
             let name = document.getElementById('customerNameInput').value.trim();
-            if (!name) return alert("Masukkan nama pelanggan.");
+            if (!name) return (await showAlertDialog("Masukkan nama pelanggan."));
             const phone = normalizeWhatsAppNumber(document.getElementById('customerPhoneInput').value);
-            if (!phone) return alert("Masukkan nombor WhatsApp Malaysia yang sah untuk menerima perubahan giliran secara automatik.");
+            if (!phone) return (await showAlertDialog("Masukkan nombor WhatsApp Malaysia yang sah untuk menerima perubahan giliran secara automatik."));
             let cb = document.querySelectorAll('input[name="walkinServices"]:checked');
-            if(cb.length === 0) return alert("Pilih satu servis.");
+            if(cb.length === 0) return (await showAlertDialog("Pilih satu servis."));
             const invalidWalkinSelection = getInvalidServiceCombinationMessage(cb);
-            if(invalidWalkinSelection) return alert(invalidWalkinSelection);
+            if(invalidWalkinSelection) return (await showAlertDialog(invalidWalkinSelection));
             
             let services = Array.from(cb).map(c => c.value).join(', ');
             let dur = 0, price = 0;
             cb.forEach(c => { dur += parseInt(c.dataset.duration); price += parseFloat(c.dataset.price); });
-            if (!Number.isFinite(dur) || dur <= 0 || !Number.isFinite(price) || price < 0) return alert("Maklumat servis tidak sah.");
+            if (!Number.isFinite(dur) || dur <= 0 || !Number.isFinite(price) || price < 0) return (await showAlertDialog("Maklumat servis tidak sah."));
 
             const ops = getOpHours();
-            if (ops.closed) return alert("Kedai tidak beroperasi pada hari ini.");
+            if (ops.closed) return (await showAlertDialog("Kedai tidak beroperasi pada hari ini."));
             const currentMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
             const closeMinutes = businessMinutes(timeToMinutes(ops.close), ops);
-            if (getClosedDates().includes(getCurrentBusinessDate())) return alert("Kedai ditutup pada hari ini.");
+            if (getClosedDates().includes(getCurrentBusinessDate())) return (await showAlertDialog("Kedai ditutup pada hari ini."));
             if (currentMinutes < timeToMinutes(ops.open) || currentMinutes >= closeMinutes) {
-                return alert("Walk-in tidak dibuka pada waktu ini.");
+                return (await showAlertDialog("Walk-in tidak dibuka pada waktu ini."));
             }
             const estimateId = '__QUEUECUT_ESTIMATE__';
             const estimatedWait = estimateQueueWaitMinutes([...queues, { id: estimateId, status: 'waiting', timestamp: getUTCISOString(), duration: dur, queueSource: 'walkin' }], estimateId, activeSeatsObj);
-            if (estimatedWait === null) return alert("Masa menunggu belum dapat dianggarkan. Sila pastikan sekurang-kurangnya satu kerusi aktif.");
-            if (currentMinutes + estimatedWait + dur > closeMinutes) return alert("Anggaran giliran dan servis akan melepasi waktu tutup kedai.");
+            if (estimatedWait === null) return (await showAlertDialog("Masa menunggu belum dapat dianggarkan. Sila pastikan sekurang-kurangnya satu kerusi aktif."));
+            if (currentMinutes + estimatedWait + dur > closeMinutes) return (await showAlertDialog("Anggaran giliran dan servis akan melepasi waktu tutup kedai."));
 
             // Generate Precise Prefix Number.
             //
@@ -5969,20 +6044,20 @@
             let time = document.getElementById('bookTimeInput').value;
             const phone = normalizeWhatsAppNumber(document.getElementById('bookPhoneInput').value);
             let cb = document.querySelectorAll('input[name="bookingServices"]:checked');
-            if(!name) return alert("Masukkan nama pelanggan.");
-            if(!date || !time) return alert("Pilih tarikh dan masa tempahan.");
-            if (!phone) return alert("Masukkan nombor WhatsApp Malaysia yang sah untuk menerima perubahan tempahan secara automatik.");
-            if(cb.length === 0) return alert("Pilih servis.");
+            if(!name) return (await showAlertDialog("Masukkan nama pelanggan."));
+            if(!date || !time) return (await showAlertDialog("Pilih tarikh dan masa tempahan."));
+            if (!phone) return (await showAlertDialog("Masukkan nombor WhatsApp Malaysia yang sah untuk menerima perubahan tempahan secara automatik."));
+            if(cb.length === 0) return (await showAlertDialog("Pilih servis."));
             const invalidBookingSelection = getInvalidServiceCombinationMessage(cb);
-            if(invalidBookingSelection) return alert(invalidBookingSelection);
+            if(invalidBookingSelection) return (await showAlertDialog(invalidBookingSelection));
 
             let svcs = Array.from(cb).map(c => c.value).join(', ');
             let dur = 0, price = 0; cb.forEach(c => { dur += parseInt(c.dataset.duration); price += parseFloat(c.dataset.price); });
-            if (!Number.isFinite(dur) || dur <= 0 || !Number.isFinite(price) || price < 0) return alert("Maklumat servis tidak sah.");
+            if (!Number.isFinite(dur) || dur <= 0 || !Number.isFinite(price) || price < 0) return (await showAlertDialog("Maklumat servis tidak sah."));
             const excludedAppointmentId = bookingChangeMode?.type === 'reschedule' ? bookingChangeMode.appointmentId : '';
             if (!isAppointmentSlotAvailable(date, time, dur, excludedAppointmentId)) {
                 generateTimeSlots();
-                return alert("Slot ini tidak lagi tersedia. Sila pilih masa lain.");
+                return (await showAlertDialog("Slot ini tidak lagi tersedia. Sila pilih masa lain."));
             }
 
             let apps = getAppointments();
@@ -5991,7 +6066,7 @@
             if (!bookingChangeMode) {
                 const activeTicketId = localStorage.getItem('activeTicket');
                 const hasActiveWalkin = activeTicketId && getQueues().some(queue => queue.id === activeTicketId && ['waiting', 'serving'].includes(queue.status));
-                if (hasActiveWalkin) return alert("Anda masih mempunyai Walk-in aktif. Gunakan butang 'Tukar ke Tempahan Online' pada tiket Walk-in.");
+                if (hasActiveWalkin) return (await showAlertDialog("Anda masih mempunyai Walk-in aktif. Gunakan butang 'Tukar ke Tempahan Online' pada tiket Walk-in."));
             }
 
             // Step 6: every branch below now writes through to Supabase FIRST via
@@ -6008,9 +6083,9 @@
 
             if (bookingChangeMode?.type === 'reschedule') {
                 const index = apps.findIndex(appointment => appointment.id === bookingChangeMode.appointmentId && appointment.status === 'upcoming');
-                if (index < 0) return alert("Tempahan tidak lagi tersedia untuk dikemas kini.");
+                if (index < 0) return (await showAlertDialog("Tempahan tidak lagi tersedia untuk dikemas kini."));
                 const appointment = apps[index];
-                if ((Number.parseInt(appointment.version, 10) || 0) !== bookingChangeMode.expectedVersion) return alert("Tempahan telah berubah di skrin lain. Buka semula dan cuba lagi.");
+                if ((Number.parseInt(appointment.version, 10) || 0) !== bookingChangeMode.expectedVersion) return (await showAlertDialog("Tempahan telah berubah di skrin lain. Buka semula dan cuba lagi."));
                 const claimToken = getAppointmentClaimToken(appointment.id);
                 const hadFastPass = Boolean(appointment.fastPassApproved || appointment.isFastPass);
                 let newVersion;
@@ -6018,7 +6093,7 @@
                     newVersion = await window.AppointmentRepo.rescheduleOwnAppointment(appointment.id, claimToken, bookingChangeMode.expectedVersion, date, time);
                 } catch (error) {
                     console.warn('Tempahan gagal dikemas kini di pelayan.', error);
-                    return alert(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Tempahan gagal dikemas kini. Sila cuba lagi.");
+                    return (await showAlertDialog(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Tempahan gagal dikemas kini. Sila cuba lagi."));
                 }
                 Object.assign(appointment, {
                     name, phone, whatsappAuto: true, service: svcs, duration: dur, price, date, time,
@@ -6039,7 +6114,7 @@
                     phone, title: 'TEMPAHAN DIKEMAS KINI',
                     message: `${appointment.id}: Tempahan baharu pada ${date} ${time} GMT+8.${hadFastPass ? ' Kelulusan keutamaan perlu dibuat semula oleh Admin.' : ''}`
                 });
-                alert(hadFastPass ? "Tempahan dikemas kini. Laluan Pantas dibatalkan dan memerlukan kelulusan semula Admin." : "Tempahan berjaya dikemas kini.");
+                (await showAlertDialog(hadFastPass ? "Tempahan dikemas kini. Laluan Pantas dibatalkan dan memerlukan kelulusan semula Admin." : "Tempahan berjaya dikemas kini."));
                 cancelEditMode(); updateUI();
                 return;
             }
@@ -6047,9 +6122,9 @@
             if (bookingChangeMode?.type === 'convert_walkin') {
                 const conversionQueues = getQueues();
                 const conversionQueueIndex = conversionQueues.findIndex(queue => queue.id === bookingChangeMode.walkinId && queue.status === 'waiting');
-                if (conversionQueueIndex < 0) return alert("Tiket Walk-in tidak lagi boleh ditukar.");
+                if (conversionQueueIndex < 0) return (await showAlertDialog("Tiket Walk-in tidak lagi boleh ditukar."));
                 const queue = conversionQueues[conversionQueueIndex];
-                if ((Number.parseInt(queue.version, 10) || 0) !== bookingChangeMode.expectedVersion) return alert("Tiket Walk-in telah berubah di skrin lain. Cuba semula.");
+                if ((Number.parseInt(queue.version, 10) || 0) !== bookingChangeMode.expectedVersion) return (await showAlertDialog("Tiket Walk-in telah berubah di skrin lain. Cuba semula."));
                 const walkinClaimToken = localStorage.getItem('activeTicketClaimToken');
 
                 requestNotificationPermission();
@@ -6061,7 +6136,7 @@
                     });
                 } catch (error) {
                     console.warn('Pertukaran Walk-in ke Tempahan gagal di pelayan.', error);
-                    return alert(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Pertukaran gagal disimpan. Walk-in asal dikekalkan; sila cuba lagi.");
+                    return (await showAlertDialog(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Pertukaran gagal disimpan. Walk-in asal dikekalkan; sila cuba lagi."));
                 }
                 const newId = converted.id;
                 saveAppointmentClaimToken(newId, converted.claimToken);
@@ -6083,7 +6158,7 @@
                     // reload will pick up the truth from local state again next time
                     // any write-through path re-touches these records; there is no
                     // silent data loss, just a stale local view until then.
-                    return alert("Pertukaran berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman.");
+                    return (await showAlertDialog("Pertukaran berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman."));
                 }
                 appendAuditEvent('walkin_converted_to_booking', 'queue', queue.id, 'customer', { appointmentId: newId, date, time });
                 enqueueNotification({
@@ -6093,7 +6168,7 @@
                 window.currentCustomerTicket = null;
                 localStorage.removeItem('activeTicket');
                 localStorage.removeItem('activeTicketClaimToken');
-                alert("Walk-in berjaya ditukar kepada Tempahan Online.");
+                (await showAlertDialog("Walk-in berjaya ditukar kepada Tempahan Online."));
                 cancelEditMode(); updateUI();
                 return;
             }
@@ -6104,7 +6179,7 @@
                 booked = await window.AppointmentRepo.bookAppointment({ name, phone, service: svcs, durationMinutes: dur, priceRm: price, date, time });
             } catch (error) {
                 console.warn('Tempahan gagal disimpan di pelayan.', error);
-                return alert(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Tempahan gagal disimpan. Tiada perubahan dibuat; sila cuba lagi.");
+                return (await showAlertDialog(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Tempahan gagal disimpan. Tiada perubahan dibuat; sila cuba lagi."));
             }
             const newId = booked.id;
             saveAppointmentClaimToken(newId, booked.claimToken);
@@ -6112,13 +6187,13 @@
             apps.push(newAppointment);
             myAppIds.push(newId);
             const createResult = commitStorageTransaction({ myAppIds: [...new Set(myAppIds)], appointments: apps });
-            if (!createResult.ok) return alert("Tempahan berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman.");
+            if (!createResult.ok) return (await showAlertDialog("Tempahan berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman."));
             appendAuditEvent('appointment_created', 'appointment', newId, 'customer', { date, time });
             enqueueNotification({
                 eventKey: `appointment-created:${newId}:1`, recordId: newId, phone,
                 title: 'TEMPAHAN DISAHKAN', message: `${newId}: Tempahan anda pada ${date} ${time} GMT+8 telah disahkan.`
             });
-            alert("Tempahan berjaya!");
+            (await showAlertDialog("Tempahan berjaya!"));
             cancelEditMode(); updateUI();
         }
 
@@ -6167,9 +6242,9 @@
             const ticketId = window.currentCustomerTicket || localStorage.getItem('activeTicket');
             const queues = getQueues();
             const index = queues.findIndex(queue => queue.id === ticketId);
-            if (index < 0 || queues[index].status !== 'waiting') return alert("Hanya Walk-in yang masih menunggu boleh dibatalkan.");
+            if (index < 0 || queues[index].status !== 'waiting') return (await showAlertDialog("Hanya Walk-in yang masih menunggu boleh dibatalkan."));
             const queue = queues[index];
-            if (!confirm(`Batalkan Walk-in ${queue.id}? Kedudukan giliran ini tidak boleh dipulihkan.`)) return;
+            if (!(await showConfirmDialog(`Batalkan Walk-in ${queue.id}? Kedudukan giliran ini tidak boleh dipulihkan.`))) return;
             queue.status = 'cancelled';
             queue.cancelledBy = 'customer';
             queue.cancelReason = 'Dibatalkan oleh pelanggan';
@@ -6195,23 +6270,23 @@
             window.currentCustomerTicket = null;
             localStorage.removeItem('activeTicket');
             updateUI();
-            alert("Walk-in berjaya dibatalkan.");
+            (await showAlertDialog("Walk-in berjaya dibatalkan."));
         }
 
-        function startWalkinConversion() {
+        async function startWalkinConversion() {
             const ticketId = window.currentCustomerTicket || localStorage.getItem('activeTicket');
             const queue = getQueues().find(item => item.id === ticketId && item.status === 'waiting');
-            if (!queue) return alert("Hanya Walk-in yang masih menunggu boleh ditukar.");
+            if (!queue) return (await showAlertDialog("Hanya Walk-in yang masih menunggu boleh ditukar."));
             prepareBookingChange(queue, {
                 type: 'convert_walkin', walkinId: queue.id,
                 expectedVersion: Number.parseInt(queue.version, 10) || 0
             }, 'Tukar Walk-in ke Tempahan Online', 'SAHKAN PERTUKARAN');
         }
 
-        function startRescheduleAppointment(appId) {
+        async function startRescheduleAppointment(appId) {
             if (!getMyAppIds().includes(appId)) return;
             const appointment = getAppointments().find(item => item.id === appId && item.status === 'upcoming');
-            if (!appointment) return alert("Tempahan ini tidak lagi boleh dijadualkan semula.");
+            if (!appointment) return (await showAlertDialog("Tempahan ini tidak lagi boleh dijadualkan semula."));
             prepareBookingChange(appointment, {
                 type: 'reschedule', appointmentId: appointment.id,
                 expectedVersion: Number.parseInt(appointment.version, 10) || 0
@@ -6228,20 +6303,20 @@
             const apps = getAppointments();
             const app = apps.find(a => a.id === appId);
             if (!app || app.status !== 'upcoming') return;
-            if (!confirm(`Batalkan tempahan ${appId} pada ${app.date} ${app.time}?`)) return;
+            if (!(await showConfirmDialog(`Batalkan tempahan ${appId} pada ${app.date} ${app.time}?`))) return;
             const claimToken = getAppointmentClaimToken(appId);
             let cancelled;
             try {
                 cancelled = await window.AppointmentRepo.cancelOwnAppointment(appId, claimToken);
             } catch (error) {
                 console.warn('Pembatalan tempahan gagal di pelayan.', error);
-                return alert(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Pembatalan gagal disimpan. Sila cuba lagi.");
+                return (await showAlertDialog(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Pembatalan gagal disimpan. Sila cuba lagi."));
             }
-            if (!cancelled) return alert("Tempahan ini tidak lagi boleh dibatalkan (mungkin telah berubah di skrin lain).");
+            if (!cancelled) return (await showAlertDialog("Tempahan ini tidak lagi boleh dibatalkan (mungkin telah berubah di skrin lain)."));
             app.status = 'cancelled'; app.cancelledAt = getUTCISOString();
             app.cancelledBy = 'customer'; app.cancelReason = 'Dibatalkan oleh pelanggan';
             app.version = nextRecordVersion(app);
-            if (!saveAppointments(apps)) return alert("Pembatalan berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman.");
+            if (!saveAppointments(apps)) return (await showAlertDialog("Pembatalan berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman."));
             appendAuditEvent('appointment_cancelled', 'appointment', app.id, 'customer');
             enqueueNotification({
                 eventKey: `customer-cancel:${app.id}:${app.version}`, recordId: app.id,
@@ -6264,23 +6339,23 @@
             const apps = getAppointments();
             const app = apps.find(a => a.id === appId);
             if (!app || app.status !== 'upcoming') return;
-            if (app.date !== getCurrentBusinessDate()) return alert("Hanya tempahan hari ini boleh didaftarkan tiba.");
+            if (app.date !== getCurrentBusinessDate()) return (await showAlertDialog("Hanya tempahan hari ini boleh didaftarkan tiba."));
             const ops = getOpHours(app.date);
             const start = businessMinutes(timeToMinutes(app.time), ops);
             const parsedDuration = Number(app.duration);
             const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : AVG_WAIT_MINUTES;
             const end = start + duration;
             const outsideOperatingHours = ops.closed || !Number.isFinite(start) || start < timeToMinutes(ops.open) || end > businessMinutes(timeToMinutes(ops.close), ops) || intervalOverlapsBreak(start, end, ops);
-            if (outsideOperatingHours && !confirm(`Tempahan ${app.time} berada di luar waktu operasi atau bertindih waktu rehat hari ini. Daftarkan tiba juga?`)) return;
+            if (outsideOperatingHours && !(await showConfirmDialog(`Tempahan ${app.time} berada di luar waktu operasi atau bertindih waktu rehat hari ini. Daftarkan tiba juga?`))) return;
             const queues = getQueues();
-            if (queues.some(q => q.id === appId && ['waiting','serving'].includes(q.status))) return alert("Tempahan ini sudah berada dalam giliran.");
-            if (!window.AppointmentRepo?.checkinAppointment) return alert("Ciri daftar tiba belum sedia. Sila muat semula halaman.");
+            if (queues.some(q => q.id === appId && ['waiting','serving'].includes(q.status))) return (await showAlertDialog("Tempahan ini sudah berada dalam giliran."));
+            if (!window.AppointmentRepo?.checkinAppointment) return (await showAlertDialog("Ciri daftar tiba belum sedia. Sila muat semula halaman."));
             let newQueueEntry;
             try {
                 newQueueEntry = await window.AppointmentRepo.checkinAppointment(appId);
             } catch (error) {
                 console.warn('Pendaftaran tiba gagal di pelayan.', error);
-                return alert(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Pendaftaran tiba gagal disimpan. Sila cuba lagi.");
+                return (await showAlertDialog(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Pendaftaran tiba gagal disimpan. Sila cuba lagi."));
             }
             app.status = 'arrived'; app.arrivedAt = getUTCISOString(); app.version = nextRecordVersion(app);
             queues.push({
@@ -6293,7 +6368,7 @@
                 version: newQueueEntry.version
             });
             const result = commitStorageTransaction({ appointments: apps, queues });
-            if (!result.ok) return alert("Pendaftaran berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman.");
+            if (!result.ok) return (await showAlertDialog("Pendaftaran berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman."));
             updateUI();
         }
 
@@ -6311,16 +6386,16 @@
         // not assigned yet" while the team is still being set up) than to
         // pretend it worked.
         async function callNextToSeat(seatNum) {
-            if (localStorage.getItem('shopStatus') !== 'open') return alert("Kedai sedang ditutup.");
-            if (!getActiveSeats()[seatNum]) return alert(`Kerusi ${seatNum} sedang ditutup.`);
-            if (getQueues().find(q => q.status === 'serving' && q.seat === seatNum)) return alert("Sila 'Selesai' pelanggan di kerusi ini dahulu.");
-            if (!window.QueueRepo?.callNext) return alert("Ciri panggil pelanggan belum sedia. Sila muat semula halaman.");
+            if (localStorage.getItem('shopStatus') !== 'open') return (await showAlertDialog("Kedai sedang ditutup."));
+            if (!getActiveSeats()[seatNum]) return (await showAlertDialog(`Kerusi ${seatNum} sedang ditutup.`));
+            if (getQueues().find(q => q.status === 'serving' && q.seat === seatNum)) return (await showAlertDialog("Sila 'Selesai' pelanggan di kerusi ini dahulu."));
+            if (!window.QueueRepo?.callNext) return (await showAlertDialog("Ciri panggil pelanggan belum sedia. Sila muat semula halaman."));
 
             let served;
             try {
                 served = await window.QueueRepo.callNext(seatNum);
             } catch (error) {
-                alert(error.message || "Panggil pelanggan gagal. Sila cuba lagi.");
+                (await showAlertDialog(error.message || "Panggil pelanggan gagal. Sila cuba lagi."));
                 return;
             }
 
@@ -6357,13 +6432,13 @@
             const idx = getQueues().findIndex(q => q.status === 'serving' && q.seat === seatNum);
             if (idx === -1) return;
             const ticketId = getQueues()[idx].id;
-            if (!window.QueueRepo?.completeService) return alert("Ciri selesai servis belum sedia. Sila muat semula halaman.");
+            if (!window.QueueRepo?.completeService) return (await showAlertDialog("Ciri selesai servis belum sedia. Sila muat semula halaman."));
 
             let completed;
             try {
                 completed = await window.QueueRepo.completeService(ticketId);
             } catch (error) {
-                alert(error.message || "Rekod servis gagal disimpan. Sila cuba lagi.");
+                (await showAlertDialog(error.message || "Rekod servis gagal disimpan. Sila cuba lagi."));
                 return;
             }
 
@@ -6383,14 +6458,14 @@
                 entries.activeSeats = seats;
             }
             const result = commitStorageTransaction(entries);
-            if (!result.ok) return alert("Rekod servis disahkan pelayan tetapi papan tempatan gagal dikemas kini. Sila muat semula halaman.");
+            if (!result.ok) return (await showAlertDialog("Rekod servis disahkan pelayan tetapi papan tempatan gagal dikemas kini. Sila muat semula halaman."));
             updateUI();
         }
 
-        function showTicketSelection() {
+        async function showTicketSelection() {
             const ticketId = window.currentCustomerTicket || localStorage.getItem('activeTicket');
             const ticket = getQueues().find(q => q.id === ticketId);
-            if (ticket && ['waiting','serving'].includes(ticket.status)) return alert("Tiket masih aktif. Sila tunggu sehingga servis selesai.");
+            if (ticket && ['waiting','serving'].includes(ticket.status)) return (await showAlertDialog("Tiket masih aktif. Sila tunggu sehingga servis selesai."));
             window.currentCustomerTicket = null; localStorage.removeItem('activeTicket'); updateUI();
         }
 
@@ -6422,8 +6497,8 @@
             }
             document.getElementById('calDaysContainer').innerHTML = html;
         }
-        function selectCalDate(d) {
-            if (!isOnlineBookingDateAllowed(d)) return alert("Tarikh ini tidak tersedia untuk Tempahan Online.");
+        async function selectCalDate(d) {
+            if (!isOnlineBookingDateAllowed(d)) return (await showAlertDialog("Tarikh ini tidak tersedia untuk Tempahan Online."));
             calSelectedDate = d; document.getElementById('bookDateInput').value = d; renderVisualCalendar(calCurrentDate); generateTimeSlots();
         }
 
@@ -6491,9 +6566,9 @@
 
         async function addClosedDate() {
             let start = document.getElementById('adminClosedDateStart').value, end = document.getElementById('adminClosedDateEnd').value;
-            if(!start) return alert("Pilih tarikh.");
+            if(!start) return (await showAlertDialog("Pilih tarikh."));
             let c = getClosedDates();
-            if (end && start > end) return alert("Tarikh akhir mesti selepas tarikh mula.");
+            if (end && start > end) return (await showAlertDialog("Tarikh akhir mesti selepas tarikh mula."));
             let arr = [start];
             if (end) {
                 const [sy, sm, sd] = start.split('-').map(Number);
@@ -6507,23 +6582,23 @@
             const isWeeklyClosed = date => weeklyHours[getDayIndexFromDate(date)].closed;
             const weeklyClosedDates = arr.filter(isWeeklyClosed);
             const datesToRecord = arr.filter(date => !isWeeklyClosed(date));
-            if (!datesToRecord.length) return alert("Semua tarikh yang dipilih sudah ditutup melalui jadual mingguan.");
+            if (!datesToRecord.length) return (await showAlertDialog("Semua tarikh yang dipilih sudah ditutup melalui jadual mingguan."));
             datesToRecord.forEach(a => { if(!c.includes(a)) c.push(a); });
             const sortedDates = c.sort();
             const sync = await syncShopSettingsToServer({ closedDates: sortedDates });
-            if (!sync.ok) return alert(sync.error?.message || "Cuti gagal disimpan. Sila cuba lagi.");
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Cuti gagal disimpan. Sila cuba lagi."));
             saveClosedDates(sortedDates);
             clearAdminClosedDateSelection();
             const skippedMessage = weeklyClosedDates.length ? ` ${weeklyClosedDates.length} hari jadual mingguan dilangkau.` : '';
-            alert(end ? `Julat cuti ${datesToRecord.length} hari direkod.${skippedMessage}` : "Cuti sehari direkod.");
+            (await showAlertDialog(end ? `Julat cuti ${datesToRecord.length} hari direkod.${skippedMessage}` : "Cuti sehari direkod."));
             updateUI();
         }
 
         async function removeClosedDate(date) {
-            if (!confirm(`Buka semula operasi pada ${date}?`)) return;
+            if (!(await showConfirmDialog(`Buka semula operasi pada ${date}?`))) return;
             const filtered = getClosedDates().filter(item => item !== date);
             const sync = await syncShopSettingsToServer({ closedDates: filtered });
-            if (!sync.ok) return alert(sync.error?.message || "Cuti gagal dibuka semula. Sila cuba lagi.");
+            if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Cuti gagal dibuka semula. Sila cuba lagi."));
             saveClosedDates(filtered);
             updateUI();
         }
