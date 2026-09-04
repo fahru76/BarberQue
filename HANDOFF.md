@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 4 September 2026 (updated: alert()/confirm() → styled pop-up dialogs)
+**Date:** 4 September 2026 (updated: remaining 40 inline `style=` inside `<script>` blocks converted to CSS classes)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1471,17 +1471,14 @@ what a user sees.
   the old inline style the exact same way it wins over the new rule — no behaviour
   change there either).
 
-**Inline styles left alone — 40, all inside `<script>` blocks:** every remaining
-`style="..."` lives inside a JS template literal that builds HTML at runtime (per-seat
-cards, per-record admin list items, service cards, badges, etc.), several with values
-computed from live data (`style="border-left-color: ${s.active ? 'var(--primary-color)'
-: 'var(--danger)'}"` and similar). Converting these to classes would mean editing
-string-concatenation code deep inside large functions with no static tag-balance check
-to verify against — meaningfully higher regression risk for a change whose entire
-point is "no behaviour change," so this batch was deliberately left as-is. If wanted
-later, the static ones (repeated per-row markup) could still move to classes; the
-genuinely data-driven ones (color depends on record state) are idiomatic to leave
-inline.
+**Inline styles left alone at the time — 40, all inside `<script>` blocks:** every
+remaining `style="..."` lived inside a JS template literal that builds HTML at runtime
+(per-seat cards, per-record admin list items, service cards, badges, etc.), several
+with values computed from live data (`style="border-left-color: ${s.active ?
+'var(--primary-color)' : 'var(--danger)'}"` and similar). This batch was deliberately
+left as-is at the time as higher-risk than the static markup above. It was picked back
+up and finished in a follow-up pass — see "Done — remaining 40 inline `style=` inside
+`<script>` blocks converted to CSS classes" below.
 
 **Semantic landmarks added:**
 
@@ -1600,6 +1597,75 @@ dialog that's already open, so there was nothing to convert.
 
 ---
 
+## Done — remaining 40 inline `style=` inside `<script>` blocks converted to CSS classes
+
+Follow-up to the semantic-HTML/inline-style cleanup above: the 40 inline styles that
+were deliberately left alone (all inside `<script>`-block JS template literals — the
+markup for per-seat cards, admin list rows, service cards, badges, etc.) are now gone
+too. Requested directly, after being asked to clarify an earlier one-line "item 5-6
+kosmetik/dokumentasi" message: continue and finish item 5, including the entries whose
+value depends on live data (a badge/border color that depends on record status).
+
+**Why a class, never an `id`, this time:** unlike the static markup in the cleanup
+above, every one of these 40 elements is generated inside a `.map()`/loop callback and
+can render as multiple DOM nodes (one per seat, per queue record, per service, …) —
+an `id` has to be unique per document, so every replacement here is a reusable class
+instead, decomposed the same way as before (small utility classes for declarations
+reused elsewhere, one bundled component class where a whole declaration set is
+unique — e.g. `.upcoming-item-accent`, `.staff-rename-input`) plus one new small
+component: a `.badge` base class with 8 color modifiers (`.badge-orange`,
+`.badge-pink`, `.badge-info`, `.badge-fashion`, `.badge-primary`, `.badge-neutral`,
+`.badge-success`, `.badge-danger`) for the six target/category/profile/status pill
+labels that used to be `<span style="background:...">`.
+
+**The 3 data-driven ones** (`getServiceCategoryBadgeHTML()`'s fashion/asas badge, and
+two spots in the admin services list — the service-sort-item's left border and its
+AKTIF/DITUTUP badge — all switch color based on live record state) became a
+conditional class in the template literal instead of a conditional inline style, e.g.
+`class="badge ${s.active ? 'badge-success' : 'badge-danger'}"` — same runtime
+behaviour, just expressed as a class toggle rather than a style toggle.
+
+**Two things found and preserved as-is (not fixed — out of scope for a pure
+refactor):**
+
+- `.serving-seat .q-num` (a descendant selector, specificity two classes) already sets
+  `font-size` for the TV seat-number display; the removed inline
+  `style="font-size:3.5rem;"` only ever won because inline styles beat any
+  non-`!important` external rule regardless of specificity. A single new utility class
+  can't out-rank a two-class descendant selector on specificity alone, so this one
+  element got a second class instead (`class="q-num tv-seat-num-lg"`) with the override
+  written as `.q-num.tv-seat-num-lg { font-size:3.5rem; }` — same specificity as the
+  descendant selector, placed later in the stylesheet, so it wins on source order the
+  same way the inline style used to win outright. Verified in a headless browser:
+  computed `font-size` is `56px` (3.5rem) both before and after.
+- A `@media (max-width: 768px)` rule, `.admin-list-item[style*="flex-direction:
+  row"] { flex-direction: column !important; ... }`, was clearly meant to collapse
+  five of these list rows to a column layout on small screens. Its selector text has a
+  space after the colon (`"flex-direction: row"`) but every actual inline style in the
+  file wrote it with no space (`flex-direction:row`) — so this rule has never matched
+  anything, on any screen size, since it was written. Removing the inline `style=`
+  attributes (replaced with a `.flex-row` class on those five rows) doesn't change
+  this: the selector still matches zero elements, exactly as before. Left as a
+  pre-existing dead rule rather than "fixed" by repointing it at `.flex-row`, since
+  making it start working would be a real behaviour change on mobile, not a pure
+  refactor. Flagging here in case fixing it is ever wanted on purpose.
+
+**Verification performed:** both `<script>` blocks re-extracted and `node --check`ed
+clean; `npm test` (23/23) and `tests/sql-consistency.mjs` clean (neither touches this
+change, run anyway per habit); grepped the whole file afterward — zero `style="`
+occurrences remain inside either `<script>` block, and the 5 remaining file-wide
+matches are 4 comments plus the one already-documented deliberate exception
+(`#booking-section`, unchanged); loaded the page in a headless Chromium (`playwright`,
+served over `http://localhost`, not `file://`, so the ES-module `<script
+type="module">` block actually executes) — zero `pageerror`s, only expected
+network-blocked warnings for Supabase/CDN calls the sandbox has no route to; spot-
+checked rendered output against the plan (`getTargetBadgeHTML('dewasa')` computed
+`background-color: rgb(243, 156, 18)` = `#f39c12` as designed; the TV seat number's
+computed `font-size` came back `56px`/3.5rem, confirming the specificity fix above
+actually works, not just in theory).
+
+---
+
 ## Still open from the audit series
 
 - **`notificationOutbox` is write-only.** The phone field is *mandatory* on both customer
@@ -1624,9 +1690,8 @@ dialog that's already open, so there was nothing to convert.
   before `invite-barber` existed). The rename control now exists (admin-app's "Ubah
   Nama" button, added 2 September 2026) — this is no longer an engineering task, just a
   manual action item: nobody has used it yet to set the real name.
-- **40 inline `style=` attributes remain**, all inside `<script>`-block template
-  literals that build HTML at runtime (see the cleanup section above for why they
-  were left as-is). No `<footer>` exists in the app — noted, not fabricated.
+- No `<footer>` exists in the app — noted, not fabricated (see the semantic-HTML
+  cleanup section above).
 
 ---
 
@@ -1706,9 +1771,7 @@ index.html                                          the running app; bookTicket(
                                                      booking-section's style="display:none"
                                                      kept inline (JS reads .style.display);
                                                      nav wrapped in <header>; the four
-                                                     view-section roots are now <main>; 40
-                                                     inline styles remain, all inside
-                                                     <script>-block template literals;
+                                                     view-section roots are now <main>;
                                                      all ~150 alert()/~13 confirm()
                                                      calls replaced with
                                                      showAlertDialog()/
@@ -1720,7 +1783,20 @@ index.html                                          the running app; bookTicket(
                                                      confirmIfActingOnSelf() caller
                                                      guard fixed to await it (was a
                                                      silent security regression risk
-                                                     from just marking it async)
+                                                     from just marking it async);
+                                                     remaining 40 inline styles inside
+                                                     <script>-block template literals
+                                                     now also classes (.badge + 8 color
+                                                     modifiers for status/target/
+                                                     category pills, .upcoming-item-accent
+                                                     and other bundled/atomic utility
+                                                     classes) -- 3 data-driven ones
+                                                     (badge/border color depends on
+                                                     record state) became conditional
+                                                     class strings instead of
+                                                     conditional inline styles; zero
+                                                     style="..." left inside either
+                                                     <script> block
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified

@@ -1345,6 +1345,72 @@
         #btnSaveBarberAssignments { width:100%; margin-top:14px; }
         #adminCancelDialogActions { display:flex; gap:10px; margin-top:18px; }
         #btnConfirmAdminCancellation { flex:1; background:var(--danger); border-color:var(--danger); }
+
+        /* Extracted from inline style="" attributes inside <script> template
+           literals (semantic-HTML/inline-style cleanup, stage 3). These
+           elements are generated in .map()/loop callbacks and can render as
+           multiple DOM nodes, so -- unlike stage 1/2 -- every replacement here
+           is a reusable CLASS, never a per-element id. */
+        .flex-row { flex-direction:row; }
+        .flex-wrap { flex-wrap:wrap; }
+        .justify-between { justify-content:space-between; }
+        .justify-end { justify-content:flex-end; }
+        .items-center { align-items:center; }
+        .items-start { align-items:flex-start; }
+        .self-start { align-self:flex-start; }
+        .gap-5 { gap:5px; }
+        .gap-6 { gap:6px; }
+        .gap-8 { gap:8px; }
+        .mt-5 { margin-top:5px; }
+        .mt-8 { margin-top:8px; }
+        .my-15 { margin:15px 0; }
+        .p-15 { padding:15px; }
+        .fw-600 { font-weight:600; }
+        .fw-bold { font-weight:bold; }
+        .fw-normal { font-weight:normal; }
+        .ls-normal { letter-spacing:normal; }
+        .fs-110 { font-size:1.1rem; }
+        .fs-120 { font-size:1.2rem; }
+        .fs-150 { font-size:1.5rem; }
+        .fs-180 { font-size:1.8rem; }
+        .text-main { color:var(--text-main); }
+        .text-success { color:var(--success); }
+        .text-white { color:#fff; }
+        .bg-success { background:var(--success); }
+        .border-success { border-color:var(--success); }
+        .border-left-danger { border-left-color:var(--danger); }
+        .border-left-primary { border-left-color:var(--primary-color); }
+        .border-left-success { border-left-color:var(--success); }
+        .border-left-fastpass { border-left-color:#ffc107; }
+        .d-none { display:none; }
+        /* .q-num already sets font-size via the descendant selector
+           ".serving-seat .q-num" (specificity 0,2,0) in two theme blocks
+           earlier in this stylesheet -- a single extra class can't outrank
+           that on specificity alone, so this pairs with .q-num itself
+           (same 0,2,0 specificity) and wins on source order instead, exactly
+           reproducing what the inline style="font-size:3.5rem;" used to do. */
+        .q-num.tv-seat-num-lg { font-size:3.5rem; }
+        .staff-rename-input { width:160px; }
+        /* Reproduces the original inline declaration set on the TV
+           "upcoming" ticket card verbatim -- background/padding/border-radius/
+           font-size/border-left here are currently overridden by the
+           "!important" rules on .wait-item,.upcoming-item further up this
+           stylesheet (only font-weight actually renders), so this class is
+           inert today by the same margin the inline style was, and stays
+           ready to take effect exactly as designed if those !important rules
+           are ever relaxed. */
+        .upcoming-item-accent { background:var(--border-light); padding:10px 15px; border-radius:6px; font-weight:bold; font-size:1.2rem; border-left:3px solid var(--primary-color); }
+        /* Badge component: small colored pill used for service target/
+           category/profile/status labels. */
+        .badge { color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold; }
+        .badge-orange { background:#f39c12; }
+        .badge-pink { background:#e83e8c; }
+        .badge-info { background:var(--info); }
+        .badge-fashion { background:#6f42c1; }
+        .badge-primary { background:var(--primary-color); }
+        .badge-neutral { background:#495057; }
+        .badge-success { background:var(--success); }
+        .badge-danger { background:var(--danger); }
 </style>
 </head>
 <body>
@@ -2634,12 +2700,12 @@
                 cachedStaffList = staff;
                 seatServerState = Object.fromEntries(seats.map(seat => [String(seat.seatNo), seat]));
                 container.innerHTML = staff.map(member => `
-                    <div class="admin-list-item" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <div class="admin-list-item d-flex justify-between items-center flex-wrap gap-10">
+                        <div class="d-flex items-center gap-6 flex-wrap">
                             <span id="staffName-${member.id}"><strong>${escapeHTML(member.displayName)}</strong><span class="text-muted"> &bull; ${member.active ? 'Aktif' : 'Belum Aktif'}</span></span>
                             <button type="button" class="btn btn-sm" onclick="startRenameStaff('${member.id}')" title="Ubah nama">Ubah Nama</button>
                         </div>
-                        <div style="display:flex; gap:8px; align-items:center;">
+                        <div class="d-flex gap-8 items-center">
                             <select onchange="setStaffRole('${member.id}', this.value)">
                                 <option value="barber" ${member.role === 'barber' ? 'selected' : ''}>Tukang Gunting</option>
                                 <option value="admin" ${member.role === 'admin' ? 'selected' : ''}>Admin</option>
@@ -2691,7 +2757,7 @@
             if (!el) return;
             const currentName = cachedStaffList.find(member => member.id === id)?.displayName || '';
             el.innerHTML = `
-                <input type="text" id="staffNameInput-${id}" value="${escapeHTML(currentName)}" maxlength="60" style="width:160px;" autocomplete="off" />
+                <input type="text" id="staffNameInput-${id}" value="${escapeHTML(currentName)}" maxlength="60" class="staff-rename-input" autocomplete="off" />
                 <button type="button" class="btn btn-sm btn-action" onclick="saveRenameStaff('${id}')">Simpan</button>
                 <button type="button" class="btn btn-sm btn-reset" onclick="refreshStaffList()">Batal</button>
             `;
@@ -4839,14 +4905,14 @@
             if (seatContainers.every(container => container.dataset.seatCount === String(seatCount))) return;
 
             const seatNumbers = getSeatNumbers();
-            tvGrid.innerHTML = seatNumbers.map(seat => `<div class="serving-seat" id="tvSeat${seat}Box"><h3 style="color:var(--text-muted);">KERUSI ${seat}</h3><div class="q-num" id="tvSeat${seat}Num" style="font-size:3.5rem;">---</div></div>`).join('');
+            tvGrid.innerHTML = seatNumbers.map(seat => `<div class="serving-seat" id="tvSeat${seat}Box"><h3 class="text-muted">KERUSI ${seat}</h3><div class="q-num tv-seat-num-lg" id="tvSeat${seat}Num">---</div></div>`).join('');
             barberGrid.innerHTML = seatNumbers.map(seat => `
-                <div class="panel-box" id="bControl${seat}" style="text-align:center; padding:15px;">
+                <div class="panel-box text-center p-15" id="bControl${seat}">
                     <h3>KERUSI ${seat}</h3>
                     <div class="barber-duty-name" id="bBarber${seat}Name"></div>
-                    <div id="bSeat${seat}Num" style="font-size:1.8rem; color:var(--primary-color); margin:15px 0;">---</div>
-                    <button class="btn btn-action" style="width:100%;" id="btnCall${seat}" onclick="callNextToSeat(${seat})">Panggil</button>
-                    <button class="btn" style="display:none; width:100%; background:var(--success); color:#fff; border-color:var(--success);" id="btnDone${seat}" onclick="markSeatDone(${seat})">Selesai</button>
+                    <div class="fs-180 text-primary my-15" id="bSeat${seat}Num">---</div>
+                    <button class="btn btn-action w-full" id="btnCall${seat}" onclick="callNextToSeat(${seat})">Panggil</button>
+                    <button class="btn d-none w-full bg-success text-white border-success" id="btnDone${seat}" onclick="markSeatDone(${seat})">Selesai</button>
                 </div>`).join('');
             adminControls.innerHTML = seatNumbers.map(seat => `<button class="btn" id="btnToggleSeat${seat}" onclick="toggleSeatStatus(${seat})">Kerusi ${seat}</button>`).join('');
             seatContainers.forEach(container => { container.dataset.seatCount = String(seatCount); });
@@ -5000,14 +5066,14 @@
 
         // ADMIN SERVICES (With Target Badges)
         function getTargetBadgeHTML(target) {
-            if(target === 'dewasa') return '<span style="background:#f39c12; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Dewasa</span>';
-            if(target === 'kanak') return '<span style="background:#e83e8c; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Kanak-Kanak</span>';
-            return '<span style="background:var(--info); color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Semua</span>';
+            if(target === 'dewasa') return '<span class="badge badge-orange">Dewasa</span>';
+            if(target === 'kanak') return '<span class="badge badge-pink">Kanak-Kanak</span>';
+            return '<span class="badge badge-info">Semua</span>';
         }
 
         function getServiceCategoryBadgeHTML(category) {
             const isFashion = category === 'fashion';
-            return `<span style="background:${isFashion ? '#6f42c1' : 'var(--primary-color)'}; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">${isFashion ? 'Gaya Potongan' : 'Asas'}</span>`;
+            return `<span class="badge ${isFashion ? 'badge-fashion' : 'badge-primary'}">${isFashion ? 'Gaya Potongan' : 'Asas'}</span>`;
         }
 
         function getServiceTypeBadgeHTML(type) {
@@ -5017,7 +5083,7 @@
 
         function getServiceProfileBadgeHTML(profile) {
             const label = SERVICE_PROFILES[profile] ? SERVICE_PROFILES[profile].label : SERVICE_PROFILES.custom.label;
-            return `<span style="background:#495057; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">Profil: ${escapeHTML(label)}</span>`;
+            return `<span class="badge badge-neutral">Profil: ${escapeHTML(label)}</span>`;
         }
 
         function updateServiceProfileSummary(prefix) {
@@ -6826,7 +6892,7 @@
                 let curr = queues.find(q => q.status === 'serving' && q.seat === n);
                 // TV View
                 let tvNum = document.getElementById(`tvSeat${n}Num`);
-                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span style="font-size:1.2rem; letter-spacing:normal;">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : '---');
+                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span class="fs-120 ls-normal">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : '---');
                 let tvBox = document.getElementById(`tvSeat${n}Box`);
                 if (tvBox) tvBox.style.borderColor = curr ? 'var(--primary-color)' : 'rgba(255,255,255,0.1)';
                 
@@ -6872,13 +6938,13 @@
 
                 if(!activeSeats[n]) {
                     if(bCtrl) bCtrl.style.opacity = '0.5';
-                    if(bSeat) bSeat.innerHTML = '<span style="font-size:1.5rem">DITUTUP</span>';
+                    if(bSeat) bSeat.innerHTML = '<span class="fs-150">DITUTUP</span>';
                     if(bCall) bCall.style.display='none';
                     if(bDone) bDone.style.display='none';
                 } else {
                     if(bCtrl) bCtrl.style.opacity = '1';
                     if(curr) {
-                        if(bSeat) bSeat.innerHTML = `${escapeHTML(getDisplayTicketId(curr))}<br><span style="font-size:1rem;color:var(--text-main);">${escapeHTML(curr.name)}</span>`;
+                        if(bSeat) bSeat.innerHTML = `${escapeHTML(getDisplayTicketId(curr))}<br><span class="fs-100 text-main">${escapeHTML(curr.name)}</span>`;
                         if(bCall) bCall.style.display='none';
                         if(bDone) {
                             bDone.style.display='block';
@@ -6897,7 +6963,7 @@
                 }
             });
 
-            document.getElementById('tvUpcoming').innerHTML = waitingList.map(q => `<div class="upcoming-item" style="background:var(--border-light); padding:10px 15px; border-radius:6px; font-weight:bold; font-size:1.2rem; border-left:3px solid var(--primary-color);">${escapeHTML(getDisplayTicketId(q))}<br><span style="font-size:0.9rem; font-weight:normal; color:var(--text-muted);">${escapeHTML(q.name)}</span></div>`).join('');
+            document.getElementById('tvUpcoming').innerHTML = waitingList.map(q => `<div class="upcoming-item upcoming-item-accent">${escapeHTML(getDisplayTicketId(q))}<br><span class="fs-90 fw-normal text-muted">${escapeHTML(q.name)}</span></div>`).join('');
             document.getElementById('tv-closed-notice').style.display = isShopOpen ? 'none' : 'block';
 
             const today = getCurrentBusinessDate();
@@ -6905,7 +6971,7 @@
             document.getElementById('todayDateStr').innerText = today;
             document.getElementById('todayBookingList').innerHTML = todayAppointments.map(a => `
                 <div class="booking-list-item">
-                    <div><strong style="color:var(--primary-color);">${escapeHTML(a.time)} GMT+8</strong><br>${escapeHTML(a.name)} <small>(${escapeHTML(getDisplayTicketId(a))})</small><br><span class="text-muted">${escapeHTML(a.service)}</span></div>
+                    <div><strong class="text-primary">${escapeHTML(a.time)} GMT+8</strong><br>${escapeHTML(a.name)} <small>(${escapeHTML(getDisplayTicketId(a))})</small><br><span class="text-muted">${escapeHTML(a.service)}</span></div>
                     <button class="btn btn-sm btn-info" onclick="markAppointmentArrived(${toInlineJSString(a.id)})">Hadir</button>
                 </div>`).join('') || '<div class="text-muted">Tiada tempahan hari ini.</div>';
 
@@ -6917,7 +6983,7 @@
             document.getElementById('myBookingListContainer').innerHTML = myAppointments.map(a => `
                 <div class="booking-list-item">
                     <div><strong>${escapeHTML(a.date)} ${escapeHTML(a.time)} GMT+8</strong><br>${escapeHTML(a.name)}<br><span class="text-muted">${escapeHTML(a.service)} (${escapeHTML(getDisplayTicketId(a))})</span></div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <div class="d-flex gap-8 flex-wrap">
                         <button class="btn btn-sm btn-info" onclick="startRescheduleAppointment(${toInlineJSString(a.id)})">Tukar Masa</button>
                         <button class="btn btn-sm btn-reset" onclick="cancelCustomerAppointment(${toInlineJSString(a.id)})">Batal</button>
                     </div>
@@ -6929,20 +6995,20 @@
             document.getElementById('adminUnservableBookingSummary').textContent =
                 `${unservableAppointments.length} tempahan berada di luar waktu operasi — perlu dihubungi`;
             document.getElementById('adminUnservableBookingList').innerHTML = unservableAppointments.map(appointment => `
-                <div class="admin-list-item" style="flex-direction:row; justify-content:space-between; gap:10px; align-items:center; border-left-color:var(--danger);">
+                <div class="admin-list-item flex-row justify-between gap-10 items-center border-left-danger">
                     <div><strong>${escapeHTML(appointment.id)} - ${escapeHTML(appointment.name)}</strong><br><span class="text-muted">${escapeHTML(appointment.date)} ${escapeHTML(appointment.time)} GMT+8 &bull; ${escapeHTML(appointment.service)}${appointment.phone ? ` &bull; ${escapeHTML(appointment.phone)}` : ''}</span></div>
                     <button class="btn btn-sm btn-reset" onclick="adminCancelRecord('appointment',${toInlineJSString(appointment.id)})">Batal</button>
                 </div>`).join('');
 
             document.getElementById('adminCancelableQueueList').innerHTML = waitingList.map(queue => `
-                <div class="admin-list-item" style="flex-direction:row; justify-content:space-between; gap:10px; align-items:center;">
+                <div class="admin-list-item flex-row justify-between gap-10 items-center">
                     <div><strong>${escapeHTML(queue.id)} - ${escapeHTML(queue.name)}</strong><br><span class="text-muted">${escapeHTML(queue.service)} &bull; ${queue.queueSource === 'booking' || queue.isVip ? 'Tempahan sudah hadir' : 'Walk-in'}</span></div>
                     <button class="btn btn-sm btn-reset" onclick="adminCancelRecord('queue',${toInlineJSString(queue.id)})">Batal</button>
                 </div>`).join('') || '<div class="text-muted">Tiada giliran menunggu yang boleh dibatalkan.</div>';
 
             const cancelableAppointments = appointments.filter(appointment => appointment.status === 'upcoming').sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
             document.getElementById('adminCancelableBookingList').innerHTML = cancelableAppointments.map(appointment => `
-                <div class="admin-list-item" style="flex-direction:row; justify-content:space-between; gap:10px; align-items:center;">
+                <div class="admin-list-item flex-row justify-between gap-10 items-center">
                     <div><strong>${escapeHTML(appointment.id)} - ${escapeHTML(appointment.name)}</strong><br><span class="text-muted">${escapeHTML(appointment.date)} ${escapeHTML(appointment.time)} GMT+8 &bull; ${escapeHTML(appointment.service)}</span></div>
                     <button class="btn btn-sm btn-reset" onclick="adminCancelRecord('appointment',${toInlineJSString(appointment.id)})">Batal</button>
                 </div>`).join('') || '<div class="text-muted">Tiada tempahan akan datang yang boleh dibatalkan.</div>';
@@ -6952,18 +7018,18 @@
                 ...appointments.filter(appointment => appointment.status === 'upcoming' && (appointment.fastPassApproved || appointment.isFastPass)).map(record => ({ source: 'appointment', record }))
             ];
             document.getElementById('adminFastPassList').innerHTML = activeFastPasses.map(({ source, record }) => `
-                <div class="admin-list-item" style="border-left-color:#ffc107;">
+                <div class="admin-list-item border-left-fastpass">
                     <strong>${escapeHTML(record.id)} - ${escapeHTML(record.name)}</strong>
                     <span class="text-muted">${source === 'appointment' ? `Tempahan ${escapeHTML(record.date)} ${escapeHTML(record.time)} GMT+8 &bull; ` : ''}${escapeHTML(record.service)} &bull; ${escapeHTML(record.approvalReason || '')}</span>
                     <span class="text-muted">Diluluskan ${escapeHTML(formatMalaysiaDateTime(record.approvedAt || record.timestamp || record.createdAt))}${source === 'queue' ? ` &bull; Anggaran <span data-wait-record-id="${escapeHTML(record.id)}">${formatWaitMinutes(waitByRecordId.get(record.id))}</span>` : ''}</span>
-                    <button class="btn btn-sm btn-reset" style="margin-top:8px; align-self:flex-start;" onclick="revokeFastPass(${toInlineJSString(`${source}:${record.id}`)})">Batal Laluan Pantas</button>
+                    <button class="btn btn-sm btn-reset mt-8 self-start" onclick="revokeFastPass(${toInlineJSString(`${source}:${record.id}`)})">Batal Laluan Pantas</button>
                 </div>`).join('') || '<div class="text-muted">Tiada Laluan Pantas aktif.</div>';
 
             populateFastPassCandidates();
 
             const closedDates = getClosedDates();
             document.getElementById('adminClosedDatesList').innerHTML = closedDates.map(date => `
-                <div class="admin-list-item" style="flex-direction:row; justify-content:space-between; border-left-color:var(--danger);">
+                <div class="admin-list-item flex-row justify-between border-left-danger">
                     <span>${escapeHTML(date)}</span><button class="btn btn-sm btn-reset" onclick="removeClosedDate(${toInlineJSString(date)})">Buka Semula</button>
                 </div>`).join('') || '<div class="text-muted">Tiada tarikh cuti.</div>';
 
@@ -6974,36 +7040,36 @@
             const visibleAdminServices = services.filter(service => service.category === adminServiceTab);
             document.getElementById('adminServicesList').innerHTML = visibleAdminServices.length > 0
                 ? visibleAdminServices.map((s, serviceIndex) => `
-                    <div class="admin-list-item service-sort-item" data-service-id="${escapeHTML(s.id)}" ondragstart="handleServiceDragStart(event,${toInlineJSString(s.id)})" ondragover="handleServiceDragOver(event,${toInlineJSString(s.id)})" ondrop="handleServiceDrop(event,${toInlineJSString(s.id)})" ondragend="handleServiceDragEnd()" style="border-left-color: ${s.active ? 'var(--primary-color)' : 'var(--danger)'}; padding: 15px;">
-                        <div style="display:flex; justify-content:space-between; width:100%; align-items:flex-start; flex-wrap:wrap; gap:10px;">
+                    <div class="admin-list-item service-sort-item p-15 ${s.active ? 'border-left-primary' : 'border-left-danger'}" data-service-id="${escapeHTML(s.id)}" ondragstart="handleServiceDragStart(event,${toInlineJSString(s.id)})" ondragover="handleServiceDragOver(event,${toInlineJSString(s.id)})" ondrop="handleServiceDrop(event,${toInlineJSString(s.id)})" ondragend="handleServiceDragEnd()">
+                        <div class="d-flex justify-between w-full items-start flex-wrap gap-10">
                             <div class="service-sort-handle" draggable="true" title="Seret untuk ubah keutamaan" aria-hidden="true">⋮⋮</div>
-                            <div style="flex:1;">
-                                <div style="font-size: 1.1rem; color:var(--text-main); font-weight:600;">
+                            <div class="flex-1">
+                                <div class="fs-110 text-main fw-600">
                                     ${escapeHTML(s.name)}
                                 </div>
-                                 <div style="margin-top: 5px; display:flex; gap:5px; flex-wrap:wrap; align-items:center;">
+                                 <div class="mt-5 d-flex gap-5 flex-wrap items-center">
                                      ${getServiceProfileBadgeHTML(s.profile)}
                                      ${getTargetBadgeHTML(s.target)}
                                     ${getServiceCategoryBadgeHTML(s.category)}
                                     ${getServiceTypeBadgeHTML(s.type)}
-                                    <span style="background:${s.active ? 'var(--success)' : 'var(--danger)'}; color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold;">${s.active ? 'AKTIF' : 'DITUTUP'}</span>
+                                    <span class="badge ${s.active ? 'badge-success' : 'badge-danger'}">${s.active ? 'AKTIF' : 'DITUTUP'}</span>
                                 </div>
-                                <div style="font-size: 0.9rem; color:var(--text-muted); margin-top: 5px;">
+                                <div class="fs-90 text-muted mt-5">
                                     RM ${escapeHTML(s.price)} &bull; ${escapeHTML(s.duration)} minit
                                 </div>
                             </div>
-                            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                            <div class="d-flex gap-8 flex-wrap justify-end">
                                 <div class="service-priority-actions" aria-label="Ubah keutamaan ${escapeHTML(s.name)}">
                                     <button class="btn btn-sm btn-outline" aria-label="Naikkan ${escapeHTML(s.name)}" title="Naikkan keutamaan" onclick="moveServicePriority(${toInlineJSString(s.id)},-1)" ${serviceIndex === 0 ? 'disabled' : ''}>↑</button>
                                     <button class="btn btn-sm btn-outline" aria-label="Turunkan ${escapeHTML(s.name)}" title="Turunkan keutamaan" onclick="moveServicePriority(${toInlineJSString(s.id)},1)" ${serviceIndex === visibleAdminServices.length - 1 ? 'disabled' : ''}>↓</button>
                                 </div>
                                 <button class="btn btn-sm btn-info" onclick="editServiceClick(${toInlineJSString(s.id)})">Edit</button>
-                                <button class="btn btn-sm" style="border-color:var(--primary-color); color:var(--primary-color);" onclick="toggleServiceStatus(${toInlineJSString(s.id)})">${s.active ? 'Tutup' : 'Buka'}</button>
+                                <button class="btn btn-sm border-primary text-primary" onclick="toggleServiceStatus(${toInlineJSString(s.id)})">${s.active ? 'Tutup' : 'Buka'}</button>
                                 <button class="btn btn-sm btn-reset" onclick="deleteService(${toInlineJSString(s.id)})">Buang</button>
                             </div>
                         </div>
                     </div>`).join('')
-                : `<p class="text-muted" style="font-size:0.9rem;">Tiada servis ${adminServiceTab === 'fashion' ? 'Gaya Potongan' : 'Asas'} ditetapkan.</p>`;
+                : `<p class="text-muted fs-90">Tiada servis ${adminServiceTab === 'fashion' ? 'Gaya Potongan' : 'Asas'} ditetapkan.</p>`;
 
             // Reports Rendering
             let targQ = []; let tSales = 0;
@@ -7033,7 +7099,7 @@
                         <span>Purata Tiket<b>RM ${item.averageSale.toFixed(2)}</b></span>
                     </div>
                 </div>`).join('') || '<div class="text-muted">Belum ada prestasi tukang gunting untuk tempoh ini.</div>';
-            document.getElementById('reportListContainer').innerHTML = targQ.map(q => `<div class="admin-list-item" style="border-left-color:var(--success);"><strong>${escapeHTML(q.name)} (${escapeHTML(q.id)})</strong><span class="text-muted">${escapeHTML(q.service)} &bull; Tukang Gunting: ${escapeHTML(q.barberName || 'Tidak direkodkan')} &bull; Kerusi ${escapeHTML(q.seat || '-')} &bull; ${escapeHTML(formatMalaysiaDateTime(q.completedAt))} - <strong style="color:var(--success)">RM${Number(q.price||0).toFixed(2)}</strong></span></div>`).join('') || '<div class="text-muted">Tiada rekod jualan.</div>';
+            document.getElementById('reportListContainer').innerHTML = targQ.map(q => `<div class="admin-list-item border-left-success"><strong>${escapeHTML(q.name)} (${escapeHTML(q.id)})</strong><span class="text-muted">${escapeHTML(q.service)} &bull; Tukang Gunting: ${escapeHTML(q.barberName || 'Tidak direkodkan')} &bull; Kerusi ${escapeHTML(q.seat || '-')} &bull; ${escapeHTML(formatMalaysiaDateTime(q.completedAt))} - <strong class="text-success">RM${Number(q.price||0).toFixed(2)}</strong></span></div>`).join('') || '<div class="text-muted">Tiada rekod jualan.</div>';
 
             renderVisualCalendar(calCurrentDate); renderAdminVisualCalendar(adminCalCurrentDate);
             processCustomerNotifications();
