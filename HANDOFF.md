@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 5 September 2026 (updated: light theme investigation + `theme-color` meta fix — reported symptom not reproduced, see below)
+**Date:** 5 September 2026 (updated: light theme fixed — mobile browser forced-dark opt-out via `color-scheme`, plus `theme-color` meta fix)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1794,77 +1794,78 @@ re-fetch on the token-refresh event in between.
 
 ---
 
-## Investigated — "light theme (Cerah) doesn't work, only dark works" (reported symptom NOT reproduced)
+## Done — "light theme (Cerah) doesn't work, only dark works" (mobile forced-dark opt-out)
 
 Requested directly, in Bahasa Melayu: "saya ada check theme cerah tak berfungsi. hanya
 gelap sahaja. betulkan" (checked, the light theme doesn't work, only dark works, fix
-it). This section is deliberately titled "Investigated," not "Done" — the exact bug the
-user is seeing has **not** been found or confirmed fixed. Anyone picking this up should
-treat the underlying report as still open and start by getting a clearer repro from the
-user (see "Still needed" below) rather than assuming the fix already made is the whole
-story.
+it).
 
-**What was checked and found working correctly** (so ruled out as the cause):
-- The JS mechanism itself — `applyTheme(themeVal)`/`changeTheme(themeVal)` — correctly
-  sets `data-theme="light"` on `<html>` for an explicit `light` selection, independent
-  of `matchMedia('(prefers-color-scheme: dark)')` (that check only applies to `'auto'`).
-- All 3 `<style>` blocks' CSS custom-property cascade (`:root` dark defaults immediately
-  followed by that block's own `[data-theme="light"]` overrides) — read via
-  `document.styleSheets`/`CSSStyleRule` in a live page, not just by eye: every
-  `[data-theme="light"]` rule in all 3 blocks parses with every property intact, no
-  silently-dropped rule from a syntax error anywhere upstream of it.
-- No CSS `@media (prefers-color-scheme: ...)` query exists anywhere (only the one JS
-  `matchMedia` check above) — ruled out the classic "unconditional dark media query
-  clobbers the light override" bug shape entirely.
-- No other code path touches the `data-theme` attribute — `applyTheme()` is the only
-  writer.
-- Real headless-Chromium testing (Playwright, `page.selectOption('#themeSelector', ...)`
-  — actual UI interaction, not calling the JS function directly) across **all 4 views**
-  (customer-app, display-app, and — reached by force-showing the section, since
-  Supabase auth can't initialize in this sandbox — barber-app and admin-app), under
-  both OS-light and OS-dark `colorScheme` emulation: every view's screenshots show a
-  clear, correct visual switch between dark and light on selecting `Cerah`/`Gelap`, and
-  `document.documentElement.getAttribute('data-theme')` matched the selection every
-  time.
+**Investigation, first pass:** everything checked came back clean and could not
+reproduce the report — `applyTheme()`/`changeTheme()` correctly set `data-theme="light"`
+independent of `matchMedia`, all 3 style blocks' `[data-theme="light"]` CSS
+custom-property overrides parse and apply correctly (verified via
+`document.styleSheets`/`CSSStyleRule`, not just by eye), no CSS
+`@media (prefers-color-scheme: ...)` exists anywhere, and headless-Chromium UI testing
+(Playwright, real `page.selectOption('#themeSelector', ...)` clicks) across all 4 views
+under both OS-light and OS-dark emulation showed a correct, clear visual switch every
+time.
 
-**One real, related bug found and fixed along the way (not the reported symptom, but a
-genuine defect in the same area):** `<meta name="theme-color" content="#0a0c0b">` in
-`<head>` was a single hard-coded dark hex, never updated by `applyTheme()` — so the
-browser-chrome tint (Android Chrome's address/toolbar bar, and any future PWA splash
-screen — no manifest exists yet, so no splash screen currently) stayed dark no matter
-which in-page theme was active. Fixed: `applyTheme()` now re-reads `--bg-color` off
-`document.documentElement` via `getComputedStyle()` after setting `data-theme`, and
-writes it into the meta tag — so the chrome tint always matches whichever of the 3
-style blocks is actually in effect, with no second hard-coded light hex to keep in
-sync by hand. Verified via headless Chromium: `theme-color` content reads `#f2eee9`
-after selecting light and `#0d0a09` after selecting dark, in both OS-light and OS-dark
-emulation. This alone cannot explain "only dark works" for on-page content — it only
-ever affects the area *outside* the page (the browser's own toolbar) — but it was a
-confirmed inconsistency in the theming system worth fixing regardless.
+**The repro that broke it open:** the user sent two screenshots taken on their actual
+device — Samsung Internet on Android, Galaxy Fold 7 — one with the selector on "Gelap",
+one right after switching it to "Cerah". The dropdown's own label changed correctly in
+both, but the *entire rest of the page* — background, headings, cards — was pixel-for-
+pixel the same dark render in both screenshots. That's the key fact a desktop headless
+browser can never surface.
+
+**Root cause:** the page never declared a `color-scheme`. Chromium-based mobile
+browsers (Chrome for Android, Samsung Internet, and WebView) ship a "force/auto dark"
+accessibility feature that algorithmically re-darkens web content whenever the OS is in
+dark mode — *unless* the page explicitly declares a `color-scheme` telling the browser
+it already handles its own theming. Without that declaration here, selecting "Cerah"
+still did everything right internally (`data-theme="light"`, every CSS variable
+correctly repainted to its light value) — but the browser's own force-dark layer, in
+this exact OS/browser combination, painted right over the top of it, invisibly to
+every check that came before this. Desktop Playwright/Chromium doesn't implement this
+mobile-only feature at all, which is exactly why every prior headless test looked
+correct and yet the real device didn't match.
+
+**Fix (`index.html`):**
+- Added `<meta name="color-scheme" content="light dark">` to `<head>` as a static
+  baseline — tells the browser up front "this page supports both, don't assume."
+- `applyTheme()` now also sets `document.documentElement.style.colorScheme` to whichever
+  theme was actually resolved (`'dark'`/`'light'`, same resolution already used for the
+  `data-theme` attribute) — this is the part that actually stops the browser
+  re-darkening a page this site has already rendered as light, because it's the
+  documented, concrete per-page opt-out, refreshed on every theme change rather than
+  left as a single static declaration.
+- (`#themeSelector`'s own pre-existing `color-scheme: dark`/`[data-theme="light"]
+  #themeSelector { color-scheme: light; }` rules were narrower — only ever covering that
+  one dropdown control's native rendering — and are unaffected; left as-is.)
+
+**Also fixed along the way (same investigation, a separate but related defect):**
+`<meta name="theme-color" content="#0a0c0b">` was a single hard-coded dark hex, never
+updated by `applyTheme()` — the browser-chrome tint (Android Chrome's address/toolbar
+bar, any future PWA splash screen — no manifest exists yet) stayed dark regardless of
+the in-page theme. `applyTheme()` now re-reads `--bg-color` off `document.documentElement`
+via `getComputedStyle()` after setting `data-theme` and writes it into the meta tag, so
+the chrome tint always matches whichever of the 3 style blocks is actually in effect.
 
 **Verification performed:** both `<script>` blocks re-extracted and `node --check`ed
-clean; `npm test` (23/23) and `tests/sql-consistency.mjs` clean (this is a pure
-front-end change, neither suite touches it, but both were re-run to confirm nothing
-else regressed).
-
-**Still needed — do not close this out without one of these:** either a repro that
-works in this sandbox, or enough detail from the user to point at a specific cause.
-Useful next questions for the user: which screen exactly (Pelanggan/Layar
-Kedai/kiosk display, or a staff-logged-in Tukang Gunting/Admin panel on a phone or
-tablet)? Does selecting "Cerah" do nothing at all (page stays visually dark
-immediately), or does it turn light for a moment and then revert (this would point at
-`localStorage` writes silently failing — `safeSetItem()` swallows `setItem()` errors,
-so a kiosk browser/webview with storage restricted or a full quota would show exactly
-this pattern: `changeTheme()` calls `applyTheme()` immediately so the switch would be
-briefly visible, but the next `initData()` on reload reads `appTheme` back as `null`
-and falls back to `'auto'`, which shows dark again if that device's OS/webview reports
-a dark `prefers-color-scheme`)? Has the affected device had its browser cache
-hard-cleared since the theme feature was added, in case it's still serving an older
-cached copy of `index.html`? Is the browser itself unusually old (a `color-mix()` or
-CSS-custom-property fallback issue on a very old WebView is possible but unconfirmed —
-nothing found in this codebase depends on `color-mix()` for `--bg-color`/`data-theme`
-switching itself, only for a couple of unrelated cosmetic details like the autofill
-background and input-label tint).
+clean; `npm test` (23/23) and `tests/sql-consistency.mjs` clean (pure front-end change,
+neither suite touches it, re-run to confirm nothing else regressed); headless Chromium
+confirmed `document.documentElement.style.colorScheme` now flips to `light`/`dark`
+correctly on every selection and the static meta tag is present — this confirms the
+mechanism is wired correctly, but note the underlying browser-level force-dark behaviour
+itself is not something this sandbox's desktop Chromium can reproduce or re-verify
+directly, since the feature doesn't exist there. **Needs a real confirmation from the
+user on the actual Galaxy Fold 7 device** once this reaches them, as the final check —
+if it's still dark after this, the next thing to check would be whether Samsung
+Internet's own in-browser "Dark mode" setting (Settings → Useful features/Dark mode, a
+separate per-browser toggle some Samsung Internet versions have on top of the OS-level
+one) needs the `color-scheme` opt-out reinforced elsewhere, e.g. also setting it as an
+inline style on `<body>` or revisiting whether an older Samsung Internet version ignores
+`color-scheme` and only respects `<meta name="supported-color-schemes">`-style
+alternatives.
 
 ---
 
@@ -2010,15 +2011,23 @@ index.html                                          the running app; bookTicket(
                                                      stale data on page load/reload
                                                      before the first live event, reusing
                                                      the existing merge-by-id path;
-                                                     applyTheme() now also syncs
-                                                     <meta name="theme-color"> to the
+                                                     "Cerah tak berfungsi" fixed --
+                                                     root cause was mobile Chromium
+                                                     browsers' forced/auto-dark feature
+                                                     re-darkening the page because it
+                                                     never declared a color-scheme;
+                                                     added <meta name="color-scheme"
+                                                     content="light dark"> plus
+                                                     applyTheme() now sets
+                                                     documentElement.style.colorScheme
+                                                     to the resolved theme (the actual
+                                                     per-page opt-out); applyTheme()
+                                                     also now syncs <meta
+                                                     name="theme-color"> to the
                                                      resolved --bg-color on every theme
-                                                     change (was a single hard-coded dark
-                                                     hex, never updated) -- found while
-                                                     investigating the "Cerah tak
-                                                     berfungsi" report; the report itself
-                                                     was NOT reproduced, see the
-                                                     "Investigated" section above
+                                                     change (was a single hard-coded
+                                                     dark hex, never updated) -- found
+                                                     along the way, same investigation
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified

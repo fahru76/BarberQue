@@ -6,6 +6,13 @@
     <title>QueueCut · Syam Barber Shop</title>
     <meta name="description" content="Sertai giliran atau tempah slot Syam Barber Shop dengan QueueCut—jelas, pantas dan tanpa menunggu tanpa kepastian.">
     <meta name="theme-color" content="#0a0c0b">
+    <!-- Static baseline opt-out of mobile browsers' forced/auto dark mode (Chrome for
+         Android, Samsung Internet, WebView) -- see the longer explanation in
+         applyTheme()'s comment. This tag alone only says "this page knows about both
+         schemes"; applyTheme() narrows it to the one actually resolved (dark/light) on
+         <html> itself once the page's own JS runs, which is what actually stops the
+         browser from re-darkening a page this site has already rendered as light. -->
+    <meta name="color-scheme" content="light dark">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -4003,9 +4010,28 @@
 
         function applyTheme(themeVal) {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.setAttribute('data-theme', themeVal === 'auto' ? (isDark ? 'dark' : 'light') : themeVal);
+            const resolvedTheme = themeVal === 'auto' ? (isDark ? 'dark' : 'light') : themeVal;
+            document.documentElement.setAttribute('data-theme', resolvedTheme);
             if(document.getElementById('themeSelector')) document.getElementById('themeSelector').value = themeVal;
-            // Found while investigating "cerah tak berfungsi": <meta name="theme-color">
+            // Root cause of "Cerah tak berfungsi, hanya Gelap sahaja" (reported, reproduced
+            // on Samsung Internet / Android, Galaxy Fold 7 -- the <select> control itself
+            // correctly relabelled to "Cerah", but the rest of the page stayed visually
+            // dark): this page never told the browser it has its own light/dark theming.
+            // Chromium-based mobile browsers (Chrome for Android, Samsung Internet, and
+            // WebView) have a "force/auto dark" feature that algorithmically re-darkens web
+            // content when the OS is in dark mode -- UNLESS the page declares an explicit
+            // `color-scheme` that says otherwise. Without that declaration, selecting
+            // "Cerah" correctly set data-theme="light" and correctly repainted every CSS
+            // variable to its light value, but the browser's own force-dark layer, seeing
+            // no opt-out, silently re-darkened the result on top -- invisible in desktop
+            // Playwright/Chromium, which doesn't apply this mobile-only feature, which is
+            // exactly why every headless-browser check up to this point looked correct.
+            // Setting `color-scheme` on the root element to match the resolved theme (not
+            // just on #themeSelector, which only ever covered that one control) is the
+            // documented opt-out: it tells the browser this page already handles its own
+            // theme, so its forced-dark heuristic backs off instead of overriding it.
+            document.documentElement.style.colorScheme = resolvedTheme;
+            // Found while investigating the same report: <meta name="theme-color">
             // (the browser chrome/address-bar tint on Android Chrome, and any future
             // PWA splash screen) was hard-coded to a single dark hex in <head> and never
             // updated -- it never reflected the in-page theme at all, dark or light.
