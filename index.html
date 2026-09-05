@@ -1,37 +1,41 @@
 <!DOCTYPE html>
-<html lang="ms" style="color-scheme: dark">
+<html lang="ms" style="color-scheme: only dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QueueCut · Syam Barber Shop</title>
     <meta name="description" content="Sertai giliran atau tempah slot Syam Barber Shop dengan QueueCut—jelas, pantas dan tanpa menunggu tanpa kepastian.">
     <meta name="theme-color" content="#0a0c0b">
-    <!-- Static baseline opt-out of mobile browsers' forced/auto dark mode (Chrome for
-         Android, Samsung Internet, WebView) -- see the longer explanation in
-         applyTheme()'s comment. This tag alone only says "this page knows about both
-         schemes"; applyTheme() narrows it to the one actually resolved (dark/light) on
-         <html> itself once the page's own JS runs, which is what actually stops the
-         browser from re-darkening a page this site has already rendered as light. -->
-    <meta name="color-scheme" content="light dark">
+    <!-- Round 3 (see applyTheme()'s comment for the full history): "light dark" here
+         and bare "light"/"dark" elsewhere only ever told the browser this page CAN
+         render in either scheme -- Chrome's own Auto Dark Theme docs are explicit that
+         this does NOT opt a page out of forced/auto-dark re-darkening on Android;
+         only the "only light"/"only dark" keyword does that (it asserts the page must
+         be rendered in exactly this scheme, full stop). Static default here matches
+         the dark-first baseline used throughout this file (see the :root default
+         below); applyTheme() overwrites this same tag's content to "only light" once
+         it resolves the page to light. -->
+    <meta name="color-scheme" content="only dark">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Static (not JS-set) color-scheme declaration -- the meta tag above only says
-           "this page knows about both schemes"; it does NOT appear to be enough by
-           itself to stop Samsung Internet's/Chrome-for-Android's forced/auto-dark
-           re-darkening on its own (confirmed still darkening a real device even after
-           the meta tag + applyTheme()'s JS-set `documentElement.style.colorScheme` were
-           both live and deployed). The most likely reason: that JS-set inline style only
-           takes effect once applyTheme() actually runs, which is after the browser's
-           very first style/paint pass -- by which point the forced-dark decision for the
-           frame may already be locked in from whatever was available at first paint (no
-           data-theme attribute yet, an ambiguous "light dark" meta only). Declaring it
-           here, as a real stylesheet rule present from the very first parse -- same
-           pattern already used below for #themeSelector alone -- gives the browser a
-           definitive answer before any script runs, which JS alone could not guarantee.
-           applyTheme()'s inline-style write stays too, as a synced reinforcement once
-           data-theme changes at runtime; it isn't wrong, just insufficient alone. */
-        :root { color-scheme: dark; }
-        [data-theme="light"] { color-scheme: light; }
+        /* Static (not JS-set) color-scheme declaration -- gives the browser a
+           definitive answer before any script runs (round 2's fix for the original
+           "whole page stays dark" bug -- confirmed working). Round 3: switched "dark"/
+           "light" to "only dark"/"only light". Chrome's Auto Dark Theme documentation
+           (developer.chrome.com/blog/auto-dark-theme) is explicit that a bare "light"
+           or "dark" value only declares which scheme(s) a page CAN render in -- it does
+           NOT stop the browser algorithmically adjusting/darkening it on Android. Only
+           the "only" keyword ("only light" / "only dark") is a real opt-out: it asserts
+           the page must be rendered in exactly that scheme, unmodified. Round 2 (bare
+           "dark"/"light") fixed the original bug (page permanently stuck dark) but left
+           a residual colour-correctness difference when Android's own OS-level display
+           mode was dark -- consistent with the browser still applying a lighter-touch
+           colour adjustment on top, since round 2's value never actually told it not
+           to. applyTheme() mirrors this same "only ..." value into the inline style AND
+           now also into the <meta name="color-scheme"> tag above (previously only set
+           once, statically, never re-synced by JS). */
+        :root { color-scheme: only dark; }
+        [data-theme="light"] { color-scheme: only light; }
         :root {
             --bg-color: #0d0d0d;
             --surface-color: #1a1a1a;
@@ -4045,9 +4049,18 @@
             // exactly why every headless-browser check up to this point looked correct.
             // Setting `color-scheme` on the root element to match the resolved theme (not
             // just on #themeSelector, which only ever covered that one control) is the
-            // documented opt-out: it tells the browser this page already handles its own
-            // theme, so its forced-dark heuristic backs off instead of overriding it.
-            document.documentElement.style.colorScheme = resolvedTheme;
+            // documented opt-out mechanism -- but round 2 (bare "dark"/"light" here) only
+            // fixed the page getting stuck fully dark; a residual colour-correctness
+            // difference remained whenever Android's OS-level display mode was itself
+            // dark. Round 3: Chrome's own Auto Dark Theme docs are explicit that a bare
+            // "light"/"dark" value merely declares which scheme(s) the page CAN render
+            // in -- the browser can still algorithmically adjust colours on top. Only the
+            // "only" keyword is a real, unconditional opt-out. Also now keeps <meta
+            // name="color-scheme"> (in <head>, previously only ever set once, statically)
+            // in sync on every theme change, same reasoning as the theme-color meta below.
+            document.documentElement.style.colorScheme = `only ${resolvedTheme}`;
+            const colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+            if (colorSchemeMeta) colorSchemeMeta.setAttribute('content', `only ${resolvedTheme}`);
             // Found while investigating the same report: <meta name="theme-color">
             // (the browser chrome/address-bar tint on Android Chrome, and any future
             // PWA splash screen) was hard-coded to a single dark hex in <head> and never

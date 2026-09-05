@@ -1,6 +1,28 @@
 # Handoff to Codex: light theme still wrong when Android OS is in dark mode
 
-## Why this file exists
+## Update — Codex's finding was implemented (round 3), pending device confirmation
+
+Codex investigated and reported back: bare `color-scheme: light`/`dark` (rounds 1 and
+2 below) only declares which scheme(s) a page *can* render in — per Chrome's own Auto
+Dark Theme documentation (`developer.chrome.com/blog/auto-dark-theme`), that does not
+stop Chrome's/Samsung Internet's Auto Dark Theme from still adjusting the page's
+colours on Android. The real, documented opt-out is the `only` keyword
+(`color-scheme: only light` / `only dark`). Claude verified this against the cited
+Chrome documentation directly (fetched and quoted the relevant section) and confirmed
+it matches. Every `color-scheme` signal in `index.html` — the static `<meta>` tag, the
+static `<html style="...">` attribute, the static `:root`/`[data-theme="light"]` CSS,
+and `applyTheme()`'s JS write — has been switched from bare `dark`/`light` to
+`only dark`/`only light`, and `applyTheme()` now also re-syncs the meta tag on every
+theme change (previously it was set once, statically, and never touched again — a real
+gap Codex's finding surfaced). See `HANDOFF.md`'s "Round 3" section for the full
+before/after. **This has NOT yet been confirmed on the actual Galaxy Fold 7** — it
+needs the same real-device retest every prior round needed, since Samsung Internet's
+actual behaviour has diverged from documented Chromium behaviour at least once already
+in this investigation (round 1 reaching the device with zero effect). If you're reading
+this before that confirmation comes back, treat round 3 as "implemented, unverified,"
+not "done."
+
+## Why this file exists (original handoff, kept for full history below)
 
 Claude (a different AI assistant) made two rounds of fixes to this exact bug and both
 were reported as insufficient or based on a wrong conclusion. The user asked for a

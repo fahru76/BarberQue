@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 5 September 2026 (REOPENED: light-theme bug is NOT resolved — the "Eye comfort shield" explanation was wrong, disproved by the user. See `CODEX_HANDOFF_LIGHT_THEME.md` for the current, accurate investigation state; a second AI assistant is now taking a fresh look)
+**Date:** 5 September 2026 (round 3, pending device confirmation: Codex — a second AI assistant, given `CODEX_HANDOFF_LIGHT_THEME.md` — found bare `color-scheme: light`/`dark` only *declares* supported schemes and does not stop Chrome's Auto Dark Theme from adjusting colours; the documented real opt-out is the `only` keyword. Switched to `only light`/`only dark` everywhere. NOT yet confirmed on the real device — see below)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1794,19 +1794,72 @@ re-fetch on the token-refresh event in between.
 
 ---
 
-## REOPENED — "light theme (Cerah) doesn't work, only dark works" (see CODEX_HANDOFF_LIGHT_THEME.md)
+## Round 3 (pending device confirmation) — "light theme (Cerah) doesn't work, only dark works"
 
-**Correction, same day:** the section below originally closed this out as fixed,
-attributing a residual color difference (light theme looks different when Android's
-OS-level display mode is dark) to Samsung's "Eye comfort shield" filter. **The user
+**Correction:** an earlier version of this section closed the bug out as fixed,
+attributing a residual color difference (light theme looked different when Android's
+OS-level display mode was dark) to Samsung's "Eye comfort shield" filter. **The user
 disabled Eye Comfort Shield and the problem persisted** — that explanation was wrong.
-This bug is NOT resolved. A second-opinion investigation handoff for a different AI
-assistant (Codex) was written to `CODEX_HANDOFF_LIGHT_THEME.md` in this same directory
-— read that file for the full, current, accurate state of this investigation
-(everything actually confirmed, everything ruled out, everything not yet tested, and
-concrete grep results already gathered). Do not trust the "confirmed fixed" framing
-still left in the prose below this line; it's kept for its accurate round 1/round 2
-technical history, not for its conclusion.
+A second-opinion investigation handoff for a different AI assistant (Codex) was written
+to `CODEX_HANDOFF_LIGHT_THEME.md` in this same directory (kept for its accurate
+round 1/round 2 technical history and full "what's confirmed vs. ruled out" detail).
+
+**Codex's finding (round 3):** bare `color-scheme: light` or `color-scheme: dark` — what
+rounds 1 and 2 both used — only *declares which scheme(s) the page can render in*. Per
+Chrome's own Auto Dark Theme documentation
+(`developer.chrome.com/blog/auto-dark-theme`), that is **not** sufficient to stop
+Chrome's/Samsung Internet's Auto Dark Theme from still algorithmically adjusting the
+page's colours on Android. The actual, documented opt-out keyword is `only`
+(`color-scheme: only light` / `only dark`) — it asserts the page must render in exactly
+that scheme, full stop, with no browser-side adjustment layered on top. This is
+consistent with everything observed so far: round 2's bare `dark`/`light` value fixed
+the original "page permanently stuck fully dark" symptom (there was clearly *some*
+effect), but left a residual, lesser colour-correctness difference — exactly the shape
+you'd expect from a real opt-out (`only`) being substituted with a weaker one (bare
+`light`/`dark`) that only partially discourages the browser's adjustment.
+
+**Fix (`index.html`), every `color-scheme` signal switched from bare to `only`:**
+- Static `<meta name="color-scheme">`: `"only dark"` (was `"light dark"`, an even
+  weaker/more ambiguous value than plain `"dark"` — it explicitly told the browser both
+  schemes were acceptable, which is the opposite of an opt-out).
+- Static `<html style="color-scheme: only dark">` (was `"color-scheme: dark"`).
+- Static CSS: `:root { color-scheme: only dark; }` / `[data-theme="light"] { color-scheme: only light; }` (were bare `dark`/`light`).
+- `applyTheme()`: `document.documentElement.style.colorScheme` now set to
+  `` `only ${resolvedTheme}` `` instead of bare `resolvedTheme` — and, new in round 3,
+  `applyTheme()` now **also** re-syncs the `<meta name="color-scheme">` tag's `content`
+  to `` `only ${resolvedTheme}` `` on every theme change (previously that meta tag was
+  set once, statically, and never touched again by JS — a real gap, now closed).
+- `#themeSelector`'s own pre-existing, narrower `color-scheme: dark`/
+  `[data-theme="light"] #themeSelector { color-scheme: light; }` rules (scoped only to
+  that one control, predating all 3 rounds) were deliberately left as bare
+  `dark`/`light`, not `only` — out of scope for this round, and that control was never
+  reported as visually broken.
+
+**Verification performed:** `node --check` on both `<script>` blocks, `npm test`
+(23/23), `tests/sql-consistency.mjs` — all clean. Headless Chromium confirmed: with
+JavaScript entirely disabled (true first-paint state), `getComputedStyle` reports
+`dark only` and the static meta tag reads `"only dark"` — i.e. the real opt-out keyword
+is now present before any script runs, closing the same category of gap round 2 closed
+for the weaker `dark`/`light` value. With JS enabled, selecting light/dark correctly
+updates the inline style (serialized by Chromium as `light only`/`dark only` — same
+value as `only light`/`only dark`, just reordered on output, not a bug) and the meta
+tag's content, on every selection.
+
+**NOT yet confirmed on the actual Galaxy Fold 7 / Samsung Internet.** This sandbox
+cannot run real Samsung Internet or verify whether its Auto Dark Theme implementation
+actually honors the `only` keyword the way mainline Chrome's documentation describes —
+Samsung's fork has previously diverged from documented Chromium behaviour in this exact
+investigation (round 1 reaching the device with no effect, when the same category of
+fix eventually did work in round 2, suggests real-device behaviour here needs testing
+every round, not assumed from documentation alone). Whoever confirms this next: test on
+the real device (same procedure as every round — correct URL
+`https://fahru76.github.io/BarberQue/`, fresh Secret/incognito tab, Android OS display
+mode set to dark, select "Cerah," compare directly against the same theme with Android
+set to light). If a colour difference still remains after this, the honest conclusion
+may be that this specific Samsung Internet version does not implement the `only`
+opt-out as documented, and no further page-level CSS/meta signal is likely to help —
+the next lever would be device-side (a per-site exception in Samsung Internet's own
+dark-mode settings, if that version has one).
 
 Requested directly, in Bahasa Melayu: "saya ada check theme cerah tak berfungsi. hanya
 gelap sahaja. betulkan" (checked, the light theme doesn't work, only dark works, fix
@@ -2094,35 +2147,33 @@ index.html                                          the running app; bookTicket(
                                                      stale data on page load/reload
                                                      before the first live event, reusing
                                                      the existing merge-by-id path;
-                                                     "Cerah tak berfungsi" -- REOPENED,
-                                                     NOT actually fixed, see
-                                                     CODEX_HANDOFF_LIGHT_THEME.md (new
-                                                     file, same directory) for the
-                                                     current accurate state -- a
-                                                     previous "confirmed fixed" note
-                                                     here was wrong (attributed a
-                                                     residual colour difference to
-                                                     Samsung's "Eye comfort shield",
-                                                     user disabled it, problem
-                                                     persisted). What's still true:
-                                                     round 1 (<meta name="color-scheme"
-                                                     content="light dark"> plus
-                                                     applyTheme() setting
-                                                     documentElement.style.colorScheme)
-                                                     reached the device but didn't fix
-                                                     the original full-page-stays-dark
-                                                     symptom; round 2 (static
-                                                     :root{color-scheme:dark}/
-                                                     [data-theme="light"]{color-scheme:
-                                                     light} stylesheet rule plus
-                                                     style="color-scheme: dark" on
-                                                     <html>, both present before any
-                                                     script runs) DID fix that specific
-                                                     symptom -- but a separate,
-                                                     still-unexplained colour
-                                                     difference remains whenever
-                                                     Android's OS-level display mode is
-                                                     dark. applyTheme() also now syncs
+                                                     "Cerah tak berfungsi" -- round 3,
+                                                     PENDING device confirmation, see
+                                                     "Round 3" section above and
+                                                     CODEX_HANDOFF_LIGHT_THEME.md
+                                                     (same directory) for full history.
+                                                     Root cause per Codex (2nd AI
+                                                     assistant, per Chrome's own Auto
+                                                     Dark Theme docs): bare
+                                                     color-scheme:light/dark (rounds 1
+                                                     & 2) only declares supported
+                                                     schemes, does NOT stop Chrome's/
+                                                     Samsung Internet's Auto Dark Theme
+                                                     adjusting colours on Android --
+                                                     only the "only" keyword
+                                                     (color-scheme: only light / only
+                                                     dark) is the real opt-out. Every
+                                                     color-scheme signal (static meta,
+                                                     static html style attr, static
+                                                     :root/[data-theme="light"] CSS,
+                                                     and applyTheme()'s JS write)
+                                                     switched to "only light"/"only
+                                                     dark"; applyTheme() also now
+                                                     re-syncs the meta tag on every
+                                                     theme change (previously
+                                                     static-only, a real gap). NOT yet
+                                                     confirmed on the real device.
+                                                     applyTheme() also now syncs
                                                      <meta
                                                      name="theme-color"> to the
                                                      resolved --bg-color on every theme
