@@ -1,5 +1,39 @@
 # Handoff to Codex: light theme still wrong when Android OS is in dark mode
 
+## Final answer (5 September 2026) — resolved by browser configuration, not by code
+
+A separate Cowork session with live access to the user's actual Galaxy Z Fold7 ran a
+controlled before/after test directly on the device and settled this. Round 3 below
+(Codex's `only light`/`only dark` finding, implemented and verified against Chrome's own
+documentation) is correct and confirmed in effect on the live deployed page — every
+signal (`data-theme`, the CSS cascade's light custom-property values,
+`document.documentElement.style.colorScheme === "only light"`, `<meta
+name="color-scheme">` synced to `"only light"`) checks out. It still did not fix the
+symptom in one specific configuration:
+
+| Android sistem | Samsung Internet **Dark mode** | Force Dark mode for web content | QueueCut Cerah |
+|---|---|---|---|
+| Gelap | On / Match phone setting | Off | tetap gelap / bertona gelap |
+| Gelap | **Off** | Off | cerah dengan betul |
+
+Samsung Internet ships **two separate toggles**: "Force Dark mode for web content" (the
+one Chrome's Auto Dark Theme docs and the `only` keyword address) and a distinct
+browser-level **"Dark mode"** setting (Settings → Webpage view and scrolling → Dark
+mode). The second one overrides rendered page colours regardless of any page-level
+`color-scheme` opt-out — it sits outside what any web page can control. Turning off
+"Force Dark mode for web content" alone was not sufficient in the tested configuration;
+Samsung Internet's own Dark mode also had to be Off.
+
+**Conclusion: no further page-level CSS/JS/meta change is expected to fix this.** The
+practical guidance for an affected user is `Samsung Internet → Settings → Webpage view
+and scrolling → Dark mode → Off`. If QueueCut's theme ever needs to override the
+browser's own theming for every user regardless of their browser settings, that's a
+larger product/architecture decision (e.g. a native app or PWA controlling the WebView),
+not a CSS fix — not started, needs a decision first. See `HANDOFF.md`'s "Round 3 —
+resolved by browser configuration, not by code" section for the full writeup. Thank you
+for the round-3 diagnosis — it was correct and is staying in the code; the remaining gap
+turned out to be one only real-device testing could have found.
+
 ## Update — Codex's finding was implemented (round 3), pending device confirmation
 
 Codex investigated and reported back: bare `color-scheme: light`/`dark` (rounds 1 and

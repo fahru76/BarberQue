@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 5 September 2026 (round 3, pending device confirmation: Codex — a second AI assistant, given `CODEX_HANDOFF_LIGHT_THEME.md` — found bare `color-scheme: light`/`dark` only *declares* supported schemes and does not stop Chrome's Auto Dark Theme from adjusting colours; the documented real opt-out is the `only` keyword. Switched to `only light`/`only dark` everywhere. NOT yet confirmed on the real device — see below)
+**Date:** 5 September 2026 ("Cerah tak berfungsi" bug: **resolved by browser configuration, not by code.** A separate Cowork session with live access to the user's actual Galaxy Z Fold7 confirmed QueueCut's own theme code (round 3, commit `57188ac`) works correctly — the real, remaining cause is Samsung Internet's own separate "Dark mode" browser setting, which overrides web content regardless of any page-level `color-scheme` declaration. See "Round 3 — resolved" below. No further theme CSS/JS changes should be made without new device evidence.)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1794,7 +1794,52 @@ re-fetch on the token-refresh event in between.
 
 ---
 
-## Round 3 (pending device confirmation) — "light theme (Cerah) doesn't work, only dark works"
+## Round 3 — resolved by browser configuration, not by code — "light theme (Cerah) doesn't work, only dark works"
+
+**Final status (5 September 2026):** QueueCut's theme code is confirmed correct and
+working as designed. The remaining symptom is caused by a **Samsung Internet browser
+setting** that is separate from and not addressed by anything a web page can declare —
+this is not a QueueCut defect, and no further page-level CSS/JS fix is expected to
+change it. Full evidence below.
+
+A separate Cowork session, with genuine live access to the user's actual Galaxy Z Fold7
+running Samsung Internet (unlike this sandbox, which has never had direct device
+access), ran a controlled before/after test directly on the device and delivered this
+decisive finding (`CLAUDE_COWORK_THEME_DIAGNOSIS.md`, same directory):
+
+| Keadaan | Android sistem | Samsung Internet **Dark mode** | Force Dark mode for web content | QueueCut: Cerah |
+|---|---|---|---|---|
+| Gagal | Gelap | On / Match phone setting | Off | Halaman kekal gelap / tona gelap |
+| Berjaya | Gelap | **Off** | Off | Halaman menjadi cerah dengan betul |
+
+Confirmed correct in the live deployed page at commit `57188ac` (round 3, below) before
+concluding this: `html[data-theme]` set to `light`; the CSS cascade's winning custom
+properties resolve to the light values (`--bg-color: #f2eee9`, `--surface-color:
+#fbf8f3`); `document.documentElement.style.colorScheme` reads `only light`; `<meta
+name="color-scheme">` is synced to `"only light"`. All four of round 3's signals reach
+the device and take effect exactly as coded — the page's own opt-out is real and
+correctly implemented — and Samsung Internet's Dark mode setting still overrides the
+rendered colours anyway when that setting is On, independently of the already-Off
+"Force Dark mode for web content" toggle (a **different, separate** control from
+Samsung Internet's own "Dark mode").
+
+**Practical guidance for anyone hitting this:** `Samsung Internet → Settings →
+Webpage view and scrolling → Dark mode → Off`. There is no code-level fix for a user who
+wants Android/Samsung Internet's own dark mode left on while still seeing QueueCut's
+"Cerah" theme — that combination is decided by the browser, not the page. If the product
+ever needs to guarantee QueueCut's theme overrides the browser's own theming for every
+user regardless of their browser settings, that is a larger product/architecture
+decision (e.g., a native app or PWA controlling the WebView), not a one-line CSS change
+— **flagging for a decision, not started, do not build this without asking first.**
+
+**Do not make further speculative theme CSS/JS changes for this issue without new,
+concrete device evidence** — three rounds of increasingly precise `color-scheme` fixes
+(bare → static → `only` keyword) were each independently verified correct on the real
+device and none of them could reach past a browser-level setting.
+
+---
+
+### Round 3 investigation history (kept for the record)
 
 **Correction:** an earlier version of this section closed the bug out as fixed,
 attributing a residual color difference (light theme looked different when Android's
@@ -1845,21 +1890,15 @@ updates the inline style (serialized by Chromium as `light only`/`dark only` —
 value as `only light`/`only dark`, just reordered on output, not a bug) and the meta
 tag's content, on every selection.
 
-**NOT yet confirmed on the actual Galaxy Fold 7 / Samsung Internet.** This sandbox
-cannot run real Samsung Internet or verify whether its Auto Dark Theme implementation
-actually honors the `only` keyword the way mainline Chrome's documentation describes —
-Samsung's fork has previously diverged from documented Chromium behaviour in this exact
-investigation (round 1 reaching the device with no effect, when the same category of
-fix eventually did work in round 2, suggests real-device behaviour here needs testing
-every round, not assumed from documentation alone). Whoever confirms this next: test on
-the real device (same procedure as every round — correct URL
-`https://fahru76.github.io/BarberQue/`, fresh Secret/incognito tab, Android OS display
-mode set to dark, select "Cerah," compare directly against the same theme with Android
-set to light). If a colour difference still remains after this, the honest conclusion
-may be that this specific Samsung Internet version does not implement the `only`
-opt-out as documented, and no further page-level CSS/meta signal is likely to help —
-the next lever would be device-side (a per-site exception in Samsung Internet's own
-dark-mode settings, if that version has one).
+**Confirmed on the actual Galaxy Z Fold7 / Samsung Internet, with a caveat.** All four
+of the round-3 signals above (`data-theme`, the CSS cascade's light values, `only light`
+on both the inline style and the meta tag) were independently verified present and
+correctly in effect on the live deployed page. The `only` keyword opt-out is real and
+does work as Chrome's documentation describes. The caveat: it only stops Chromium's own
+Auto Dark Theme adjustment — it does not, and cannot, override Samsung Internet's own
+separate "Dark mode" browser setting, which is a different control entirely. See
+"Round 3 — resolved by browser configuration, not by code" above for the full,
+device-tested finding and the practical guidance that follows from it.
 
 Requested directly, in Bahasa Melayu: "saya ada check theme cerah tak berfungsi. hanya
 gelap sahaja. betulkan" (checked, the light theme doesn't work, only dark works, fix
@@ -2147,39 +2186,49 @@ index.html                                          the running app; bookTicket(
                                                      stale data on page load/reload
                                                      before the first live event, reusing
                                                      the existing merge-by-id path;
-                                                     "Cerah tak berfungsi" -- round 3,
-                                                     PENDING device confirmation, see
-                                                     "Round 3" section above and
-                                                     CODEX_HANDOFF_LIGHT_THEME.md
-                                                     (same directory) for full history.
-                                                     Root cause per Codex (2nd AI
-                                                     assistant, per Chrome's own Auto
-                                                     Dark Theme docs): bare
-                                                     color-scheme:light/dark (rounds 1
-                                                     & 2) only declares supported
-                                                     schemes, does NOT stop Chrome's/
-                                                     Samsung Internet's Auto Dark Theme
-                                                     adjusting colours on Android --
-                                                     only the "only" keyword
-                                                     (color-scheme: only light / only
-                                                     dark) is the real opt-out. Every
-                                                     color-scheme signal (static meta,
-                                                     static html style attr, static
-                                                     :root/[data-theme="light"] CSS,
-                                                     and applyTheme()'s JS write)
-                                                     switched to "only light"/"only
-                                                     dark"; applyTheme() also now
-                                                     re-syncs the meta tag on every
-                                                     theme change (previously
-                                                     static-only, a real gap). NOT yet
-                                                     confirmed on the real device.
-                                                     applyTheme() also now syncs
-                                                     <meta
-                                                     name="theme-color"> to the
-                                                     resolved --bg-color on every theme
-                                                     change (was a single hard-coded
-                                                     dark hex, never updated) -- found
-                                                     along the way, same investigation
+                                                     "Cerah tak berfungsi" -- RESOLVED,
+                                                     but by browser configuration, not
+                                                     code -- see "Round 3 -- resolved by
+                                                     browser configuration, not by code"
+                                                     section above and
+                                                     CODEX_HANDOFF_LIGHT_THEME.md (same
+                                                     directory) for full history. Code
+                                                     fix (round 3): every color-scheme
+                                                     signal (static meta, static html
+                                                     style attr, static :root/
+                                                     [data-theme="light"] CSS, and
+                                                     applyTheme()'s JS write) switched
+                                                     from bare light/dark to "only
+                                                     light"/"only dark" per Chrome's Auto
+                                                     Dark Theme docs (found via Codex,
+                                                     2nd AI assistant); applyTheme()
+                                                     also now re-syncs the meta tag on
+                                                     every theme change (previously
+                                                     static-only, a real gap). Confirmed
+                                                     correct and in effect on the live
+                                                     deployed page. Root cause of the
+                                                     residual symptom (per a separate
+                                                     Cowork session's live device test):
+                                                     Samsung Internet has its own
+                                                     separate "Dark mode" browser
+                                                     setting (distinct from "Force Dark
+                                                     mode for web content") that
+                                                     overrides web content rendering
+                                                     regardless of any page-level
+                                                     color-scheme opt-out -- outside any
+                                                     page's control. Guidance for
+                                                     affected users: Samsung Internet ->
+                                                     Settings -> Webpage view and
+                                                     scrolling -> Dark mode -> Off. No
+                                                     further theme CSS/JS change should
+                                                     be made without new device
+                                                     evidence. applyTheme() also now
+                                                     syncs <meta name="theme-color"> to
+                                                     the resolved --bg-color on every
+                                                     theme change (was a single
+                                                     hard-coded dark hex, never updated)
+                                                     -- found along the way, same
+                                                     investigation
 supabase/config.toml                                Postgres 17, signup disabled
 supabase/seed.sql                                   3 inactive seats
 supabase/migrations/20260901000{000,100,200,300}_*.sql   step 2–4, applied and verified
