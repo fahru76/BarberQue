@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 5 September 2026 (updated: light-theme forced-dark bug CONFIRMED FIXED on the real device — static `color-scheme` opt-out, round 2; a follow-up colour-tint report turned out to be Samsung's own "Eye comfort shield" device feature, not a bug)
+**Date:** 5 September 2026 (REOPENED: light-theme bug is NOT resolved — the "Eye comfort shield" explanation was wrong, disproved by the user. See `CODEX_HANDOFF_LIGHT_THEME.md` for the current, accurate investigation state; a second AI assistant is now taking a fresh look)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1794,7 +1794,19 @@ re-fetch on the token-refresh event in between.
 
 ---
 
-## Done, confirmed on the real device — "light theme (Cerah) doesn't work, only dark works"
+## REOPENED — "light theme (Cerah) doesn't work, only dark works" (see CODEX_HANDOFF_LIGHT_THEME.md)
+
+**Correction, same day:** the section below originally closed this out as fixed,
+attributing a residual color difference (light theme looks different when Android's
+OS-level display mode is dark) to Samsung's "Eye comfort shield" filter. **The user
+disabled Eye Comfort Shield and the problem persisted** — that explanation was wrong.
+This bug is NOT resolved. A second-opinion investigation handoff for a different AI
+assistant (Codex) was written to `CODEX_HANDOFF_LIGHT_THEME.md` in this same directory
+— read that file for the full, current, accurate state of this investigation
+(everything actually confirmed, everything ruled out, everything not yet tested, and
+concrete grep results already gathered). Do not trust the "confirmed fixed" framing
+still left in the prose below this line; it's kept for its accurate round 1/round 2
+technical history, not for its conclusion.
 
 Requested directly, in Bahasa Melayu: "saya ada check theme cerah tak berfungsi. hanya
 gelap sahaja. betulkan" (checked, the light theme doesn't work, only dark works, fix
@@ -2082,37 +2094,35 @@ index.html                                          the running app; bookTicket(
                                                      stale data on page load/reload
                                                      before the first live event, reusing
                                                      the existing merge-by-id path;
-                                                     "Cerah tak berfungsi" -- CONFIRMED
-                                                     FIXED on the user's real device
-                                                     (Galaxy Fold 7, Samsung Internet),
-                                                     see "Done, confirmed on the real
-                                                     device" in the sections above.
-                                                     Root cause: mobile Chromium
-                                                     browsers' forced/auto-dark web-
-                                                     content feature needs a STATIC
-                                                     color-scheme opt-out present before
-                                                     any script runs -- a JS-only one
-                                                     (round 1: <meta name="color-scheme"
+                                                     "Cerah tak berfungsi" -- REOPENED,
+                                                     NOT actually fixed, see
+                                                     CODEX_HANDOFF_LIGHT_THEME.md (new
+                                                     file, same directory) for the
+                                                     current accurate state -- a
+                                                     previous "confirmed fixed" note
+                                                     here was wrong (attributed a
+                                                     residual colour difference to
+                                                     Samsung's "Eye comfort shield",
+                                                     user disabled it, problem
+                                                     persisted). What's still true:
+                                                     round 1 (<meta name="color-scheme"
                                                      content="light dark"> plus
                                                      applyTheme() setting
                                                      documentElement.style.colorScheme)
-                                                     reached the device fine but was too
-                                                     late in the paint pipeline to stop
-                                                     the initial force-dark decision.
-                                                     Round 2 (the actual fix): added
+                                                     reached the device but didn't fix
+                                                     the original full-page-stays-dark
+                                                     symptom; round 2 (static
                                                      :root{color-scheme:dark}/
                                                      [data-theme="light"]{color-scheme:
-                                                     light} as a real stylesheet rule
-                                                     plus style="color-scheme: dark"
-                                                     directly on <html>, both present
-                                                     from first parse. A follow-up
-                                                     colour-tint report (light theme
-                                                     looks different when Android's OS
-                                                     dark mode is on) turned out to be
-                                                     Samsung's own "Eye comfort shield"
-                                                     device display filter, not a bug --
-                                                     no code change needed or made for
-                                                     that. applyTheme() also now syncs
+                                                     light} stylesheet rule plus
+                                                     style="color-scheme: dark" on
+                                                     <html>, both present before any
+                                                     script runs) DID fix that specific
+                                                     symptom -- but a separate,
+                                                     still-unexplained colour
+                                                     difference remains whenever
+                                                     Android's OS-level display mode is
+                                                     dark. applyTheme() also now syncs
                                                      <meta
                                                      name="theme-color"> to the
                                                      resolved --bg-color on every theme
