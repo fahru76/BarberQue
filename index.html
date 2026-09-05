@@ -4005,6 +4005,18 @@
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             document.documentElement.setAttribute('data-theme', themeVal === 'auto' ? (isDark ? 'dark' : 'light') : themeVal);
             if(document.getElementById('themeSelector')) document.getElementById('themeSelector').value = themeVal;
+            // Found while investigating "cerah tak berfungsi": <meta name="theme-color">
+            // (the browser chrome/address-bar tint on Android Chrome, and any future
+            // PWA splash screen) was hard-coded to a single dark hex in <head> and never
+            // updated -- it never reflected the in-page theme at all, dark or light.
+            // Read the CSS variable back from the root element (rather than
+            // hard-coding a second light hex here) so this always matches whichever of
+            // the 3 :root/[data-theme] style blocks is actually in effect.
+            const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+            if (themeColorMeta) {
+                const resolvedBg = getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim();
+                if (resolvedBg) themeColorMeta.setAttribute('content', resolvedBg);
+            }
         }
 
         function changeTheme(themeVal) { safeSetItem('appTheme', themeVal); applyTheme(themeVal); }
