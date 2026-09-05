@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 5 September 2026 (updated: light theme fixed — mobile browser forced-dark opt-out via `color-scheme`, plus `theme-color` meta fix)
+**Date:** 5 September 2026 (updated: light-theme forced-dark fix, round 2 — round 1's JS-only `color-scheme` opt-out reached the device and still didn't work; round 2 makes it static/pre-script. Still NOT confirmed fixed on the real device — see "Investigated (round 2)" below before assuming this is done)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1794,7 +1794,7 @@ re-fetch on the token-refresh event in between.
 
 ---
 
-## Done — "light theme (Cerah) doesn't work, only dark works" (mobile forced-dark opt-out)
+## Investigated (round 2, still unconfirmed) — "light theme (Cerah) doesn't work, only dark works"
 
 Requested directly, in Bahasa Melayu: "saya ada check theme cerah tak berfungsi. hanya
 gelap sahaja. betulkan" (checked, the light theme doesn't work, only dark works, fix
@@ -1850,22 +1850,81 @@ the in-page theme. `applyTheme()` now re-reads `--bg-color` off `document.docume
 via `getComputedStyle()` after setting `data-theme` and writes it into the meta tag, so
 the chrome tint always matches whichever of the 3 style blocks is actually in effect.
 
-**Verification performed:** both `<script>` blocks re-extracted and `node --check`ed
-clean; `npm test` (23/23) and `tests/sql-consistency.mjs` clean (pure front-end change,
-neither suite touches it, re-run to confirm nothing else regressed); headless Chromium
-confirmed `document.documentElement.style.colorScheme` now flips to `light`/`dark`
-correctly on every selection and the static meta tag is present — this confirms the
-mechanism is wired correctly, but note the underlying browser-level force-dark behaviour
-itself is not something this sandbox's desktop Chromium can reproduce or re-verify
-directly, since the feature doesn't exist there. **Needs a real confirmation from the
-user on the actual Galaxy Fold 7 device** once this reaches them, as the final check —
-if it's still dark after this, the next thing to check would be whether Samsung
-Internet's own in-browser "Dark mode" setting (Settings → Useful features/Dark mode, a
-separate per-browser toggle some Samsung Internet versions have on top of the OS-level
-one) needs the `color-scheme` opt-out reinforced elsewhere, e.g. also setting it as an
-inline style on `<body>` or revisiting whether an older Samsung Internet version ignores
-`color-scheme` and only respects `<meta name="supported-color-schemes">`-style
-alternatives.
+**Round 1 verification performed:** both `<script>` blocks re-extracted and
+`node --check`ed clean; `npm test` (23/23) and `tests/sql-consistency.mjs` clean;
+headless Chromium confirmed `document.documentElement.style.colorScheme` flips to
+`light`/`dark` correctly on every selection and the static meta tag is present.
+
+**Round 1 did NOT fix it.** After push, GitHub Pages settings were checked directly
+(user screenshot) and confirmed correct: `fahru76/BarberQue`'s Pages *is* configured
+("Deploy from a branch", `main`, root, live at `https://fahru76.github.io/BarberQue/`)
+— this had been in doubt because a `GET /repos/fahru76/BarberQue/pages` API check kept
+404ing; that check was misleading/wrong, ignore it, the Settings → Pages screen is the
+source of truth. A fresh, cache-busted fetch of the live URL after deploy confirmed the
+round-1 fix (`<meta name="color-scheme">`) really was live. The user re-tested on the
+*correct* URL (`.../BarberQue/`, not the bare `fahru76.github.io/` their earlier
+screenshots used — that bare URL is some other, unrelated deployment/bookmark, never
+identified, not this app) in a fresh Secret/incognito tab (ruling out both stale
+deployment and browser cache as explanations). **Symptom was identical: dropdown
+label changes to "Cerah", rest of the page stays dark.** So round 1's fix — a
+`<meta name="color-scheme">` tag plus `applyTheme()` setting
+`document.documentElement.style.colorScheme` from JS — reached the device correctly and
+still did not stop the darkening.
+
+**Round 2 hypothesis:** both of round 1's signals are late. The meta tag says "light
+dark" (ambiguous — "I support both", not a definite answer), and the JS-set inline
+`color-scheme` only takes effect once `applyTheme()` actually executes, which is after
+the browser's very first style/paint pass. If Samsung Internet's/Chrome's forced-dark
+decision for the frame is made once, early — before any script has run, when the only
+information available is that ambiguous meta tag and an OS dark preference — then
+JS changing `data-theme`/`color-scheme` afterwards may simply be too late to undo a
+darkening decision the browser already locked in for the whole frame.
+
+**Round 2 fix (`index.html`):** added a **static, stylesheet-level** color-scheme
+declaration that exists from the very first parse, before any script runs — the same
+pattern the file already used for `#themeSelector` alone, now extended to the whole
+page:
+```css
+:root { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+```
+placed at the very top of the first `<style>` block (`:root` defaults to `dark` to
+match this app's existing "dark is the base, light is the override" design used
+throughout all 3 style blocks' CSS variables). Also added `style="color-scheme: dark"`
+directly on the `<html>` tag itself as an extra-early belt-and-braces signal — this does
+not fight `applyTheme()`'s later JS write, since both target the exact same inline
+`style` property and the JS write simply updates it in place once it runs.
+`applyTheme()`'s own `document.documentElement.style.colorScheme = resolvedTheme` line
+from round 1 is unchanged and stays as a live reinforcement on every theme change.
+
+**Round 2 verification performed:** `node --check` on both `<script>` blocks, `npm test`
+(23/23), `tests/sql-consistency.mjs` — all clean. The specific gap round 2 closes was
+verified directly: a headless-Chromium page loaded with **JavaScript entirely
+disabled** (`javaScriptEnabled: false` — the only way to see truly what the browser's
+first paint sees, with zero script having run) now computes `color-scheme: dark` on
+`<html>` from the static markup alone; before round 2 this would have been the
+CSS-initial-value default (`normal`, i.e. no signal at all). With JS enabled, the full
+selection cycle (auto/light/dark, including the inline style attribute updating in
+place) was re-confirmed working end-to-end exactly as round 1 already showed.
+
+**Still not confirmed working on the real device.** Round 2 closes a real, verifiable
+gap (the browser's first paint now gets a definite, unambiguous, unconditional
+`color-scheme: dark` instead of no signal until JS runs) — but whether that's actually
+*why* round 1 failed, versus Samsung Internet simply not honoring the `color-scheme`
+opt-out signal at all in this version, is not something this sandbox can settle; there
+is no way to run real Samsung Internet here. **This needs the user to test again on the
+actual Galaxy Fold 7** (same procedure as before: correct URL
+`https://fahru76.github.io/BarberQue/`, a fresh Secret/incognito tab) once round 2
+reaches GitHub Pages. If it is *still* dark after this, the most likely remaining
+explanations, roughly in order of likelihood, are: (a) Samsung Internet has its own
+independent forced-dark implementation that doesn't consult `color-scheme` as an
+opt-out signal at all (in which case no page-level CSS/meta fix exists — the workaround
+becomes user-side: Samsung Internet's per-site "Dark mode" exception, if that version
+has one, or disabling the browser's dark-web-content feature globally); (b) some other
+Samsung-Internet-specific quirk not yet identified. Whoever picks this up next should
+start by asking the user to check, on the device itself, Samsung Internet's Settings →
+(search) "Dark mode" for a **per-site** exception/allowlist option, since that is the
+one remaining lever this codebase cannot reach from the outside.
 
 ---
 
@@ -2011,18 +2070,29 @@ index.html                                          the running app; bookTicket(
                                                      stale data on page load/reload
                                                      before the first live event, reusing
                                                      the existing merge-by-id path;
-                                                     "Cerah tak berfungsi" fixed --
-                                                     root cause was mobile Chromium
-                                                     browsers' forced/auto-dark feature
-                                                     re-darkening the page because it
-                                                     never declared a color-scheme;
-                                                     added <meta name="color-scheme"
-                                                     content="light dark"> plus
-                                                     applyTheme() now sets
+                                                     "Cerah tak berfungsi" -- STILL NOT
+                                                     CONFIRMED FIXED, see "Investigated
+                                                     (round 2)" in the sections above.
+                                                     Round 1: added <meta
+                                                     name="color-scheme" content="light
+                                                     dark"> plus applyTheme() setting
                                                      documentElement.style.colorScheme
-                                                     to the resolved theme (the actual
-                                                     per-page opt-out); applyTheme()
-                                                     also now syncs <meta
+                                                     to the resolved theme -- deployed,
+                                                     verified live, user retested on the
+                                                     correct URL in a fresh incognito
+                                                     tab, symptom unchanged. Round 2:
+                                                     added a STATIC (not JS-set)
+                                                     :root{color-scheme:dark}/
+                                                     [data-theme="light"]{color-scheme:
+                                                     light} stylesheet rule plus
+                                                     style="color-scheme: dark" directly
+                                                     on <html>, so the signal exists
+                                                     before any script runs (closes a
+                                                     real gap -- confirmed via headless
+                                                     Chromium with JS disabled -- but
+                                                     not yet confirmed this is what
+                                                     Samsung Internet actually needed);
+                                                     applyTheme() also now syncs <meta
                                                      name="theme-color"> to the
                                                      resolved --bg-color on every theme
                                                      change (was a single hard-coded

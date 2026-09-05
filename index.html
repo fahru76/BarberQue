@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ms">
+<html lang="ms" style="color-scheme: dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +15,23 @@
     <meta name="color-scheme" content="light dark">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Static (not JS-set) color-scheme declaration -- the meta tag above only says
+           "this page knows about both schemes"; it does NOT appear to be enough by
+           itself to stop Samsung Internet's/Chrome-for-Android's forced/auto-dark
+           re-darkening on its own (confirmed still darkening a real device even after
+           the meta tag + applyTheme()'s JS-set `documentElement.style.colorScheme` were
+           both live and deployed). The most likely reason: that JS-set inline style only
+           takes effect once applyTheme() actually runs, which is after the browser's
+           very first style/paint pass -- by which point the forced-dark decision for the
+           frame may already be locked in from whatever was available at first paint (no
+           data-theme attribute yet, an ambiguous "light dark" meta only). Declaring it
+           here, as a real stylesheet rule present from the very first parse -- same
+           pattern already used below for #themeSelector alone -- gives the browser a
+           definitive answer before any script runs, which JS alone could not guarantee.
+           applyTheme()'s inline-style write stays too, as a synced reinforcement once
+           data-theme changes at runtime; it isn't wrong, just insufficient alone. */
+        :root { color-scheme: dark; }
+        [data-theme="light"] { color-scheme: light; }
         :root {
             --bg-color: #0d0d0d;
             --surface-color: #1a1a1a;
