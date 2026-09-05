@@ -2,7 +2,7 @@
 
 Paste this into Cowork along with the project files to pick up where the chat left off.
 
-**Date:** 5 September 2026 (updated: light-theme forced-dark fix, round 2 — round 1's JS-only `color-scheme` opt-out reached the device and still didn't work; round 2 makes it static/pre-script. Still NOT confirmed fixed on the real device — see "Investigated (round 2)" below before assuming this is done)
+**Date:** 5 September 2026 (updated: light-theme forced-dark bug CONFIRMED FIXED on the real device — static `color-scheme` opt-out, round 2; a follow-up colour-tint report turned out to be Samsung's own "Eye comfort shield" device feature, not a bug)
 **Supabase project:** `cojaebzxrtyvxrnadiuv` ("fahru76's Project"), ap-southeast-1, Postgres 17
 **URL:** `https://cojaebzxrtyvxrnadiuv.supabase.co`
 **Publishable key:** `sb_publishable_t5jWXLzmoTSI1lTPqVWOgg_dvNXmui1` (safe to commit — RLS is the protection)
@@ -1794,7 +1794,7 @@ re-fetch on the token-refresh event in between.
 
 ---
 
-## Investigated (round 2, still unconfirmed) — "light theme (Cerah) doesn't work, only dark works"
+## Done, confirmed on the real device — "light theme (Cerah) doesn't work, only dark works"
 
 Requested directly, in Bahasa Melayu: "saya ada check theme cerah tak berfungsi. hanya
 gelap sahaja. betulkan" (checked, the light theme doesn't work, only dark works, fix
@@ -1907,24 +1907,36 @@ CSS-initial-value default (`normal`, i.e. no signal at all). With JS enabled, th
 selection cycle (auto/light/dark, including the inline style attribute updating in
 place) was re-confirmed working end-to-end exactly as round 1 already showed.
 
-**Still not confirmed working on the real device.** Round 2 closes a real, verifiable
-gap (the browser's first paint now gets a definite, unambiguous, unconditional
-`color-scheme: dark` instead of no signal until JS runs) — but whether that's actually
-*why* round 1 failed, versus Samsung Internet simply not honoring the `color-scheme`
-opt-out signal at all in this version, is not something this sandbox can settle; there
-is no way to run real Samsung Internet here. **This needs the user to test again on the
-actual Galaxy Fold 7** (same procedure as before: correct URL
-`https://fahru76.github.io/BarberQue/`, a fresh Secret/incognito tab) once round 2
-reaches GitHub Pages. If it is *still* dark after this, the most likely remaining
-explanations, roughly in order of likelihood, are: (a) Samsung Internet has its own
-independent forced-dark implementation that doesn't consult `color-scheme` as an
-opt-out signal at all (in which case no page-level CSS/meta fix exists — the workaround
-becomes user-side: Samsung Internet's per-site "Dark mode" exception, if that version
-has one, or disabling the browser's dark-web-content feature globally); (b) some other
-Samsung-Internet-specific quirk not yet identified. Whoever picks this up next should
-start by asking the user to check, on the device itself, Samsung Internet's Settings →
-(search) "Dark mode" for a **per-site** exception/allowlist option, since that is the
-one remaining lever this codebase cannot reach from the outside.
+**Confirmed fixed on the real device.** After round 2 reached GitHub Pages, the user
+retested on the actual Galaxy Fold 7: with Android's OS-level display mode set to
+light, selecting "Cerah" in the app now renders correctly — the round 2 static
+`color-scheme` declaration (present before any script runs, see above) was the missing
+piece; round 1's JS-only version reached the device fine but was too late in the paint
+pipeline to matter.
+
+**One follow-up the user then noticed, diagnosed and closed in the same session:**
+with Android's OS-level mode set to *dark*, selecting "Cerah" in-app now correctly stops
+the page being force-darkened (the original bug), but the resulting light colours looked
+subtly different from the same light theme with Android itself set to light. Confirmed
+with the user this is **not a QueueCut bug**: Samsung's "Eye comfort shield" (Settings →
+Display), a device-wide warm colour filter Samsung ties to the OS dark-mode toggle, was
+active — it filters *the entire screen* (every app, not just this page) to reduce blue
+light, which is why identical light-theme CSS colours look tinted differently depending
+on whether that shield is engaged. There is nothing in `index.html` that can or should
+try to counteract a device-level display filter the user (or Samsung's OS) has
+deliberately enabled — the fix, if the user wants the untinted colour, is their own
+Settings → Display → Eye comfort shield toggle, not application code. No further code
+change was made or needed for this.
+
+**Summary for whoever reads this next:** the "Cerah tak berfungsi" report is fully
+closed. Root cause was mobile Chromium browsers' (Chrome for Android, Samsung Internet)
+forced/auto-dark web-content feature, which needs a **static** `color-scheme` opt-out
+present before any script runs (a JS-only `documentElement.style.colorScheme` write,
+round 1, reaches the browser too late in its paint pipeline to prevent the initial
+force-dark decision) — see the round 1 and round 2 fix descriptions above for the exact
+CSS/meta/JS changes. Any perceived colour difference tied to Android's own dark-mode
+toggle *after* this fix is Samsung's Eye Comfort Shield, a device feature, not a
+regression to chase.
 
 ---
 
@@ -2070,29 +2082,38 @@ index.html                                          the running app; bookTicket(
                                                      stale data on page load/reload
                                                      before the first live event, reusing
                                                      the existing merge-by-id path;
-                                                     "Cerah tak berfungsi" -- STILL NOT
-                                                     CONFIRMED FIXED, see "Investigated
-                                                     (round 2)" in the sections above.
-                                                     Round 1: added <meta
-                                                     name="color-scheme" content="light
-                                                     dark"> plus applyTheme() setting
-                                                     documentElement.style.colorScheme
-                                                     to the resolved theme -- deployed,
-                                                     verified live, user retested on the
-                                                     correct URL in a fresh incognito
-                                                     tab, symptom unchanged. Round 2:
-                                                     added a STATIC (not JS-set)
+                                                     "Cerah tak berfungsi" -- CONFIRMED
+                                                     FIXED on the user's real device
+                                                     (Galaxy Fold 7, Samsung Internet),
+                                                     see "Done, confirmed on the real
+                                                     device" in the sections above.
+                                                     Root cause: mobile Chromium
+                                                     browsers' forced/auto-dark web-
+                                                     content feature needs a STATIC
+                                                     color-scheme opt-out present before
+                                                     any script runs -- a JS-only one
+                                                     (round 1: <meta name="color-scheme"
+                                                     content="light dark"> plus
+                                                     applyTheme() setting
+                                                     documentElement.style.colorScheme)
+                                                     reached the device fine but was too
+                                                     late in the paint pipeline to stop
+                                                     the initial force-dark decision.
+                                                     Round 2 (the actual fix): added
                                                      :root{color-scheme:dark}/
                                                      [data-theme="light"]{color-scheme:
-                                                     light} stylesheet rule plus
-                                                     style="color-scheme: dark" directly
-                                                     on <html>, so the signal exists
-                                                     before any script runs (closes a
-                                                     real gap -- confirmed via headless
-                                                     Chromium with JS disabled -- but
-                                                     not yet confirmed this is what
-                                                     Samsung Internet actually needed);
-                                                     applyTheme() also now syncs <meta
+                                                     light} as a real stylesheet rule
+                                                     plus style="color-scheme: dark"
+                                                     directly on <html>, both present
+                                                     from first parse. A follow-up
+                                                     colour-tint report (light theme
+                                                     looks different when Android's OS
+                                                     dark mode is on) turned out to be
+                                                     Samsung's own "Eye comfort shield"
+                                                     device display filter, not a bug --
+                                                     no code change needed or made for
+                                                     that. applyTheme() also now syncs
+                                                     <meta
                                                      name="theme-color"> to the
                                                      resolved --bg-color on every theme
                                                      change (was a single hard-coded
