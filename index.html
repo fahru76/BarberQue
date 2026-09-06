@@ -1258,8 +1258,13 @@
            membership mirrors the existing admin-setting-title headings 1:1,
            except STATUS KEDAI is folded into KEDAI & LOKASI (both are shop-
            identity settings) -- every panel-box inside stays exactly as it
-           was, only wrapped in a show/hide container (see setAdminSection()). */
-        .admin-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; gap: 22px; }
+           was, only wrapped in a show/hide container (see setAdminSection()).
+           Menu order is reorderable (drag or up/down arrows) per Fahru's
+           follow-up request -- same interaction as the existing service
+           priority reorder (.service-sort-item et al above), rendered by
+           renderAdminSidebar() rather than static markup so the list can be
+           regenerated after a reorder. */
+        .admin-layout { display: grid; grid-template-columns: 248px minmax(0, 1fr); align-items: start; gap: 22px; }
         .admin-sidebar {
             position: sticky;
             top: 90px;
@@ -1274,10 +1279,34 @@
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-sm);
         }
+        .admin-nav-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: grab;
+            border-radius: 10px;
+            transition: opacity .16s var(--ease), transform .16s var(--ease);
+        }
+        .admin-nav-row:active { cursor: grabbing; }
+        .admin-nav-row.is-dragging { opacity: .42; transform: scale(.985); }
+        .admin-nav-row.drag-before { box-shadow: inset 0 2px 0 var(--sleek-accent); }
+        .admin-nav-row.drag-after { box-shadow: inset 0 -2px 0 var(--sleek-accent); }
+        .admin-nav-handle {
+            display: grid;
+            place-items: center;
+            flex: 0 0 18px;
+            height: 30px;
+            color: var(--text-muted);
+            font-size: .8rem;
+            letter-spacing: -2px;
+            user-select: none;
+            touch-action: none;
+        }
         .admin-nav-item {
             display: block;
-            width: 100%;
-            padding: 12px 14px;
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 10px 8px;
             border: none;
             border-left: 3px solid transparent;
             border-radius: 10px;
@@ -1290,6 +1319,9 @@
             text-align: left;
             cursor: pointer;
             transition: .18s var(--ease);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .admin-nav-item:hover { background: var(--border-light); color: var(--text-main); }
         .admin-nav-item.active {
@@ -1298,6 +1330,23 @@
             border-left-color: var(--sleek-accent);
             font-weight: 700;
         }
+        .admin-nav-order-actions { display: flex; gap: 2px; flex: 0 0 auto; }
+        .admin-nav-arrow {
+            display: grid;
+            place-items: center;
+            width: 22px;
+            height: 22px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: .68rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: .15s var(--ease);
+        }
+        .admin-nav-arrow:hover:not(:disabled) { border-color: var(--sleek-accent); color: var(--sleek-accent-strong); }
+        .admin-nav-arrow:disabled { opacity: .3; cursor: not-allowed; }
         .admin-content { min-width: 0; }
         .admin-content-section { display: none; }
         .admin-content-section.active { display: block; animation: fadeIn .25s ease; }
@@ -1312,12 +1361,12 @@
                 gap: 6px;
                 padding: 8px;
             }
+            .admin-nav-row { flex: 0 0 auto; }
             .admin-nav-item {
-                flex: 0 0 auto;
-                padding: 10px 14px;
+                padding: 10px 6px;
                 border-left: none;
                 border-bottom: 3px solid transparent;
-                white-space: nowrap;
+                max-width: 34vw;
             }
             .admin-nav-item.active { border-bottom-color: var(--sleek-accent); border-left-color: transparent; }
         }
@@ -1808,18 +1857,7 @@
             <h2>Panel Admin</h2>
 
             <div class="admin-layout">
-                <nav class="admin-sidebar" role="tablist" aria-label="Navigasi tetapan admin">
-                    <button type="button" class="admin-nav-item active" role="tab" aria-selected="true" data-admin-section="staff" onclick="setAdminSection('staff')">Kakitangan</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="shop" onclick="setAdminSection('shop')">Kedai &amp; Lokasi</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="announcement" onclick="setAdminSection('announcement')">Pengumuman</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="reports" onclick="setAdminSection('reports')">Laporan</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="fastpass" onclick="setAdminSection('fastpass')">Laluan Pantas</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="cancellations" onclick="setAdminSection('cancellations')">Pembatalan</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="closedDates" onclick="setAdminSection('closedDates')">Cuti Kedai</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="services" onclick="setAdminSection('services')">Servis &amp; Durasi</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="hours" onclick="setAdminSection('hours')">Waktu Operasi</button>
-                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="seats" onclick="setAdminSection('seats')">Kerusi &amp; Giliran</button>
-                </nav>
+                <nav class="admin-sidebar" id="adminSidebarNav" role="tablist" aria-label="Navigasi tetapan admin (boleh disusun semula -- seret atau guna anak panah)"></nav>
 
                 <div class="admin-content">
                     <div class="admin-content-section active" data-admin-section="staff">
@@ -5036,25 +5074,158 @@
             updateURLForView(viewId, !fromNav);
         }
 
-        // Admin dashboard sidebar (Fahru's request, 2026-09-06): which one of
-        // the settings groups .admin-content currently shows. Plain JS
-        // variable, not localStorage -- this is in-session UI state only,
-        // not data worth persisting across visits; every admin sees the
-        // same default (Kakitangan) each time they open the panel.
-        const ADMIN_SECTION_IDS = ['staff', 'shop', 'announcement', 'reports', 'fastpass', 'cancellations', 'closedDates', 'services', 'hours', 'seats'];
+        // Admin dashboard sidebar (Fahru's request, 2026-09-06; reorderable
+        // per his follow-up request the same day): which settings group
+        // .admin-content currently shows, and what order the sidebar itself
+        // lists them in. The SET of sections is fixed (matches the
+        // panel-box groups wrapped in the HTML above); only their ORDER is
+        // customisable, via drag or the up/down arrows -- identical
+        // interaction to the existing service-priority reorder
+        // (reorderServicesWithinCategory/persistServicePriority above), just
+        // applied to a flat list instead of one split by category.
+        //
+        // The selected section (currentAdminSection) stays a plain JS
+        // variable, not persisted -- in-session UI state only, every admin
+        // sees the same default (first item in their current order) each
+        // time they open the panel. The ORDER itself, though, is exactly
+        // the kind of thing worth remembering -- it's saved to localStorage
+        // (adminSidebarOrder) so it survives reloads. This is a per-browser
+        // preference, not shop data: it only changes which order the menu
+        // labels appear in for whoever is using this browser, so it doesn't
+        // need a migration/RLS policy the way customer-visible settings do.
+        const ADMIN_SECTIONS = [
+            { id: 'staff', label: 'Kakitangan' },
+            { id: 'shop', label: 'Kedai & Lokasi' },
+            { id: 'announcement', label: 'Pengumuman' },
+            { id: 'reports', label: 'Laporan' },
+            { id: 'fastpass', label: 'Laluan Pantas' },
+            { id: 'cancellations', label: 'Pembatalan' },
+            { id: 'closedDates', label: 'Cuti Kedai' },
+            { id: 'services', label: 'Servis & Durasi' },
+            { id: 'hours', label: 'Waktu Operasi' },
+            { id: 'seats', label: 'Kerusi & Giliran' }
+        ];
+        const ADMIN_SECTION_IDS = ADMIN_SECTIONS.map(section => section.id);
+        const ADMIN_SECTION_LABELS = Object.fromEntries(ADMIN_SECTIONS.map(section => [section.id, section.label]));
         let currentAdminSection = ADMIN_SECTION_IDS[0];
+        let draggedAdminSectionId = '';
+
+        function getAdminSectionOrder() {
+            let stored;
+            try { stored = JSON.parse(localStorage.getItem('adminSidebarOrder') || 'null'); } catch { stored = null; }
+            if (!Array.isArray(stored)) return [...ADMIN_SECTION_IDS];
+            // Defensive against a section being renamed/removed in a future
+            // update, or corrupted storage: drop ids that no longer exist,
+            // then append any current section not yet in the stored order
+            // (at the end) so a newly added settings group never silently
+            // disappears from the menu just because it predates this save.
+            const valid = stored.filter(id => ADMIN_SECTION_IDS.includes(id));
+            const missing = ADMIN_SECTION_IDS.filter(id => !valid.includes(id));
+            return [...valid, ...missing];
+        }
+
+        function saveAdminSectionOrder(order) {
+            safeSetItem('adminSidebarOrder', order);
+        }
+
+        function renderAdminSidebar() {
+            const nav = document.getElementById('adminSidebarNav');
+            if (!nav) return;
+            const order = getAdminSectionOrder();
+            nav.innerHTML = order.map((id, index) => {
+                const label = escapeHTML(ADMIN_SECTION_LABELS[id] || id);
+                const isActive = id === currentAdminSection;
+                return `
+                <div class="admin-nav-row${isActive ? ' active' : ''}" data-admin-section="${id}" draggable="true" ondragstart="handleAdminNavDragStart(event,${toInlineJSString(id)})" ondragover="handleAdminNavDragOver(event,${toInlineJSString(id)})" ondrop="handleAdminNavDrop(event,${toInlineJSString(id)})" ondragend="handleAdminNavDragEnd()">
+                    <span class="admin-nav-handle" title="Seret untuk ubah turutan" aria-hidden="true">&#8942;&#8942;</span>
+                    <button type="button" class="admin-nav-item${isActive ? ' active' : ''}" role="tab" aria-selected="${isActive}" onclick="setAdminSection(${toInlineJSString(id)})">${label}</button>
+                    <span class="admin-nav-order-actions" aria-label="Ubah turutan ${label}">
+                        <button type="button" class="admin-nav-arrow" aria-label="Naikkan ${label}" title="Naikkan" onclick="moveAdminSection(${toInlineJSString(id)},-1)" ${index === 0 ? 'disabled' : ''}>&#8593;</button>
+                        <button type="button" class="admin-nav-arrow" aria-label="Turunkan ${label}" title="Turunkan" onclick="moveAdminSection(${toInlineJSString(id)},1)" ${index === order.length - 1 ? 'disabled' : ''}>&#8595;</button>
+                    </span>
+                </div>`;
+            }).join('');
+        }
 
         function setAdminSection(sectionId) {
             if (!ADMIN_SECTION_IDS.includes(sectionId)) sectionId = ADMIN_SECTION_IDS[0];
             currentAdminSection = sectionId;
-            document.querySelectorAll('.admin-nav-item').forEach(btn => {
-                const isActive = btn.dataset.adminSection === sectionId;
-                btn.classList.toggle('active', isActive);
-                btn.setAttribute('aria-selected', String(isActive));
+            document.querySelectorAll('.admin-nav-row').forEach(row => {
+                const isActive = row.dataset.adminSection === sectionId;
+                row.classList.toggle('active', isActive);
+                const btn = row.querySelector('.admin-nav-item');
+                if (btn) {
+                    btn.classList.toggle('active', isActive);
+                    btn.setAttribute('aria-selected', String(isActive));
+                }
             });
             document.querySelectorAll('.admin-content-section').forEach(sec => {
                 sec.classList.toggle('active', sec.dataset.adminSection === sectionId);
             });
+        }
+
+        function moveAdminSection(sectionId, direction) {
+            const order = getAdminSectionOrder();
+            const index = order.indexOf(sectionId);
+            const targetIndex = index + direction;
+            if (index < 0 || targetIndex < 0 || targetIndex >= order.length) return;
+            [order[index], order[targetIndex]] = [order[targetIndex], order[index]];
+            saveAdminSectionOrder(order);
+            renderAdminSidebar();
+        }
+
+        function reorderAdminSections(order, sourceId, targetId, placeAfter) {
+            if (!sourceId || !targetId || sourceId === targetId) return [...order];
+            const remaining = order.filter(id => id !== sourceId);
+            const targetIndex = remaining.indexOf(targetId);
+            if (targetIndex < 0) return [...order];
+            remaining.splice(targetIndex + (placeAfter ? 1 : 0), 0, sourceId);
+            return remaining;
+        }
+
+        function clearAdminNavDropIndicators() {
+            document.querySelectorAll('.admin-nav-row').forEach(row => row.classList.remove('drag-before', 'drag-after', 'is-dragging'));
+        }
+
+        function handleAdminNavDragStart(event, sectionId) {
+            draggedAdminSectionId = sectionId;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', sectionId);
+            event.currentTarget.classList.add('is-dragging');
+        }
+
+        function handleAdminNavDragOver(event, targetId) {
+            if (!draggedAdminSectionId || draggedAdminSectionId === targetId) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const target = event.currentTarget;
+            const rect = target.getBoundingClientRect();
+            // Sidebar is a vertical list on desktop but a horizontal scroll
+            // strip on narrow screens (<=900px, same breakpoint as the
+            // .admin-layout CSS) -- compare against whichever axis is
+            // actually the reorder direction in the current layout.
+            const placeAfter = window.innerWidth <= 900
+                ? event.clientX > rect.left + rect.width / 2
+                : event.clientY > rect.top + rect.height / 2;
+            document.querySelectorAll('.admin-nav-row').forEach(row => row.classList.remove('drag-before', 'drag-after'));
+            target.classList.add(placeAfter ? 'drag-after' : 'drag-before');
+            target.dataset.dropAfter = String(placeAfter);
+        }
+
+        function handleAdminNavDrop(event, targetId) {
+            event.preventDefault();
+            const sourceId = draggedAdminSectionId;
+            const placeAfter = event.currentTarget.dataset.dropAfter === 'true';
+            clearAdminNavDropIndicators();
+            draggedAdminSectionId = '';
+            const order = reorderAdminSections(getAdminSectionOrder(), sourceId, targetId, placeAfter);
+            saveAdminSectionOrder(order);
+            renderAdminSidebar();
+        }
+
+        function handleAdminNavDragEnd() {
+            draggedAdminSectionId = '';
+            clearAdminNavDropIndicators();
         }
 
         function setCustomerMode(mode) {
@@ -7799,6 +7970,7 @@
         populateOperationalTimeSelects(); updateUI(); updateServiceProfileSummary('new');
         if(!window.currentCustomerTicket) populateWalkinServices();
         applyKioskModeFromURL();
+        renderAdminSidebar();
     </script>
 </body>
 </html>
