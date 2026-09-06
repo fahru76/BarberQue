@@ -174,7 +174,15 @@
         .service-category-tab.active { background:var(--primary-color); color:#fff; font-weight:bold; }
         .service-category-panel { display:flex; flex-direction:column; gap:10px; }
         .service-empty-state { padding:15px; border:1px dashed var(--border-color); border-radius:8px; color:var(--text-muted); text-align:center; font-size:0.9rem; }
-        .input-group .service-checkbox-label { display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer; margin-bottom: 0; }
+        /* Each service option is itself a <label>, nested inside the
+           surrounding .input-group -- without this override it inherits the
+           .input-group label all-caps rule (line ~523), which is fine for a
+           short field name like "NAMA SERVIS" but turns a whole style-notes
+           sentence into shouted text. Fahru asked for normal case here
+           (customer-facing service picker, Item 2/notes) -- higher
+           specificity than that rule (two classes vs. class+type), so this
+           wins regardless of source order. */
+        .input-group .service-checkbox-label { display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer; margin-bottom: 0; text-transform: none; }
         .input-group .service-checkbox-label:hover { background: var(--card-hover); border-color: var(--primary-color); }
         .input-group .service-checkbox-label.disabled-box { opacity: 0.4; cursor: not-allowed; background: var(--border-light); border-color: transparent; pointer-events: none; }
         .input-group .service-checkbox-label input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary-color); cursor: pointer; flex-shrink: 0; margin: 0; }
