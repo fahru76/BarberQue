@@ -246,12 +246,18 @@ export function subscribeQueueChanges(onChange) {
  * insert a customer as already `serving`.
  *
  * @param {{prefix: string, name: string, phone?: string, service: string,
- *          durationMinutes: number, priceRm?: number, source?: 'walkin'|'booking'}} record
+ *          durationMinutes: number, priceRm?: number, source?: 'walkin'|'booking',
+ *          serviceIds?: string[]}} record `serviceIds` is the snapshot Item 1
+ *          (smart barber assignment, see QUEUECUT_HANDOVER.md) matches
+ *          against — the selected checkboxes' `service.id` values, not their
+ *          display names. Optional and additive: omitting it (every call
+ *          site written before this feature) inserts NULL, which
+ *          call_next_customer() treats as "unknown service", not a mismatch.
  * @returns {Promise<object & {claimToken: string}>} the inserted ticket, plus the
  *          claim token the caller must persist (e.g. localStorage) — the
  *          server never returns claim_token again, by design.
  */
-export async function takeTicket({ prefix, name, phone, service, durationMinutes, priceRm, source = 'walkin' }) {
+export async function takeTicket({ prefix, name, phone, service, durationMinutes, priceRm, source = 'walkin', serviceIds }) {
     const { data: ticketNo, error: ticketError } = await supabase.rpc('next_ticket_number', { p_prefix: prefix });
     raiseOnError(ticketError);
 
@@ -269,7 +275,8 @@ export async function takeTicket({ prefix, name, phone, service, durationMinutes
             service,
             duration_minutes: durationMinutes,
             price_sen: priceSen,
-            source
+            source,
+            service_ids: serviceIds?.length ? serviceIds : undefined
         })
         .select(QUEUE_COLUMNS)
         .single();

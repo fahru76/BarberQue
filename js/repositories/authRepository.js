@@ -79,12 +79,17 @@ export async function getMyStaffProfile() {
 export async function listStaff() {
     const { data, error } = await supabase
         .from('staff')
-        .select('id, display_name, role, active, created_at')
+        .select('id, display_name, role, active, created_at, capability_service_ids, specialty_service_ids')
         .order('created_at', { ascending: true });
     raiseOnError(error);
     return data.map(row => ({
         id: row.id, displayName: row.display_name, role: row.role,
-        active: row.active, createdAt: row.created_at
+        active: row.active, createdAt: row.created_at,
+        // NULL on both means "capable of everything, no preference" — see
+        // call_next_customer() and QUEUECUT_HANDOVER.md Item 1. Normalised to
+        // [] here so index.html's admin checklist never has to null-check.
+        capabilityServiceIds: row.capability_service_ids || [],
+        specialtyServiceIds: row.specialty_service_ids || []
     }));
 }
 
@@ -102,12 +107,23 @@ export async function listStaff() {
  * `staff_name_key_uidx` unique index — the error's `.cause.code` is
  * Postgres's `23505` (unique_violation), which callers can check for a
  * friendlier message than the raw constraint error.
+ *
+ * `capabilityServiceIds`/`specialtyServiceIds` (Item 1, smart barber
+ * assignment — see QUEUECUT_HANDOVER.md and call_next_customer()) follow the
+ * same "only patch what's explicitly passed" convention as every other field
+ * here: pass an array to restrict, an empty array or `null` to clear back to
+ * "capable of everything" / "no preference", or omit the key to leave it
+ * untouched. The server independently rejects a specialty list that isn't a
+ * subset of a restricted capability list (`staff_specialty_subset_of_capability`
+ * check constraint) — this function does not pre-validate that itself.
  */
-export async function setStaffStatus(id, { active, role, displayName } = {}) {
+export async function setStaffStatus(id, { active, role, displayName, capabilityServiceIds, specialtyServiceIds } = {}) {
     const patch = {};
     if (active !== undefined) patch.active = active;
     if (role !== undefined) patch.role = role;
     if (displayName !== undefined) patch.display_name = displayName;
+    if (capabilityServiceIds !== undefined) patch.capability_service_ids = capabilityServiceIds?.length ? capabilityServiceIds : null;
+    if (specialtyServiceIds !== undefined) patch.specialty_service_ids = specialtyServiceIds?.length ? specialtyServiceIds : null;
     const { error } = await supabase.from('staff').update(patch).eq('id', id);
     raiseOnError(error);
 }

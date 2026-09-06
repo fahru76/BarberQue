@@ -32,6 +32,22 @@ for (const m of clean.matchAll(/create table (?:if not exists )?public\.(\w+)\s*
         .map(c => c.split(/\s+/)[0]);
 }
 
+// A later migration commonly adds columns to a table created earlier (e.g.
+// 20260901000700_appointments.sql adding approved_by etc. to public.queues,
+// or 20260906's smart-barber-assignment migration adding service_ids) --
+// without this pass, every check below stays blind to those columns, which
+// is exactly the gap that let a real typo slip through undetected until a
+// migration's GRANT happened to reference one of them (see HANDOFF.md).
+// One ALTER TABLE statement can carry several `add column` clauses mixed
+// with `add constraint` ones; only the column clauses are collected here.
+for (const m of clean.matchAll(/alter table public\.(\w+)\s+([\s\S]*?);/g)) {
+    const [, name, body] = m;
+    if (!tables[name]) continue;
+    for (const colMatch of body.matchAll(/add column\s+(\w+)/gi)) {
+        if (!tables[name].includes(colMatch[1])) tables[name].push(colMatch[1]);
+    }
+}
+
 let problems = [];
 const known = new Set(['auth', 'now', 'true', 'false', 'null', 'public']);
 
@@ -75,7 +91,12 @@ for (const t of rlsOn) {
 }
 
 // ---- SECURITY DEFINER functions must pin search_path ---------------------
-for (const m of clean.matchAll(/create or replace function public\.(\w+)([\s\S]*?)\bas \$\$/g)) {
+// `create function` (no `or replace`) shows up when a migration adds a
+// parameter and has to drop the old signature first (see the smart-barber-
+// assignment migration's book_appointment()/convert_walkin_to_appointment())
+// -- matched here too, not just `create or replace`, or this check would
+// silently stop covering any function edited that way.
+for (const m of clean.matchAll(/create (?:or replace )?function public\.(\w+)([\s\S]*?)\bas \$\$/g)) {
     const [, fn, head] = m;
     if (/security definer/i.test(head) && !/set search_path\s*=/i.test(head)) {
         problems.push(`SECURITY DEFINER function ${fn}() does not pin search_path`);

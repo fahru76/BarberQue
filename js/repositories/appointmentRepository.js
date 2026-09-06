@@ -50,9 +50,15 @@ function raiseOnError(error) {
  * the RPC's error message is already customer-facing Malay text, so callers
  * can show it directly in an alert().
  *
+ * `serviceIds` (Item 1, smart barber assignment — see QUEUECUT_HANDOVER.md)
+ * is optional and additive: `p_service_ids` has a server-side default of
+ * NULL, so omitting it inserts an appointment call_next_customer() (via the
+ * queues row checkin_appointment() later creates from it) treats as
+ * "unknown service", not a mismatch.
+ *
  * @returns {Promise<{id: string, claimToken: string}>}
  */
-export async function bookAppointment({ name, phone, service, durationMinutes, priceRm, date, time }) {
+export async function bookAppointment({ name, phone, service, durationMinutes, priceRm, date, time, serviceIds }) {
     const claimToken = crypto.randomUUID();
     const { data: id, error } = await supabase.rpc('book_appointment', {
         p_name: name,
@@ -62,7 +68,8 @@ export async function bookAppointment({ name, phone, service, durationMinutes, p
         p_duration_minutes: durationMinutes,
         p_price_sen: Number.isFinite(priceRm) ? Math.round(priceRm * 100) : 0,
         p_date: date,
-        p_time: time
+        p_time: time,
+        p_service_ids: serviceIds?.length ? serviceIds : null
     });
     raiseOnError(error);
     return { id, claimToken };
@@ -98,10 +105,18 @@ export async function rescheduleOwnAppointment(id, claimToken, expectedVersion, 
  * same one takeTicket() already saved locally); a fresh `claimToken` for the
  * NEW appointment is minted here, same convention as bookAppointment().
  *
+ * `serviceIds` is an explicit parameter here, NOT inherited from the
+ * original walk-in ticket's own service_ids -- index.html's conversion form
+ * (prepareBookingChange()) pre-fills the service checkboxes from the walk-in
+ * but does not disable them, so the customer can re-pick services before
+ * confirming. `service` (the display-name string) was already an explicit
+ * parameter for exactly this reason; `serviceIds` must match whatever the
+ * caller actually submits, not the stale original ticket.
+ *
  * @returns {Promise<{id: string, claimToken: string}>} the new appointment.
  */
 export async function convertWalkinToAppointment({
-    walkinId, walkinClaimToken, expectedVersion, name, phone, service, durationMinutes, priceRm, date, time
+    walkinId, walkinClaimToken, expectedVersion, name, phone, service, durationMinutes, priceRm, date, time, serviceIds
 }) {
     const claimToken = crypto.randomUUID();
     const { data: id, error } = await supabase.rpc('convert_walkin_to_appointment', {
@@ -115,7 +130,8 @@ export async function convertWalkinToAppointment({
         p_duration_minutes: durationMinutes,
         p_price_sen: Number.isFinite(priceRm) ? Math.round(priceRm * 100) : 0,
         p_date: date,
-        p_time: time
+        p_time: time,
+        p_service_ids: serviceIds?.length ? serviceIds : null
     });
     raiseOnError(error);
     return { id, claimToken };

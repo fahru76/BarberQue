@@ -1439,6 +1439,16 @@
         .badge-neutral { background:#495057; }
         .badge-success { background:var(--success); }
         .badge-danger { background:var(--danger); }
+        /* Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md): per-staff
+           capability/specialty checklist inside the admin staff card. */
+        .staff-capability-panel { width:100%; margin-top:10px; border:1px solid var(--border-color); border-radius:8px; padding:10px 12px; background:var(--card-bg); }
+        .staff-capability-panel summary { cursor:pointer; font-weight:bold; }
+        .capability-hint { font-size:0.85rem; margin:8px 0; }
+        .capability-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border-light); }
+        .capability-row:last-of-type { border-bottom:none; }
+        .capability-row-name { flex:1; }
+        .specialty-star { background:none; border:1px solid var(--border-color); border-radius:6px; width:32px; height:32px; font-size:1rem; line-height:1; cursor:pointer; color:var(--border-color); }
+        .specialty-star.active { color:#fff; background:#f39c12; border-color:#f39c12; }
 </style>
 </head>
 <body>
@@ -2789,6 +2799,7 @@
                                 ? `<button type="button" class="btn btn-reset" onclick="toggleStaffActive('${member.id}', false)">NYAHAKTIF</button>`
                                 : `<button type="button" class="btn btn-action" onclick="toggleStaffActive('${member.id}', true)">AKTIFKAN</button>`}
                         </div>
+                        ${renderStaffCapabilityPanel(member)}
                     </div>`).join('') || '<div class="text-muted">Tiada kakitangan lagi.</div>';
                 // The seat<->staff assignment dropdowns (migration step 4b) show the
                 // same roster; keep them current whenever it changes, not just on the
@@ -2797,6 +2808,73 @@
             } catch (error) {
                 container.innerHTML = '<div class="text-muted">Gagal memuatkan senarai kakitangan.</div>';
                 console.warn('Memuatkan senarai kakitangan gagal.', error);
+            }
+        }
+
+        /**
+         * Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md): the
+         * per-staff capability (checkbox, hard gate) + specialty (star, soft
+         * priority) checklist rendered inside each staff card. One row per
+         * active service, so an empty catalogue or every service being
+         * inactive simply renders nothing rather than an empty panel.
+         *
+         * Design rule that matches the DB default exactly, so no migration/
+         * backfill logic was needed anywhere: if NO service is checked
+         * "Boleh", the barber is saved as capability_service_ids = null,
+         * i.e. capable of everything -- the same state every barber that
+         * predates this feature is already in. Checking even one service
+         * switches that barber into an explicit, restricted list.
+         */
+        function renderStaffCapabilityPanel(member) {
+            const services = getServices().filter(service => service.active);
+            if (!services.length) return '';
+            const capabilitySet = new Set(member.capabilityServiceIds || []);
+            const specialtySet = new Set(member.specialtyServiceIds || []);
+            const rows = services.map(service => `
+                <label class="capability-row">
+                    <input type="checkbox" class="capability-check" data-service-id="${escapeHTML(service.id)}" ${capabilitySet.has(service.id) ? 'checked' : ''} onchange="onCapabilityCheckboxChange(this)">
+                    <span class="capability-row-name">${escapeHTML(service.name)}</span>
+                    <button type="button" class="specialty-star${specialtySet.has(service.id) ? ' active' : ''}" onclick="toggleSpecialtyStar(this)" title="Jadikan servis utama (diutamakan)">&#9733;</button>
+                </label>`).join('');
+            return `
+                <details class="staff-capability-panel" data-staff-id="${member.id}">
+                    <summary>Kebolehan &amp; Keutamaan Servis${capabilitySet.size ? ` (dihadkan kepada ${capabilitySet.size})` : ' (tiada had -- boleh semua)'}</summary>
+                    <p class="text-muted capability-hint">Jika TIADA servis ditanda "Boleh", tukang gunting ini dianggap boleh buat SEMUA servis (lalai, sama seperti sekarang). Tanda &#9733; untuk jadikan servis itu keutamaan -- pelanggan servis tersebut akan dipanggil dahulu oleh tukang gunting ini.</p>
+                    ${rows}
+                    <button type="button" class="btn btn-sm btn-action mt-8" onclick="saveStaffCapabilities('${member.id}')">Simpan Kebolehan</button>
+                </details>`;
+        }
+
+        /** Unchecking capability also un-stars that row -- a specialty always implies capability. */
+        function onCapabilityCheckboxChange(checkbox) {
+            if (checkbox.checked) return;
+            const star = checkbox.closest('.capability-row')?.querySelector('.specialty-star');
+            if (star) star.classList.remove('active');
+        }
+
+        /** Starring a service auto-checks its capability box for the same reason. */
+        function toggleSpecialtyStar(button) {
+            const willActivate = !button.classList.contains('active');
+            button.classList.toggle('active', willActivate);
+            if (willActivate) {
+                const checkbox = button.closest('.capability-row')?.querySelector('.capability-check');
+                if (checkbox) checkbox.checked = true;
+            }
+        }
+
+        async function saveStaffCapabilities(staffId) {
+            const panel = document.querySelector(`.staff-capability-panel[data-staff-id="${staffId}"]`);
+            if (!panel) return;
+            const capabilityServiceIds = Array.from(panel.querySelectorAll('.capability-check:checked')).map(cb => cb.dataset.serviceId);
+            const specialtyServiceIds = Array.from(panel.querySelectorAll('.specialty-star.active')).map(star =>
+                star.closest('.capability-row')?.querySelector('.capability-check')?.dataset.serviceId
+            ).filter(Boolean);
+            try {
+                await window.AuthRepo.setStaffStatus(staffId, { capabilityServiceIds, specialtyServiceIds });
+                await refreshStaffList();
+            } catch (error) {
+                (await showAlertDialog(error.message || 'Gagal menyimpan kebolehan servis.'));
+                console.warn(error);
             }
         }
 
@@ -6080,6 +6158,10 @@
             if(invalidWalkinSelection) return (await showAlertDialog(invalidWalkinSelection));
             
             let services = Array.from(cb).map(c => c.value).join(', ');
+            // Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md):
+            // service.id snapshot, distinct from the display-name string
+            // above -- call_next_customer() matches on this, not on `services`.
+            const serviceIds = Array.from(cb).map(c => c.dataset.serviceId).filter(Boolean);
             let dur = 0, price = 0;
             cb.forEach(c => { dur += parseInt(c.dataset.duration); price += parseFloat(c.dataset.price); });
             if (!Number.isFinite(dur) || dur <= 0 || !Number.isFinite(price) || price < 0) return (await showAlertDialog("Maklumat servis tidak sah."));
@@ -6112,7 +6194,7 @@
             try {
                 const prefix = getSessionPrefix();
                 const serverTicket = await window.QueueRepo.takeTicket({
-                    prefix, name, phone, service: services, durationMinutes: dur, priceRm: price, source: 'walkin'
+                    prefix, name, phone, service: services, durationMinutes: dur, priceRm: price, source: 'walkin', serviceIds
                 });
                 newId = serverTicket.id;
                 claimToken = serverTicket.claimToken;
@@ -6233,6 +6315,12 @@
             if(invalidBookingSelection) return (await showAlertDialog(invalidBookingSelection));
 
             let svcs = Array.from(cb).map(c => c.value).join(', ');
+            // Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md):
+            // service.id snapshot alongside the display-name string above.
+            // Not threaded into the reschedule branch below -- that RPC
+            // never accepted/stored service/duration/price either (a
+            // pre-existing scope boundary, not something this change alters).
+            const serviceIds = Array.from(cb).map(c => c.dataset.serviceId).filter(Boolean);
             let dur = 0, price = 0; cb.forEach(c => { dur += parseInt(c.dataset.duration); price += parseFloat(c.dataset.price); });
             if (!Number.isFinite(dur) || dur <= 0 || !Number.isFinite(price) || price < 0) return (await showAlertDialog("Maklumat servis tidak sah."));
             const excludedAppointmentId = bookingChangeMode?.type === 'reschedule' ? bookingChangeMode.appointmentId : '';
@@ -6313,7 +6401,7 @@
                 try {
                     converted = await window.AppointmentRepo.convertWalkinToAppointment({
                         walkinId: queue.id, walkinClaimToken, expectedVersion: bookingChangeMode.expectedVersion,
-                        name, phone, service: svcs, durationMinutes: dur, priceRm: price, date, time
+                        name, phone, service: svcs, durationMinutes: dur, priceRm: price, date, time, serviceIds
                     });
                 } catch (error) {
                     console.warn('Pertukaran Walk-in ke Tempahan gagal di pelayan.', error);
@@ -6357,7 +6445,7 @@
             requestNotificationPermission();
             let booked;
             try {
-                booked = await window.AppointmentRepo.bookAppointment({ name, phone, service: svcs, durationMinutes: dur, priceRm: price, date, time });
+                booked = await window.AppointmentRepo.bookAppointment({ name, phone, service: svcs, durationMinutes: dur, priceRm: price, date, time, serviceIds });
             } catch (error) {
                 console.warn('Tempahan gagal disimpan di pelayan.', error);
                 return (await showAlertDialog(error?.message?.replace(/^\[appointmentRepository\]\s*/, '') || "Tempahan gagal disimpan. Tiada perubahan dibuat; sila cuba lagi."));
