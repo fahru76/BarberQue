@@ -1252,6 +1252,76 @@
         .service-sort-item.drag-after { border-bottom-color: var(--sleek-accent); }
         .service-type-badge { background: rgba(255,255,255,.075); color: var(--text-main); }
 
+        /* Admin dashboard navigation (Fahru's request, 2026-09-06): sidebar
+           menu on the left switches which settings group shows on the
+           right, replacing one long scroll through every panel-box. Section
+           membership mirrors the existing admin-setting-title headings 1:1,
+           except STATUS KEDAI is folded into KEDAI & LOKASI (both are shop-
+           identity settings) -- every panel-box inside stays exactly as it
+           was, only wrapped in a show/hide container (see setAdminSection()). */
+        .admin-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); align-items: start; gap: 22px; }
+        .admin-sidebar {
+            position: sticky;
+            top: 90px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            padding: 10px;
+            max-height: calc(100vh - 110px);
+            overflow-y: auto;
+            background: linear-gradient(150deg, color-mix(in srgb, var(--surface-elevated) 72%, var(--surface-color)), var(--surface-color));
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .admin-nav-item {
+            display: block;
+            width: 100%;
+            padding: 12px 14px;
+            border: none;
+            border-left: 3px solid transparent;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Manrope', sans-serif;
+            font-size: .82rem;
+            font-weight: 600;
+            letter-spacing: -.01em;
+            text-align: left;
+            cursor: pointer;
+            transition: .18s var(--ease);
+        }
+        .admin-nav-item:hover { background: var(--border-light); color: var(--text-main); }
+        .admin-nav-item.active {
+            background: var(--card-hover);
+            color: var(--sleek-accent-strong);
+            border-left-color: var(--sleek-accent);
+            font-weight: 700;
+        }
+        .admin-content { min-width: 0; }
+        .admin-content-section { display: none; }
+        .admin-content-section.active { display: block; animation: fadeIn .25s ease; }
+
+        @media (max-width: 900px) {
+            .admin-layout { grid-template-columns: 1fr; gap: 14px; }
+            .admin-sidebar {
+                position: static;
+                max-height: none;
+                flex-direction: row;
+                overflow-x: auto;
+                gap: 6px;
+                padding: 8px;
+            }
+            .admin-nav-item {
+                flex: 0 0 auto;
+                padding: 10px 14px;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+                white-space: nowrap;
+            }
+            .admin-nav-item.active { border-bottom-color: var(--sleek-accent); border-left-color: transparent; }
+        }
+
         .ticket-box {
             border-color: rgba(255,103,29,.42);
             border-radius: 30px;
@@ -1737,6 +1807,23 @@
         <div class="admin-panel">
             <h2>Panel Admin</h2>
 
+            <div class="admin-layout">
+                <nav class="admin-sidebar" role="tablist" aria-label="Navigasi tetapan admin">
+                    <button type="button" class="admin-nav-item active" role="tab" aria-selected="true" data-admin-section="staff" onclick="setAdminSection('staff')">Kakitangan</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="shop" onclick="setAdminSection('shop')">Kedai &amp; Lokasi</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="announcement" onclick="setAdminSection('announcement')">Pengumuman</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="reports" onclick="setAdminSection('reports')">Laporan</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="fastpass" onclick="setAdminSection('fastpass')">Laluan Pantas</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="cancellations" onclick="setAdminSection('cancellations')">Pembatalan</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="closedDates" onclick="setAdminSection('closedDates')">Cuti Kedai</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="services" onclick="setAdminSection('services')">Servis &amp; Durasi</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="hours" onclick="setAdminSection('hours')">Waktu Operasi</button>
+                    <button type="button" class="admin-nav-item" role="tab" aria-selected="false" data-admin-section="seats" onclick="setAdminSection('seats')">Kerusi &amp; Giliran</button>
+                </nav>
+
+                <div class="admin-content">
+                    <div class="admin-content-section active" data-admin-section="staff">
+
             <section class="panel-box border-primary">
                 <h3 class="admin-setting-title mb-10">KAKITANGAN</h3>
                 <p class="text-muted fs-85 mb-15">Akaun kakitangan tidak boleh didaftar sendiri. Jemput tukang gunting baharu di sini — mereka menerima e-mel untuk menetapkan kata laluan sendiri, dan kekal <strong>Belum Aktif</strong> sehingga anda mengaktifkannya di senarai di bawah.</p>
@@ -1755,6 +1842,9 @@
                 <div id="staffListContainer"></div>
                 <button type="button" class="btn w-full mt-10" onclick="refreshStaffList()">MUAT SEMULA SENARAI</button>
             </section>
+
+                    </div>
+                    <div class="admin-content-section" data-admin-section="shop">
 
             <div class="panel-box" id="adminShopStatusRow">
                 <h3 id="adminShopStatusHeading">Status Kedai: <span id="adminShopStatusText">DIBUKA</span></h3>
@@ -1797,6 +1887,9 @@
                 <p class="text-muted" id="adminMapSearchNote">Preview dan pautan pelanggan menggunakan carian Google Maps yang sama. Pastikan hanya lokasi kedai yang dimaksudkan muncul sebagai hasil utama.</p>
                 <button type="button" class="btn btn-info w-full mt-15" onclick="saveShopNameSetting()">SIMPAN IDENTITI &amp; LOKASI</button>
             </section>
+
+                    </div>
+                    <div class="admin-content-section" data-admin-section="announcement">
 
             <section class="panel-box" id="adminAnnouncementSection">
                 <h3 class="admin-setting-title mb-10">PENGUMUMAN PELANGGAN</h3>
@@ -1855,6 +1948,9 @@
                 <button type="button" class="btn btn-info w-full mt-15" onclick="saveAnnouncementSetting()">SIMPAN PENGUMUMAN</button>
             </section>
 
+                    </div>
+                    <div class="admin-content-section" data-admin-section="reports">
+
             <!-- TAB LAPORAN -->
             <div class="panel-box">
                 <h3 class="admin-setting-title mb-15">LAPORAN PRESTASI JUALAN</h3>
@@ -1878,6 +1974,9 @@
                 <div id="reportListContainer"></div>
             </div>
 
+                    </div>
+                    <div class="admin-content-section" data-admin-section="fastpass">
+
             <!-- LALUAN PANTAS: KELULUSAN ADMIN -->
             <div class="panel-box" id="adminFastPassPanel">
                 <h3 class="admin-setting-title mb-10">LALUAN PANTAS</h3>
@@ -1900,6 +1999,9 @@
                 </div>
             </div>
 
+                    </div>
+                    <div class="admin-content-section" data-admin-section="cancellations">
+
             <div class="panel-box border-danger">
                 <h3 class="admin-setting-title mb-10">PENGURUSAN PEMBATALAN</h3>
                 <p class="text-muted fs-88 mb-15">Admin boleh membatalkan Walk-in yang masih menunggu atau Tempahan Online yang masih akan datang. Sebab pembatalan wajib dan notifikasi akan direkodkan.</p>
@@ -1913,6 +2015,9 @@
                 <h4 class="mb-10">Tempahan Online Akan Datang</h4>
                 <div id="adminCancelableBookingList"></div>
             </div>
+
+                    </div>
+                    <div class="admin-content-section" data-admin-section="closedDates">
 
             <!-- CUTI KEDAI -->
             <div class="panel-box border-danger">
@@ -1945,6 +2050,9 @@
                 <button class="btn btn-action" id="btnAddClosedDate" onclick="addClosedDate()">REKOD CUTI</button>
                 <div class="mt-20"><div id="adminClosedDatesList"></div></div>
             </div>
+
+                    </div>
+                    <div class="admin-content-section" data-admin-section="services">
 
             <!-- TETAPAN SERVIS -->
             <div class="panel-box">
@@ -2101,6 +2209,9 @@
                 </div>
             </div>
 
+                    </div>
+                    <div class="admin-content-section" data-admin-section="hours">
+
             <!-- OTHER SETTINGS... -->
             <div class="panel-box">
                 <h3 class="admin-setting-title mb-15">TETAPAN WAKTU OPERASI</h3>
@@ -2150,6 +2261,9 @@
                 </div>
             </div>
 
+                    </div>
+                    <div class="admin-content-section" data-admin-section="seats">
+
             <div class="panel-box">
                 <h3 class="admin-setting-title mb-15">KAWALAN KERUSI & HAD GILIRAN</h3>
                 <div class="input-group mb-15">
@@ -2170,6 +2284,10 @@
                 <p class="text-muted fs-82 mb-14">Nama tukang gunting wajib diisi sebelum kerusi boleh diaktifkan. Nama dikekalkan apabila kerusi ditutup supaya mudah dibuka semula, dan boleh ditukar ketika kerusi tidak aktif.</p>
                 <div id="adminBarberAssignments" class="barber-assignment-grid"></div>
                 <button class="btn btn-action" id="btnSaveBarberAssignments" onclick="saveBarberAssignments()">SIMPAN PASUKAN BERTUGAS</button>
+            </div>
+
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -4916,6 +5034,27 @@
             // programmatic call this file makes -- initial load, the post-login
             // retry, and the popstate handler -- which replace in place instead.
             updateURLForView(viewId, !fromNav);
+        }
+
+        // Admin dashboard sidebar (Fahru's request, 2026-09-06): which one of
+        // the settings groups .admin-content currently shows. Plain JS
+        // variable, not localStorage -- this is in-session UI state only,
+        // not data worth persisting across visits; every admin sees the
+        // same default (Kakitangan) each time they open the panel.
+        const ADMIN_SECTION_IDS = ['staff', 'shop', 'announcement', 'reports', 'fastpass', 'cancellations', 'closedDates', 'services', 'hours', 'seats'];
+        let currentAdminSection = ADMIN_SECTION_IDS[0];
+
+        function setAdminSection(sectionId) {
+            if (!ADMIN_SECTION_IDS.includes(sectionId)) sectionId = ADMIN_SECTION_IDS[0];
+            currentAdminSection = sectionId;
+            document.querySelectorAll('.admin-nav-item').forEach(btn => {
+                const isActive = btn.dataset.adminSection === sectionId;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', String(isActive));
+            });
+            document.querySelectorAll('.admin-content-section').forEach(sec => {
+                sec.classList.toggle('active', sec.dataset.adminSection === sectionId);
+            });
         }
 
         function setCustomerMode(mode) {
