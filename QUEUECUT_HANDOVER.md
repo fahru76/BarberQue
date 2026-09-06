@@ -2,7 +2,7 @@
 
 **Repo:** https://github.com/fahru76/BarberQue (branch `main`)
 **Live:** https://fahru76.github.io/BarberQue/
-**Status of this document:** Planning/spec only. **Nothing described below has been implemented or committed.** All items are scoped and approved for direction by the project owner (Fahru), but blocked on the inputs noted per item. Do not write code for a blocked item until its blocker is resolved — check with Fahru first if unsure.
+**Status of this document:** Originally planning/spec only; **items 1, 2 and 3 have since been implemented, tested and shipped to `main`** (see the status update in "Suggested execution order" below) — read each item's own status line for its current state rather than assuming the whole document is still unbuilt. Items 4 and 5 remain parked, and item 6 is scoped but unconfirmed. Do not write code for a blocked/unconfirmed item until its blocker is resolved — check with Fahru first if unsure.
 
 ---
 
@@ -151,12 +151,51 @@ This table is a starting shape for a conversation with Fahru, not a recommendati
 
 ---
 
+## 6. Proactive "kedai akan tutup" warning for walk-in customers + next-day booking offer
+
+**Status:** Scoped by Claude on Fahru's request (2026-09-06), based on infrastructure that already exists in `index.html`. **Not yet reviewed in detail by Fahru** — reasonable defaults are chosen below wherever the request was open-ended; confirm before building if something here should be different. **Not blocked on anything** — `index.html` only, no schema/migration/repository change needed.
+
+### What already exists (do not rebuild this part)
+- `renderWalkinQueuePreview()` already computes a live "kalau sertai sekarang" wait estimate (via `estimateQueueWaitMinutes()`), shown as `#walkinQueueEta` and re-run on every service-checkbox change through `calcWalkinTotal()`.
+- `bookTicket()` already **hard-rejects** a walk-in submission whose estimated completion time (`currentMinutes + estimatedWait + duration`) would exceed closing time (`closeMinutes`) — see its `showAlertDialog("Anggaran giliran dan servis akan melepasi waktu tutup kedai.")` guard. This only fires *after* the customer has filled in name/phone/services and hit submit, and it offers no next step.
+- `#queueFullAlert` already shows a "GILIRAN WALK-IN PENUH" banner with a "CARI SLOT KOSONG (ONLINE)" button when the queue is at `maxQueue` (toggled in `updateUI()` and inside `renderWalkinQueuePreview()`'s caller). This is the pattern item 6 should visually and structurally match, not duplicate.
+
+### The gap this item closes
+There is no *proactive* warning before submission for the case where the queue still has room (not full) but a walk-in joining right now would, per the exact math `bookTicket()` already uses, finish after closing time. The customer only finds out after filling in the whole form, and even then gets a dead-end message with no offered next step.
+
+### Decision: what "kalau tak ramai" means here
+Interpreted as: only show this specific warning when the walk-in queue is **not already full**. If it's already full, `#queueFullAlert` already covers steering the customer to booking — stacking a second banner on top would be confusing. So the two banners are mutually exclusive:
+1. Queue full (`walkinWaitingCount >= maxQueue`) → existing `#queueFullAlert`, unchanged.
+2. Else, if `currentMinutes + projectedWait + duration > closeMinutes` (same formula `bookTicket()` already uses to reject) → **new** "kedai akan tutup" banner.
+3. Else → no banner, normal flow.
+
+Flag it to Fahru if "tak ramai" was meant differently (e.g. an explicit queue-count threshold below `maxQueue`, rather than simply "not full").
+
+### `index.html` changes (single file — nothing else touches this)
+- New UI block, visually matching `#queueFullAlert` (same reminder-box treatment), placed in the same area inside `#customer-take-ticket`. Shown/hidden by `renderWalkinQueuePreview()` alongside the existing `#queueFullAlert` toggle, mutually exclusive with it.
+  - Suggested copy (confirm wording with Fahru): "Kedai akan tutup sebentar lagi — anggaran giliran dan servis anda mungkin tidak sempat diservis hari ini." with a "TEMPAH UNTUK ESOK" button.
+  - Button calls a new `offerNextDayBooking()` helper: switches to booking mode (`setCustomerMode('booking')`, same call `#queueFullAlert`'s button already uses) and additionally advances the booking calendar to tomorrow and pre-selects it if that date is bookable (`isOnlineBookingDateAllowed()`). If tomorrow is a closed/weekly-closed day, just switch to booking mode without forcing an invalid date — same graceful-degrade principle used elsewhere in this codebase (e.g. item 3's missing-photo fallback).
+- `renderWalkinQueuePreview()`: add the `currentMinutes + projectedWait + duration > closeMinutes` check (it already has every input it needs — `estimateQueueWaitMinutes()`'s result, `getSelectedWalkinDuration()`, and `getOpHours()`/`businessMinutes()`/`timeToMinutes()` already used elsewhere in this file) and toggle the new banner accordingly.
+- `bookTicket()`'s existing rejection at that same formula: consider upgrading its `showAlertDialog(...)` to `showConfirmDialog(...)` offering to jump straight to next-day booking, so a customer who never saw the proactive banner (slow connection, or duration changed right at click time) still gets an offered next step instead of a dead end. Optional — the proactive banner is the main ask; do this only if time permits.
+
+### Testing expectations
+- Banner appears when the queue has room but the selected service(s) or wall-clock time mean estimated completion would miss closing; does not appear when comfortably within closing time.
+- The new banner and `#queueFullAlert` are never both visible at once.
+- "TEMPAH UNTUK ESOK" lands on tomorrow's date when it's a valid bookable day, and degrades to just opening the booking tab (no forced/invalid date) when tomorrow is closed.
+- No regression to the existing submit-time rejection in `bookTicket()` for the queue-full and closing-time cases.
+
+---
+
 ## Suggested execution order
 
 1. **Item 3 (style photos)** can start immediately — no external blocker.
 2. **Item 2 (style list finalization)** needs a quick round-trip with Fahru to confirm names + real pricing/duration — do this before item 1, since item 1's admin checkboxes reference these service rows.
 3. **Item 1 (smart assignment)** last, once item 2's service rows exist. Treat the `call_next_customer()` rewrite as the highest-risk single change in this whole handover — it touches a row-locked, concurrency-sensitive function that is the operational core of the queue. Do not merge without live testing against a real Supabase instance with 2+ seats and mixed capability/specialty configurations.
 
+**Status update (2026-09-06): items 1, 2 and 3 above have since been built, tested and shipped to `main`** (in the same order recommended above, plus two follow-up polish requests from Fahru — admin panel sidebar navigation and a multi-select closed-dates picker, neither of which was part of the original three items). This section's numbered plan is kept as-is for historical reference; treat items 1–3 as done, not upcoming, when reading it.
+
 Items 4 and 5 are parked and intentionally excluded from this order — neither is scoped, and neither should be started without Fahru first deciding it's worth scoping at all.
+
+**Item 6** (proactive closing-time warning + next-day booking offer for walk-in) is scoped above but **not yet confirmed by Fahru** in detail and not yet started — do not build it until he's reviewed the "what counts as tak ramai" decision and the suggested copy in that section.
 
 Confirm scope with Fahru before starting any item if anything above is ambiguous — do not guess on his behalf, per his own stated preference throughout this planning conversation.
