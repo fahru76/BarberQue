@@ -528,6 +528,11 @@
             letter-spacing: .08em;
             text-transform: uppercase;
         }
+        /* Fahru's request: the style-notes label reads as a sentence-like
+           phrase, not a short 2-3 word field name like the others -- leave
+           it in normal title case instead of the all-caps every other
+           .input-group label gets. */
+        label[for="newSvcNotes"], label[for="editSvcNotes"] { text-transform: none; }
         .input-row { gap: 12px; margin-top: 18px; }
 
         .mode-toggle {
