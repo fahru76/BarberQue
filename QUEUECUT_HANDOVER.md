@@ -2,7 +2,7 @@
 
 **Repo:** https://github.com/fahru76/BarberQue (branch `main`)
 **Live:** https://fahru76.github.io/BarberQue/
-**Status of this document:** Originally planning/spec only; **items 1, 2 and 3 have since been implemented, tested and shipped to `main`** (see the status update in "Suggested execution order" below) — read each item's own status line for its current state rather than assuming the whole document is still unbuilt. Items 4 and 5 remain parked, and item 6 is scoped but unconfirmed. Do not write code for a blocked/unconfirmed item until its blocker is resolved — check with Fahru first if unsure.
+**Status of this document:** Originally planning/spec only; **items 1, 2 and 3 have since been implemented, tested and shipped to `main`** (see the status update in "Suggested execution order" below) — read each item's own status line for its current state rather than assuming the whole document is still unbuilt. Items 4 and 5 remain parked, item 6 is scoped but unconfirmed, and item 7 is a proposal-level sketch only. Do not write code for a blocked/unconfirmed item until its blocker is resolved — check with Fahru first if unsure.
 
 ---
 
@@ -186,6 +186,32 @@ Flag it to Fahru if "tak ramai" was meant differently (e.g. an explicit queue-co
 
 ---
 
+## 7. Cross-platform installation script — new QueueCut instance for a different shop
+
+**Status:** Scoped by Claude on Fahru's request (2026-09-06). Fahru confirmed the goal is a **genuinely separate instance for a different barbershop** (own Supabase project, own data — not a dev-environment setup script for this same shop, and not a disaster-recovery restore for this project), and that "different platform" means **both** different operating systems (Windows/Mac/Linux, so the script itself runs anywhere) **and** different hosting targets (not GitHub Pages only — Vercel/Netlify etc. too). **Not yet scoped in enough detail to build** — this is a bigger, riskier initiative than items 1–6 (it's packaging/tooling, not a feature inside the app) and touches account credentials and billing on whatever Supabase/hosting accounts it's run against. **Recommend Fahru confirm there's an actual second shop/client to install this for before investing here** — building a general-purpose installer for a hypothetical future customer is a different bet than building one for a real one.
+
+### Why this is harder than it sounds: everything currently hardcoded to this one shop
+- `js/supabaseConfig.js` hardcodes this project's Supabase URL and publishable key — swapping these is the easy part.
+- The database is empty schema + RLS policies (`supabase/migrations/*.sql`, applied in order) plus `supabase/seed.sql` (3 inactive seats) — straightforward to replay against a fresh project via the Supabase CLI (`supabase link` + `supabase db push`).
+- One Edge Function, `supabase/functions/invite-barber` (used by the admin "invite a barber" flow) — needs `supabase functions deploy invite-barber` against the new project too. Easy to miss since it's easy to forget this exists outside the migrations folder.
+- **The first admin account cannot be created from code at all**, on purpose (`enable_signup = false` in `supabase/config.toml` blocks self-registration, and the invite feature itself needs an existing admin to call it). On this project, Fahru created his own `auth.users` row by hand via the Supabase Dashboard, and one manual SQL statement (`update public.staff set role='admin', active=true where id = '<uid>'`) promoted it — see `HANDOFF.md`'s "Required manual step before any of this works: bootstrap the first admin" section for the full story and why a scripted `auth.users` insert was deliberately rejected (bypasses GoTrue's password hashing/`auth.identities` bookkeeping). Any installer either walks the operator through this exact manual dashboard step, or — only if Fahru is comfortable with it — accepts that new project's `service_role` key locally (never committed, never logged) to call the Supabase Admin API's `createUser()` directly. That's a real security decision, not a default to pick silently.
+- Supabase Auth's **Site URL / Redirect URLs** allow-list (Authentication → URL Configuration) has to point at wherever the new instance ends up hosted, or invite emails will link to the wrong place. This was set manually via the Dashboard for this project — whether the Supabase Management API can set it from a script is **unconfirmed, needs investigation** before assuming either way.
+- Every shop-identity default (app name, shop name, map location, operating hours, services, prices) is just data entered through the existing admin panel once the first admin exists — **no code needed for this part**, same "pure data entry" situation as item 2.
+- Hosting: GitHub Pages needs its own repo (fork or fresh repo, `main` branch, Pages enabled in Settings) with the same "no build step, deploy the raw files" shape already in use; Vercel/Netlify would each need a minimal config file (`vercel.json` / `netlify.toml`, or just their default static-site detection — this repo has no bundler step, so either should work close to out-of-the-box) plus whichever CLI's own login/link flow.
+
+### Recommended shape for the script itself (not started — a proposal to confirm, not a decision already made)
+A single cross-platform Node.js script (`install.js` or similar) rather than three separate shell/PowerShell/bash scripts — Node already runs identically on Windows/Mac/Linux and is already a project dependency (used for the test suite), so this avoids maintaining three parallel implementations of the same logic. Thin `install.sh` (Mac/Linux) and `install.ps1` (Windows) wrappers that just invoke `node install.js` can be added for convenience if Fahru wants a native double-click/one-liner feel per OS, but the actual logic should live in one place.
+
+The script would need to, at minimum: check prerequisites (`node`, `git`, `supabase` CLI, and the chosen hosting CLI); prompt for the new shop's name, the target Supabase project (existing empty one, or guide creating one — `supabase projects create` needs a personal access token), and the hosting target; run the migrations and function deploy against the new project; write the new `js/supabaseConfig.js`; walk the operator through the manual admin-bootstrap and Auth URL steps above with exact copy-pasteable commands/instructions rather than trying to automate the parts that are genuinely manual or security-sensitive; and finally deploy to the chosen host.
+
+### Do not build without, at minimum
+- Fahru confirming there's a real second shop to build this for (see Status above).
+- A decision on the `service_role` key question above (manual-only bootstrap vs. script-assisted with an operator-supplied key) — this is a security posture choice, not an implementation detail.
+- Investigating whether Supabase's Management API can set Auth Site URL/Redirect URLs from a script, so the doc above can say "automated" or "manual, here's exactly how" instead of "unconfirmed."
+- A test run: actually installing a second, throwaway instance end-to-end (fresh Supabase project, fresh repo, fresh hosting deploy) before trusting the script with a real second customer's setup.
+
+---
+
 ## Suggested execution order
 
 1. **Item 3 (style photos)** can start immediately — no external blocker.
@@ -197,5 +223,7 @@ Flag it to Fahru if "tak ramai" was meant differently (e.g. an explicit queue-co
 Items 4 and 5 are parked and intentionally excluded from this order — neither is scoped, and neither should be started without Fahru first deciding it's worth scoping at all.
 
 **Item 6** (proactive closing-time warning + next-day booking offer for walk-in) is scoped above but **not yet confirmed by Fahru** in detail and not yet started — do not build it until he's reviewed the "what counts as tak ramai" decision and the suggested copy in that section.
+
+**Item 7** (cross-platform installer for a new shop's own instance) is scoped above at a proposal level only — it is the least ready to start of everything in this document. Confirm there's a real second shop to build it for, and resolve the security-posture and Management-API questions in that section, before writing any installer code.
 
 Confirm scope with Fahru before starting any item if anything above is ambiguous — do not guess on his behalf, per his own stated preference throughout this planning conversation.
