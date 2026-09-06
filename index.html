@@ -1524,6 +1524,7 @@
         #adminClosedDateActions { display:flex; justify-content:flex-end; margin-bottom:10px; }
         #calLegendSpecialIcon { background:rgba(220,53,69,.18); border:1px solid var(--danger); }
         #calLegendWeeklyClosureIcon { background:rgba(201,154,75,.12); border:1px dashed var(--warning); }
+        #calLegendSelectedIcon { background: var(--primary-color); }
         #adminAddServiceBox { background: var(--border-light); padding: 15px; border-radius: 8px; border: 1px dashed var(--border-color); }
         #addServiceHeading { font-size: 1rem; color: var(--text-main); margin-bottom: 10px; }
         #seatSectionDivider { border-color:var(--border-color); margin:24px 0; }
@@ -2062,10 +2063,12 @@
                 <h3 class="admin-setting-title mb-15">TETAPAN CUTI / TUTUP KEDAI</h3>
                 <div id="adminClosedDateGuide">
                     <strong class="d-block text-danger mb-5">Cara Pilih Cuti</strong>
-                    <span class="text-muted fs-88">Klik sekali untuk sehari. Klik tarikh kedua untuk membentuk julat. Klik tarikh ketiga untuk memulakan pilihan baharu.</span>
+                    <span class="text-muted fs-88" id="adminClosedDateGuideText">Klik mana-mana tarikh untuk tambah ke senarai cuti di bawah. Klik sekali lagi pada tarikh yang sama untuk buang. Pilih seberapa banyak tarikh berlainan yang perlu sebelum tekan REKOD CUTI.</span>
                 </div>
-                <input type="hidden" id="adminClosedDateStart">
-                <input type="hidden" id="adminClosedDateEnd">
+                <div class="mode-toggle mb-15">
+                    <button type="button" class="mode-btn active" id="adminClosedModeSingle" onclick="setAdminClosedSelectionMode('single')">Tarikh Berasingan</button>
+                    <button type="button" class="mode-btn" id="adminClosedModeRange" onclick="setAdminClosedSelectionMode('range')">Julat</button>
+                </div>
                 <div id="adminClosedSelectionSummary">Belum ada tarikh dipilih.</div>
                 <div id="adminClosedDateActions">
                     <button type="button" class="btn btn-sm btn-outline" onclick="clearAdminClosedDateSelection()">Kosongkan Pilihan</button>
@@ -2080,6 +2083,7 @@
                     <div class="cal-weekdays"><div>Aha</div><div>Isn</div><div>Sel</div><div>Rab</div><div>Kha</div><div>Jum</div><div>Sab</div></div>
                     <div class="cal-days" id="adminCalDaysContainer"></div>
                     <div class="cal-legend">
+                        <span><i class="legend-box" id="calLegendSelectedIcon"></i>Dipilih (belum rekod)</span>
                         <span><i class="legend-box" id="calLegendSpecialIcon"></i>Cuti khas</span>
                         <span><i class="legend-box" id="calLegendWeeklyClosureIcon"></i>Tutup jadual mingguan</span>
                     </div>
@@ -5014,8 +5018,9 @@
                 adminCalCurrentDate = new Date(resetToday.year, resetToday.month - 1, 1, 12, 0, 0, 0);
                 const cancelDialog = document.getElementById('adminCancelDialog');
                 if (cancelDialog?.open && typeof cancelDialog.close === 'function') cancelDialog.close();
-                document.getElementById('adminClosedDateStart').value = '';
-                document.getElementById('adminClosedDateEnd').value = '';
+                adminPendingClosedDates = new Set();
+                adminClosedRangeAnchor = '';
+                adminClosedSelectionMode = 'single';
                 initData();
                 populateOperationalTimeSelects(true);
                 window.currentCustomerTicket = null;
@@ -7327,13 +7332,61 @@
             calSelectedDate = d; document.getElementById('bookDateInput').value = d; renderVisualCalendar(calCurrentDate); generateTimeSlots();
         }
 
+        // Cuti Kedai picker (Fahru's request, 2026-09-06): the old mechanism
+        // held exactly one pending start/end pair in two hidden inputs --
+        // clicking a THIRD date discarded whatever was already picked, so
+        // there was no way to queue up several separate days (or a mix of
+        // separate days and a range) in the same month before saving.
+        // Replaced with one pending Set that accumulates across clicks,
+        // plus an explicit mode switch for how each click adds to it:
+        //   'single' (default) -- every click toggles that one day in/out.
+        //   'range'  -- first click sets an anchor; the next click adds
+        //               every day from anchor to that click (inclusive) to
+        //               the set, then clears the anchor -- so another range
+        //               (or a switch back to 'single' for more individual
+        //               days) can follow WITHOUT losing what's already
+        //               pending. REKOD CUTI then saves everything pending
+        //               in one go.
+        let adminClosedSelectionMode = 'single';
+        let adminPendingClosedDates = new Set();
+        let adminClosedRangeAnchor = '';
+
+        function setAdminClosedSelectionMode(mode) {
+            adminClosedSelectionMode = mode === 'range' ? 'range' : 'single';
+            adminClosedRangeAnchor = '';
+            document.getElementById('adminClosedModeSingle').className = adminClosedSelectionMode === 'single' ? 'mode-btn active' : 'mode-btn';
+            document.getElementById('adminClosedModeRange').className = adminClosedSelectionMode === 'range' ? 'mode-btn active' : 'mode-btn';
+            document.getElementById('adminClosedDateGuideText').textContent = adminClosedSelectionMode === 'range'
+                ? 'Klik tarikh mula, kemudian tarikh akhir untuk tambah satu julat ke senarai cuti. Selepas itu boleh pilih julat lain, atau tukar ke "Tarikh Berasingan" untuk tambah hari lain satu-satu.'
+                : 'Klik mana-mana tarikh untuk tambah ke senarai cuti di bawah. Klik sekali lagi pada tarikh yang sama untuk buang. Pilih seberapa banyak tarikh berlainan yang perlu sebelum tekan REKOD CUTI.';
+            renderAdminVisualCalendar(adminCalCurrentDate);
+        }
+
+        // A date is only ever offered for the PENDING selection if it isn't
+        // already closed some other way -- past, already-recorded as a
+        // closed date, or closed by the weekly schedule. Those keep
+        // rendering as non-clickable (.closed / .weekly-closed), same as
+        // before this change.
+        function isAdminCalDateSelectable(d) {
+            return d >= getLocalYMD() && !getClosedDates().includes(d) && !getOpHours(d).closed;
+        }
+
+        function expandDateRangeInclusive(start, end) {
+            const [sy, sm, sd] = start.split('-').map(Number);
+            const [ey, em, ed] = end.split('-').map(Number);
+            const cursor = new Date(Date.UTC(sy, sm - 1, sd, 12));
+            const last = new Date(Date.UTC(ey, em - 1, ed, 12));
+            const dates = [];
+            while (cursor <= last) { dates.push(getLocalYMD(cursor)); cursor.setUTCDate(cursor.getUTCDate() + 1); }
+            return dates;
+        }
+
         function renderAdminVisualCalendar(dObj) {
             let y = dObj.getFullYear(), m = dObj.getMonth();
             document.getElementById('adminCalMonthYear').innerText = `${MALAY_MONTH_NAMES[m]} ${y}`;
             let firstD = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate();
             let closed = getClosedDates(); let todayStr = getLocalYMD();
             const weeklyHours = getWeeklyOpHours();
-            let sStart = document.getElementById('adminClosedDateStart').value, sEnd = document.getElementById('adminClosedDateEnd').value;
             let html = "";
             for(let i=0; i<firstD; i++) html += "<div></div>";
             for(let i=1; i<=days; i++) {
@@ -7342,7 +7395,8 @@
                 if (dStr < todayStr) { cls += " disabled"; action = ""; }
                 else if (closed.includes(dStr)) { cls += " closed"; action = ""; }
                 else if (weeklyHours[getDayIndexFromDate(dStr)].closed) { cls += " weekly-closed"; action = ""; }
-                else if (dStr === sStart || dStr === sEnd || (sStart && sEnd && dStr > sStart && dStr < sEnd)) cls += " selected";
+                else if (dStr === adminClosedRangeAnchor) cls += " in-range";
+                else if (adminPendingClosedDates.has(dStr)) cls += " selected";
                 html += `<div class="${cls}" ${action}>${i}</div>`;
             }
             document.getElementById('adminCalDaysContainer').innerHTML = html;
@@ -7350,72 +7404,67 @@
         }
 
         function updateAdminClosedSelectionSummary() {
-            const start = document.getElementById('adminClosedDateStart').value;
-            const end = document.getElementById('adminClosedDateEnd').value;
             const summary = document.getElementById('adminClosedSelectionSummary');
             const addButton = document.getElementById('btnAddClosedDate');
-            if (!start) {
+            const count = adminPendingClosedDates.size;
+            if (adminClosedRangeAnchor) {
+                summary.innerText = count
+                    ? `${count} tarikh dipilih setakat ini. Klik tarikh akhir untuk tambah julat bermula ${adminClosedRangeAnchor}.`
+                    : `Klik tarikh akhir untuk tambah julat bermula ${adminClosedRangeAnchor}.`;
+            } else if (!count) {
                 summary.innerText = 'Belum ada tarikh dipilih.';
-                addButton.innerText = 'REKOD CUTI';
-                addButton.disabled = true;
-            } else if (!end) {
-                summary.innerText = `Cuti sehari: ${start}. Klik tarikh kedua jika mahu memilih julat.`;
-                addButton.innerText = 'REKOD CUTI SEHARI';
-                addButton.disabled = false;
             } else {
-                const [sy, sm, sd] = start.split('-').map(Number);
-                const [ey, em, ed] = end.split('-').map(Number);
-                const totalDays = Math.round((Date.UTC(ey, em - 1, ed, 12) - Date.UTC(sy, sm - 1, sd, 12)) / 86400000) + 1;
-                summary.innerText = `Julat cuti: ${start} hingga ${end} (${totalDays} hari).`;
-                addButton.innerText = `REKOD JULAT CUTI (${totalDays} HARI)`;
-                addButton.disabled = false;
+                const sorted = [...adminPendingClosedDates].sort();
+                const preview = sorted.length > 6 ? `${sorted.slice(0, 6).join(', ')}, dan ${sorted.length - 6} lagi` : sorted.join(', ');
+                summary.innerText = `${count} tarikh dipilih: ${preview}`;
             }
+            addButton.innerText = count ? `REKOD CUTI (${count} HARI)` : 'REKOD CUTI';
+            addButton.disabled = count === 0;
         }
 
         function selectAdminCalDate(d) {
-            let i1 = document.getElementById('adminClosedDateStart'), i2 = document.getElementById('adminClosedDateEnd');
-            if (d < getLocalYMD() || getClosedDates().includes(d) || getOpHours(d).closed) return;
-            if (!i1.value || i2.value) { i1.value = d; i2.value = ""; }
-            else if (d !== i1.value) {
-                if (d < i1.value) { i2.value = i1.value; i1.value = d; }
-                else i2.value = d;
+            if (!isAdminCalDateSelectable(d)) return;
+            if (adminClosedSelectionMode === 'range') {
+                if (!adminClosedRangeAnchor) {
+                    adminClosedRangeAnchor = d;
+                } else {
+                    const [start, end] = d < adminClosedRangeAnchor ? [d, adminClosedRangeAnchor] : [adminClosedRangeAnchor, d];
+                    expandDateRangeInclusive(start, end).forEach(dateStr => {
+                        if (isAdminCalDateSelectable(dateStr)) adminPendingClosedDates.add(dateStr);
+                    });
+                    adminClosedRangeAnchor = '';
+                }
+            } else if (adminPendingClosedDates.has(d)) {
+                adminPendingClosedDates.delete(d);
+            } else {
+                adminPendingClosedDates.add(d);
             }
             renderAdminVisualCalendar(adminCalCurrentDate);
         }
 
         function clearAdminClosedDateSelection() {
-            document.getElementById('adminClosedDateStart').value = "";
-            document.getElementById('adminClosedDateEnd').value = "";
+            adminPendingClosedDates.clear();
+            adminClosedRangeAnchor = '';
             renderAdminVisualCalendar(adminCalCurrentDate);
         }
 
         async function addClosedDate() {
-            let start = document.getElementById('adminClosedDateStart').value, end = document.getElementById('adminClosedDateEnd').value;
-            if(!start) return (await showAlertDialog("Pilih tarikh."));
+            if (!adminPendingClosedDates.size) return (await showAlertDialog("Pilih sekurang-kurangnya satu tarikh."));
             let c = getClosedDates();
-            if (end && start > end) return (await showAlertDialog("Tarikh akhir mesti selepas tarikh mula."));
-            let arr = [start];
-            if (end) {
-                const [sy, sm, sd] = start.split('-').map(Number);
-                const [ey, em, ed] = end.split('-').map(Number);
-                arr = [];
-                const cursor = new Date(Date.UTC(sy, sm - 1, sd, 12));
-                const last = new Date(Date.UTC(ey, em - 1, ed, 12));
-                while (cursor <= last) { arr.push(getLocalYMD(cursor)); cursor.setUTCDate(cursor.getUTCDate() + 1); }
-            }
             const weeklyHours = getWeeklyOpHours();
             const isWeeklyClosed = date => weeklyHours[getDayIndexFromDate(date)].closed;
-            const weeklyClosedDates = arr.filter(isWeeklyClosed);
-            const datesToRecord = arr.filter(date => !isWeeklyClosed(date));
-            if (!datesToRecord.length) return (await showAlertDialog("Semua tarikh yang dipilih sudah ditutup melalui jadual mingguan."));
-            datesToRecord.forEach(a => { if(!c.includes(a)) c.push(a); });
+            const picked = [...adminPendingClosedDates].sort();
+            const weeklyClosedDates = picked.filter(isWeeklyClosed);
+            const datesToRecord = picked.filter(date => !isWeeklyClosed(date) && !c.includes(date));
+            if (!datesToRecord.length) return (await showAlertDialog("Semua tarikh yang dipilih sudah ditutup melalui jadual mingguan atau cuti sedia ada."));
+            datesToRecord.forEach(a => c.push(a));
             const sortedDates = c.sort();
             const sync = await syncShopSettingsToServer({ closedDates: sortedDates });
             if (!sync.ok) return (await showAlertDialog(sync.error?.message || "Cuti gagal disimpan. Sila cuba lagi."));
             saveClosedDates(sortedDates);
             clearAdminClosedDateSelection();
             const skippedMessage = weeklyClosedDates.length ? ` ${weeklyClosedDates.length} hari jadual mingguan dilangkau.` : '';
-            (await showAlertDialog(end ? `Julat cuti ${datesToRecord.length} hari direkod.${skippedMessage}` : "Cuti sehari direkod."));
+            (await showAlertDialog(`${datesToRecord.length} hari cuti direkod.${skippedMessage}`));
             updateUI();
         }
 
