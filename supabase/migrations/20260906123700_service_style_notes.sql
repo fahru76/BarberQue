@@ -1,0 +1,15 @@
+-- Adds a short, optional description ("penceritaan gaya") shown next to a
+-- service's name on the customer-facing pickers (walk-in + booking forms) --
+-- requested by Fahru right after Item 2 (style catalogue) seeding.
+--
+-- Deliberately named `style_notes` to match the column QUEUECUT_HANDOVER.md's
+-- Item 3 (style photo preview) already planned for exactly this purpose --
+-- this migration only builds the text half of that column now; Item 3's
+-- photo upload/lightbox work can still land later without any rename.
+--
+-- Nullable, purely additive: existing rows (and every INSERT/UPDATE that
+-- doesn't mention it) are unaffected. No RLS change needed -- the existing
+-- "active services readable by all, all services readable by staff" SELECT
+-- policy and the "admins manage services" ALL policy already cover every
+-- column on the table, this one included.
+alter table public.services add column style_notes text;

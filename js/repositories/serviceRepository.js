@@ -19,7 +19,7 @@
  */
 import { supabase } from '../supabaseClient.js';
 
-const SERVICE_COLUMNS = 'id, name, price_sen, duration_minutes, active, category, target, type, sort_order';
+const SERVICE_COLUMNS = 'id, name, price_sen, duration_minutes, active, category, target, type, sort_order, style_notes';
 
 function raiseOnError(error) {
     if (error) throw new Error(`[serviceRepository] ${error.message ?? error}`, { cause: error });
@@ -36,7 +36,12 @@ function mapServiceRow(row) {
         category: row.category,
         target: row.target,
         type: row.type,
-        sortOrder: row.sort_order
+        sortOrder: row.sort_order,
+        // Short optional "penceritaan gaya" shown next to the name on the
+        // customer pickers (see 20260906123700_service_style_notes.sql) --
+        // normalised to '' rather than null so index.html's render/populate
+        // sites never need a null-check on top of the usual falsy check.
+        styleNotes: row.style_notes || ''
     };
 }
 
@@ -61,14 +66,15 @@ export async function listServices() {
  * (createServiceId(), `SVC-<uuid>`) rather than letting the server generate
  * one — nothing else needs a second identity for the same record.
  */
-export async function createService({ id, name, priceRm, durationMinutes, category, target, type }) {
+export async function createService({ id, name, priceRm, durationMinutes, category, target, type, styleNotes }) {
     const { data, error } = await supabase
         .from('services')
         .insert({
             id, name,
             price_sen: Math.round(priceRm * 100),
             duration_minutes: durationMinutes,
-            category, target, type
+            category, target, type,
+            style_notes: styleNotes || null
         })
         .select(SERVICE_COLUMNS)
         .single();
@@ -86,6 +92,7 @@ export async function updateService(id, patch = {}) {
     if (patch.category !== undefined) dbPatch.category = patch.category;
     if (patch.target !== undefined) dbPatch.target = patch.target;
     if (patch.type !== undefined) dbPatch.type = patch.type;
+    if (patch.styleNotes !== undefined) dbPatch.style_notes = patch.styleNotes || null;
 
     const { data, error } = await supabase
         .from('services')

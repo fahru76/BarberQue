@@ -181,6 +181,12 @@
         .service-info { display: flex; flex-direction: column; gap: 3px; }
         .service-info strong { font-size: 1.05rem; font-weight: 600; }
         .service-info span { color: var(--text-muted); font-size: 0.85rem; }
+        /* "Penceritaan gaya" -- short optional description shown to the right
+           of the style name (Fahru's request after Item 2 seeding). A row so
+           it sits beside the name on wider screens; wraps below it on narrow
+           ones (flex-wrap) rather than overflowing or truncating. */
+        .service-name-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+        .service-style-note { font-style: italic; }
 
         .admin-list-item { display: flex; flex-direction: column; background: var(--border-light); padding: 15px; margin-bottom: 10px; border-radius: 6px; border-left: 3px solid var(--primary-color); }
         .booking-list-item { background: var(--border-light); border-left: 4px solid var(--primary-color); padding: 15px; margin-bottom: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;}
@@ -1942,6 +1948,10 @@
                         </div>
                     </div>
                     <div class="input-group">
+                        <label for="editSvcNotes">Penceritaan Gaya (pilihan):</label>
+                        <textarea id="editSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea>
+                    </div>
+                    <div class="input-group">
                         <label for="editSvcTarget">Kumpulan Sasaran:</label>
                         <select id="editSvcTarget" onchange="markServiceProfileCustom('edit')">
                             <option value="semua">Terbuka (Semua)</option>
@@ -2002,6 +2012,7 @@
                         <div><label for="newSvcPrice">Harga (RM):</label><input type="number" id="newSvcPrice" placeholder="Harga (RM)"></div>
                         <div><label for="newSvcDuration">Masa (Minit):</label><input type="number" id="newSvcDuration" placeholder="Masa (Minit)"></div>
                     </div>
+                    <div class="input-group"><label for="newSvcNotes">Penceritaan Gaya (pilihan):</label><textarea id="newSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea></div>
                     <div class="input-group">
                         <label for="newSvcTarget">Kumpulan Sasaran:</label>
                         <select id="newSvcTarget" onchange="markServiceProfileCustom('new')">
@@ -2294,7 +2305,8 @@
                             durationMinutes: Number(service.duration) || 40,
                             category,
                             target: ['dewasa', 'kanak'].includes(service.target) ? service.target : 'semua',
-                            type: ['gunting', 'botak', 'facial', 'lain'].includes(service.type) ? service.type : 'lain'
+                            type: ['gunting', 'botak', 'facial', 'lain'].includes(service.type) ? service.type : 'lain',
+                            styleNotes: service.styleNotes || ''
                         });
                         // Only reorder ids this call actually created — passing an id
                         // whose insert failed into reorderServices() below made its
@@ -2328,7 +2340,8 @@
             if (remote.length === 0) return; // nothing on the server yet and nothing local to seed — leave as-is.
             const merged = remote.map(row => ({
                 id: row.id, name: row.name, price: row.price, duration: row.duration,
-                active: row.active, category: row.category, target: row.target, type: row.type
+                active: row.active, category: row.category, target: row.target, type: row.type,
+                styleNotes: row.styleNotes || ''
             }));
             if (window.saveServices) window.saveServices(merged);
             if (window.refreshServiceConfigurationUI) window.refreshServiceConfigurationUI();
@@ -5349,6 +5362,7 @@
             let target = document.getElementById('newSvcTarget').value;
             let category = document.getElementById('newSvcCategory').value;
             let type = document.getElementById('newSvcType').value;
+            let styleNotes = document.getElementById('newSvcNotes').value.trim();
             if(!profile) { (await showAlertDialog("Pilih Profil Logik untuk servis ini.")); return; }
             if(!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(duration) || duration <= 0) { (await showAlertDialog("Masukkan nama, harga positif dan masa servis yang sah.")); return; }
             let svcs = getServices();
@@ -5356,14 +5370,14 @@
             if (!window.ServiceRepo?.createService) { (await showAlertDialog("Ciri tambah servis belum sedia. Sila muat semula halaman.")); return; }
             const id = createServiceId();
             try {
-                await window.ServiceRepo.createService({ id, name, priceRm: price, durationMinutes: duration, category, target, type });
+                await window.ServiceRepo.createService({ id, name, priceRm: price, durationMinutes: duration, category, target, type, styleNotes });
             } catch (error) {
                 (await showAlertDialog(error.message || "Tambah servis gagal. Sila cuba lagi.")); return;
             }
-            svcs.push({ id, name, price, duration, active: true, profile, target, category, type });
+            svcs.push({ id, name, price, duration, active: true, profile, target, category, type, styleNotes });
             saveServices(svcs);
             syncServiceOrderToServer(svcs);
-            document.getElementById('newSvcName').value = ""; document.getElementById('newSvcPrice').value = ""; document.getElementById('newSvcDuration').value = "";
+            document.getElementById('newSvcName').value = ""; document.getElementById('newSvcPrice').value = ""; document.getElementById('newSvcDuration').value = ""; document.getElementById('newSvcNotes').value = "";
             (await showAlertDialog("Servis baharu ditambah.")); refreshServiceConfigurationUI();
         }
 
@@ -5375,6 +5389,7 @@
                 document.getElementById('editSvcName').value = svc.name;
                 document.getElementById('editSvcPrice').value = svc.price;
                 document.getElementById('editSvcDuration').value = svc.duration || 40;
+                document.getElementById('editSvcNotes').value = svc.styleNotes || '';
                 document.getElementById('editSvcTarget').value = svc.target || 'semua';
                 document.getElementById('editSvcCategory').value = svc.category || 'asas';
                 document.getElementById('editSvcType').value = svc.type || 'lain';
@@ -5393,6 +5408,7 @@
             let nTarget = document.getElementById('editSvcTarget').value;
             let nCategory = document.getElementById('editSvcCategory').value;
             let nType = document.getElementById('editSvcType').value;
+            let nNotes = document.getElementById('editSvcNotes').value.trim();
             if(!nProfile) { (await showAlertDialog("Pilih Profil Logik untuk servis ini.")); return; }
             if(!nName || !Number.isFinite(nPrice) || nPrice <= 0 || !Number.isInteger(nDur) || nDur <= 0) { (await showAlertDialog("Lengkapkan maklumat dengan nilai positif.")); return; }
             let svcs = getServices();
@@ -5403,12 +5419,12 @@
             }
             if (!window.ServiceRepo?.updateService) { (await showAlertDialog("Ciri kemas kini servis belum sedia. Sila muat semula halaman.")); return; }
             try {
-                await window.ServiceRepo.updateService(serviceId, { name: nName, priceRm: nPrice, durationMinutes: nDur, category: nCategory, target: nTarget, type: nType });
+                await window.ServiceRepo.updateService(serviceId, { name: nName, priceRm: nPrice, durationMinutes: nDur, category: nCategory, target: nTarget, type: nType, styleNotes: nNotes });
             } catch (error) {
                 (await showAlertDialog(error.message || "Kemas kini servis gagal. Sila cuba lagi.")); return;
             }
             if(svcs[index]) {
-                svcs[index].name = nName; svcs[index].price = nPrice; svcs[index].duration = nDur; svcs[index].profile = nProfile; svcs[index].target = nTarget; svcs[index].category = nCategory; svcs[index].type = nType;
+                svcs[index].name = nName; svcs[index].price = nPrice; svcs[index].duration = nDur; svcs[index].profile = nProfile; svcs[index].target = nTarget; svcs[index].category = nCategory; svcs[index].type = nType; svcs[index].styleNotes = nNotes;
                 saveServices(svcs);
                 adminServiceTab = nCategory;
                 document.getElementById('adminEditServiceForm').style.display = 'none'; (await showAlertDialog("Servis dikemas kini.")); refreshServiceConfigurationUI();
@@ -5683,7 +5699,8 @@
                         ? `RM ${escapeHTML(service.price)} &bull; ${escapeHTML(service.duration)} min`
                         : `RM ${escapeHTML(service.price)}`;
                     const totalFunction = context === 'walkin' ? 'calcWalkinTotal()' : 'calcBookingTotal()';
-                    return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}"><div class="service-info"><strong>${escapeHTML(service.name)}</strong><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
+                    const noteHTML = service.styleNotes ? `<span class="service-style-note">${escapeHTML(service.styleNotes)}</span>` : '';
+                    return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}"><div class="service-info"><div class="service-name-line"><strong>${escapeHTML(service.name)}</strong>${noteHTML}</div><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
                 }).join('') : `<div class="service-empty-state">Tiada servis ${category === 'fashion' ? 'Gaya Potongan' : 'Asas'} yang aktif.</div>`;
                 return `<div class="service-category-panel" data-category="${category}">${serviceHTML}</div>`;
             }).join('');
