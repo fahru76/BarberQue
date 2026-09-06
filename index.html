@@ -142,6 +142,13 @@
         .app-dialog { width: min(92vw, 480px); padding: 0; border: 1px solid var(--border-color); border-radius: 12px; background: var(--surface-color); color: var(--text-main); box-shadow: 0 24px 80px rgba(0,0,0,0.45); }
         .app-dialog::backdrop { background: rgba(0,0,0,0.65); }
         .app-dialog-content { padding: 24px; }
+        /* Item 3: style photo lightbox -- same .app-dialog shell as the
+           alert/confirm dialogs, just wider content for an image. */
+        .style-photo-viewer { display: flex; justify-content: center; background: var(--border-light); border-radius: 8px; overflow: hidden; min-height: 120px; }
+        .style-photo-viewer img { max-width: 100%; max-height: 60vh; display: block; }
+        .style-photo-toggle { display: flex; gap: 8px; margin-top: 12px; }
+        .style-photo-toggle button { flex: 1; }
+        .style-photo-toggle button.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
 
         .reminder-box { background: rgba(220, 53, 69, 0.05); border-left: 4px solid var(--danger); padding: 15px; margin-top: 20px; border-radius: 6px; }
         .reminder-box h4 { color: var(--danger); font-size: 0.9rem; margin-bottom: 8px; font-weight: bold; }
@@ -186,6 +193,19 @@
         .input-group .service-checkbox-label:hover { background: var(--card-hover); border-color: var(--primary-color); }
         .input-group .service-checkbox-label.disabled-box { opacity: 0.4; cursor: not-allowed; background: var(--border-light); border-color: transparent; pointer-events: none; }
         .input-group .service-checkbox-label input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary-color); cursor: pointer; flex-shrink: 0; margin: 0; }
+        /* Item 3: front-photo thumbnail, customer-facing picker only. Omitted
+           entirely (no element rendered) when a service has no photo yet --
+           see renderCustomerServiceOptions()'s thumbHTML. */
+        .service-thumb { width: 48px; height: 48px; flex-shrink: 0; border-radius: 8px; object-fit: cover; cursor: zoom-in; border: 1px solid var(--border-color); }
+        /* Item 3: admin upload slots (Kemas Kini Servis form only -- see
+           index.html's comment on why "Tambah Servis Baru" doesn't get
+           these). Front/back side by side, each with a square preview box
+           that shows a placeholder label until a photo exists. */
+        .service-photo-slots { display: flex; gap: 12px; }
+        .service-photo-slot { flex: 1; min-width: 0; }
+        .service-photo-preview-box { position: relative; width: 100%; aspect-ratio: 1; border: 1px dashed var(--border-color); border-radius: 8px; overflow: hidden; background: var(--border-light); display: flex; align-items: center; justify-content: center; }
+        .service-photo-preview { width: 100%; height: 100%; object-fit: cover; }
+        .service-photo-placeholder { color: var(--text-muted); font-size: 0.8rem; }
         .service-info { display: flex; flex-direction: column; gap: 3px; }
         .service-info strong { font-size: 1.05rem; font-weight: 600; }
         .service-info span { color: var(--text-muted); font-size: 0.85rem; }
@@ -1965,6 +1985,30 @@
                         <textarea id="editSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea>
                     </div>
                     <div class="input-group">
+                        <label>Gambar Gaya (pilihan):</label>
+                        <p class="text-muted fs-85 mb-10">Simpan servis ini dahulu sebelum muat naik gambar. PNG/JPG/WEBP/GIF, maksimum 8 MB -- dikecilkan &amp; dimampat secara automatik.</p>
+                        <div class="service-photo-slots">
+                            <div class="service-photo-slot">
+                                <div class="service-photo-preview-box">
+                                    <img id="editSvcFrontPreview" class="service-photo-preview" alt="Depan" hidden>
+                                    <span id="editSvcFrontPlaceholder" class="service-photo-placeholder">Depan</span>
+                                </div>
+                                <input type="file" id="editSvcFrontInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden onchange="uploadServiceSlotPhoto('front', this)">
+                                <button type="button" class="btn btn-sm btn-outline w-full mt-5" onclick="document.getElementById('editSvcFrontInput').click()">Muat Naik Depan</button>
+                                <button type="button" class="btn btn-sm btn-reset w-full mt-5" id="editSvcFrontRemoveBtn" hidden onclick="removeServiceSlotPhoto('front')">Padam Depan</button>
+                            </div>
+                            <div class="service-photo-slot">
+                                <div class="service-photo-preview-box">
+                                    <img id="editSvcBackPreview" class="service-photo-preview" alt="Belakang" hidden>
+                                    <span id="editSvcBackPlaceholder" class="service-photo-placeholder">Belakang</span>
+                                </div>
+                                <input type="file" id="editSvcBackInput" accept="image/png,image/jpeg,image/webp,image/gif" hidden onchange="uploadServiceSlotPhoto('back', this)">
+                                <button type="button" class="btn btn-sm btn-outline w-full mt-5" onclick="document.getElementById('editSvcBackInput').click()">Muat Naik Belakang</button>
+                                <button type="button" class="btn btn-sm btn-reset w-full mt-5" id="editSvcBackRemoveBtn" hidden onclick="removeServiceSlotPhoto('back')">Padam Belakang</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="input-group">
                         <label for="editSvcTarget">Kumpulan Sasaran:</label>
                         <select id="editSvcTarget" onchange="markServiceProfileCustom('edit')">
                             <option value="semua">Terbuka (Semua)</option>
@@ -2026,6 +2070,7 @@
                         <div><label for="newSvcDuration">Masa (Minit):</label><input type="number" id="newSvcDuration" placeholder="Masa (Minit)"></div>
                     </div>
                     <div class="input-group"><label for="newSvcNotes">Penceritaan Gaya (pilihan):</label><textarea id="newSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea></div>
+                    <p class="text-muted fs-85">Gambar gaya (depan/belakang) boleh ditambah selepas servis ini disimpan -- buka semula dalam senarai di bawah untuk muat naik.</p>
                     <div class="input-group">
                         <label for="newSvcTarget">Kumpulan Sasaran:</label>
                         <select id="newSvcTarget" onchange="markServiceProfileCustom('new')">
@@ -2198,6 +2243,21 @@
         </div>
     </dialog>
 
+    <!-- Item 3: style photo preview lightbox (customer-facing). Opened by
+         tapping a .service-thumb thumbnail; see openStylePhotoPreview(). -->
+    <dialog id="stylePhotoDialog" class="app-dialog style-photo-dialog" aria-labelledby="stylePhotoDialogTitle">
+        <div class="app-dialog-content">
+            <h3 id="stylePhotoDialogTitle"></h3>
+            <div class="style-photo-viewer"><img id="stylePhotoDialogImg" src="" alt=""></div>
+            <div class="style-photo-toggle" id="stylePhotoDialogToggle">
+                <button type="button" class="btn btn-sm" data-side="front" onclick="setStylePhotoSide('front')">Depan</button>
+                <button type="button" class="btn btn-sm" data-side="back" onclick="setStylePhotoSide('back')">Belakang</button>
+            </div>
+            <p id="stylePhotoDialogNotes" class="text-muted fs-85 mt-10"></p>
+            <button type="button" class="btn btn-reset w-full mt-15" onclick="document.getElementById('stylePhotoDialog').close()">TUTUP</button>
+        </div>
+    </dialog>
+
     <!-- =============== SUPABASE BRIDGE (migration steps 3 + 4) ===============
          Module scripts run deferred, after the whole document has parsed, so
          window.QueueRepo / window.AuthRepo are not guaranteed to exist the
@@ -2250,7 +2310,7 @@
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
         import { listSeats, setSeatAssignment, subscribeSeatChanges } from './js/repositories/seatRepository.js';
-        import { listServices, createService, updateService, deleteService, reorderServices } from './js/repositories/serviceRepository.js';
+        import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings } from './js/repositories/shopSettingsRepository.js';
         import {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
@@ -2260,7 +2320,7 @@
         import * as AuthRepo from './js/repositories/authRepository.js';
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
         window.SeatRepo = { listSeats, setSeatAssignment, subscribeSeatChanges };
-        window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices };
+        window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings };
         window.AppointmentRepo = {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
@@ -2319,7 +2379,9 @@
                             category,
                             target: ['dewasa', 'kanak'].includes(service.target) ? service.target : 'semua',
                             type: ['gunting', 'botak', 'facial', 'lain'].includes(service.type) ? service.type : 'lain',
-                            styleNotes: service.styleNotes || ''
+                            styleNotes: service.styleNotes || '',
+                            imageUrlFront: service.imageUrlFront || '',
+                            imageUrlBack: service.imageUrlBack || ''
                         });
                         // Only reorder ids this call actually created — passing an id
                         // whose insert failed into reorderServices() below made its
@@ -2354,7 +2416,8 @@
             const merged = remote.map(row => ({
                 id: row.id, name: row.name, price: row.price, duration: row.duration,
                 active: row.active, category: row.category, target: row.target, type: row.type,
-                styleNotes: row.styleNotes || ''
+                styleNotes: row.styleNotes || '',
+                imageUrlFront: row.imageUrlFront || '', imageUrlBack: row.imageUrlBack || ''
             }));
             if (window.saveServices) window.saveServices(merged);
             if (window.refreshServiceConfigurationUI) window.refreshServiceConfigurationUI();
@@ -5403,6 +5466,8 @@
                 document.getElementById('editSvcPrice').value = svc.price;
                 document.getElementById('editSvcDuration').value = svc.duration || 40;
                 document.getElementById('editSvcNotes').value = svc.styleNotes || '';
+                updateServicePhotoPreview('front', svc.imageUrlFront || '');
+                updateServicePhotoPreview('back', svc.imageUrlBack || '');
                 document.getElementById('editSvcTarget').value = svc.target || 'semua';
                 document.getElementById('editSvcCategory').value = svc.category || 'asas';
                 document.getElementById('editSvcType').value = svc.type || 'lain';
@@ -5410,6 +5475,117 @@
                 updateServiceProfileSummary('edit');
                 document.getElementById('adminEditServiceForm').scrollIntoView({ behavior: 'smooth' });
             }
+        }
+
+        // ============= ITEM 3: STYLE PHOTO PREVIEW (admin upload) =============
+        // Deliberately edit-form only, not "Tambah Servis Baru" -- the doc's
+        // suggested scope has both, but a service created there has no row
+        // yet to attach a photo to until the admin clicks TAMBAH SERVIS, so
+        // supporting it there would mean queuing a File client-side and
+        // uploading it only after creation succeeds. Simpler and equally
+        // usable: save the service first, then open it in Kemas Kini Servis
+        // to add photos -- same "create, then embellish" flow admins already
+        // use for every other field here.
+
+        /**
+         * Downscale+re-encode to JPEG via canvas, same technique as the
+         * existing uploadAnnouncementImage() -- kept as a separate function
+         * rather than sharing that one, since this returns a Blob (for
+         * Storage upload) where that one needs a data: URL (for inlining).
+         */
+        function resizeImageFileToJpegBlob(file, maxDimension, quality) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const sourceImage = new Image();
+                    sourceImage.onload = () => {
+                        const scale = Math.min(1, maxDimension / Math.max(sourceImage.width, sourceImage.height));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.max(1, Math.round(sourceImage.width * scale));
+                        canvas.height = Math.max(1, Math.round(sourceImage.height * scale));
+                        canvas.getContext('2d').drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+                        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Tidak dapat memproses gambar.')), 'image/jpeg', quality);
+                    };
+                    sourceImage.onerror = () => reject(new Error('Gambar tidak dapat dibaca.'));
+                    sourceImage.src = reader.result;
+                };
+                reader.onerror = () => reject(new Error('Fail gambar tidak dapat dibaca.'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updateServicePhotoPreview(slot, url) {
+            const suffix = slot === 'front' ? 'Front' : 'Back';
+            const img = document.getElementById(`editSvc${suffix}Preview`);
+            const placeholder = document.getElementById(`editSvc${suffix}Placeholder`);
+            const removeBtn = document.getElementById(`editSvc${suffix}RemoveBtn`);
+            if (img) { img.src = url || ''; img.hidden = !url; }
+            if (placeholder) placeholder.hidden = !!url;
+            if (removeBtn) removeBtn.hidden = !url;
+        }
+
+        async function uploadServiceSlotPhoto(slot, input) {
+            const file = input.files?.[0];
+            if (!file) return;
+            const serviceId = document.getElementById('editSvcId').value;
+            if (!serviceId) { input.value = ''; return (await showAlertDialog('Simpan servis ini dahulu (SIMPAN KEMAS KINI) sebelum muat naik gambar.')); }
+            if (!/^image\/(?:png|jpeg|webp|gif)$/.test(file.type) || file.size > 8 * 1024 * 1024) {
+                input.value = '';
+                return (await showAlertDialog('Pilih gambar PNG, JPG, WEBP atau GIF bersaiz maksimum 8 MB.'));
+            }
+            if (!window.ServiceRepo?.uploadServicePhoto || !window.ServiceRepo?.updateService) {
+                input.value = '';
+                return (await showAlertDialog('Ciri muat naik gambar belum sedia. Sila muat semula halaman.'));
+            }
+            let url;
+            try {
+                const blob = await resizeImageFileToJpegBlob(file, 1000, 0.82);
+                url = await window.ServiceRepo.uploadServicePhoto(serviceId, slot, blob);
+                await window.ServiceRepo.updateService(serviceId, slot === 'front' ? { imageUrlFront: url } : { imageUrlBack: url });
+            } catch (error) {
+                input.value = '';
+                return (await showAlertDialog(error.message || 'Muat naik gambar gagal. Sila cuba lagi.'));
+            }
+            let svcs = getServices();
+            const index = svcs.findIndex(service => service.id === serviceId);
+            if (index >= 0) {
+                svcs[index][slot === 'front' ? 'imageUrlFront' : 'imageUrlBack'] = url;
+                saveServices(svcs);
+            }
+            input.value = '';
+            updateServicePhotoPreview(slot, url);
+            refreshServiceConfigurationUI();
+        }
+
+        async function removeServiceSlotPhoto(slot) {
+            const serviceId = document.getElementById('editSvcId').value;
+            if (!serviceId) return;
+            if (!(await showConfirmDialog(`Padam gambar ${slot === 'front' ? 'depan' : 'belakang'} ini?`))) return;
+            if (!window.ServiceRepo?.deleteServicePhoto || !window.ServiceRepo?.updateService) {
+                return (await showAlertDialog('Ciri padam gambar belum sedia. Sila muat semula halaman.'));
+            }
+            try {
+                await window.ServiceRepo.deleteServicePhoto(serviceId, slot);
+            } catch (error) {
+                // Non-fatal: the Storage object may already be gone (e.g. a
+                // retry after a partial earlier failure) -- what matters is
+                // clearing the row's URL column next, so the customer UI
+                // stops pointing at it either way.
+                console.warn('Padam gambar dari storan gagal (mungkin sudah tiada).', error);
+            }
+            try {
+                await window.ServiceRepo.updateService(serviceId, slot === 'front' ? { imageUrlFront: null } : { imageUrlBack: null });
+            } catch (error) {
+                return (await showAlertDialog(error.message || 'Padam gambar gagal. Sila cuba lagi.'));
+            }
+            let svcs = getServices();
+            const index = svcs.findIndex(service => service.id === serviceId);
+            if (index >= 0) {
+                svcs[index][slot === 'front' ? 'imageUrlFront' : 'imageUrlBack'] = '';
+                saveServices(svcs);
+            }
+            updateServicePhotoPreview(slot, '');
+            refreshServiceConfigurationUI();
         }
 
         async function saveServiceEdit() {
@@ -5713,7 +5889,17 @@
                         : `RM ${escapeHTML(service.price)}`;
                     const totalFunction = context === 'walkin' ? 'calcWalkinTotal()' : 'calcBookingTotal()';
                     const noteHTML = service.styleNotes ? `<span class="service-style-note">${escapeHTML(service.styleNotes)}</span>` : '';
-                    return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}"><div class="service-info"><div class="service-name-line"><strong>${escapeHTML(service.name)}</strong>${noteHTML}</div><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
+                    // Item 3 (style photo preview): thumbnail is the front
+                    // photo only, and is entirely omitted -- not a broken-
+                    // image icon or placeholder box -- when a service has no
+                    // photo yet, per the handover doc's fallback requirement.
+                    // event.preventDefault()/stopPropagation() keep a tap on
+                    // the thumbnail from also toggling the checkbox, since
+                    // the whole card is a <label> wrapping that checkbox.
+                    const thumbHTML = service.imageUrlFront
+                        ? `<img class="service-thumb" src="${escapeHTML(service.imageUrlFront)}" alt="" loading="lazy" onclick="event.preventDefault(); event.stopPropagation(); openStylePhotoPreview('${escapeHTML(service.id)}');">`
+                        : '';
+                    return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}">${thumbHTML}<div class="service-info"><div class="service-name-line"><strong>${escapeHTML(service.name)}</strong>${noteHTML}</div><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
                 }).join('') : `<div class="service-empty-state">Tiada servis ${category === 'fashion' ? 'Gaya Potongan' : 'Asas'} yang aktif.</div>`;
                 return `<div class="service-category-panel" data-category="${category}">${serviceHTML}</div>`;
             }).join('');
@@ -5734,6 +5920,36 @@
             renderCustomerServiceOptions('bookServiceSelect', 'bookingServices', 'booking', false);
             enforceServiceRules('bookServiceSelect', 'bookingServices');
             calcBookingTotal();
+        }
+
+        // ============= ITEM 3: STYLE PHOTO PREVIEW (customer lightbox) =============
+        // Holds the currently-open service's two photo URLs so setStylePhotoSide()
+        // (the Depan/Belakang toggle buttons) doesn't need to re-look-up the
+        // service on every click.
+        let stylePhotoDialogUrls = { front: '', back: '' };
+
+        function openStylePhotoPreview(serviceId) {
+            const service = getServices().find(item => item.id === serviceId);
+            if (!service || !service.imageUrlFront) return;
+            stylePhotoDialogUrls = { front: service.imageUrlFront, back: service.imageUrlBack || '' };
+            document.getElementById('stylePhotoDialogTitle').textContent = service.name;
+            const notes = document.getElementById('stylePhotoDialogNotes');
+            notes.textContent = service.styleNotes || '';
+            notes.hidden = !service.styleNotes;
+            // Hide the Depan/Belakang toggle entirely when there's no back
+            // photo -- a single-button toggle would just be confusing.
+            document.getElementById('stylePhotoDialogToggle').hidden = !stylePhotoDialogUrls.back;
+            setStylePhotoSide('front');
+            const dialog = document.getElementById('stylePhotoDialog');
+            if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+        }
+
+        function setStylePhotoSide(side) {
+            const url = stylePhotoDialogUrls[side] || stylePhotoDialogUrls.front;
+            document.getElementById('stylePhotoDialogImg').src = url;
+            document.querySelectorAll('#stylePhotoDialogToggle button').forEach(button => {
+                button.classList.toggle('active', button.dataset.side === side);
+            });
         }
 
         function getFastPassCandidate(candidateKey) {

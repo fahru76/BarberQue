@@ -19,7 +19,12 @@
  */
 import { supabase } from '../supabaseClient.js';
 
-const SERVICE_COLUMNS = 'id, name, price_sen, duration_minutes, active, category, target, type, sort_order, style_notes';
+const SERVICE_COLUMNS = 'id, name, price_sen, duration_minutes, active, category, target, type, sort_order, style_notes, image_url_front, image_url_back';
+
+// Item 3 (QUEUECUT_HANDOVER.md) -- public-read/admin-write bucket created by
+// 20260906130100_service_photos.sql. Kept as a constant here rather than
+// repeated per call so the bucket name lives in exactly one place.
+const PHOTO_BUCKET = 'service-photos';
 
 function raiseOnError(error) {
     if (error) throw new Error(`[serviceRepository] ${error.message ?? error}`, { cause: error });
@@ -41,7 +46,13 @@ function mapServiceRow(row) {
         // customer pickers (see 20260906123700_service_style_notes.sql) --
         // normalised to '' rather than null so index.html's render/populate
         // sites never need a null-check on top of the usual falsy check.
-        styleNotes: row.style_notes || ''
+        styleNotes: row.style_notes || '',
+        // Front/back style photos (Item 3) -- public Supabase Storage URLs,
+        // or '' when no photo has been uploaded for that slot yet. index.html
+        // must degrade gracefully on '' (no broken image icon) per the
+        // handover doc's fallback requirement.
+        imageUrlFront: row.image_url_front || '',
+        imageUrlBack: row.image_url_back || ''
     };
 }
 
@@ -66,7 +77,7 @@ export async function listServices() {
  * (createServiceId(), `SVC-<uuid>`) rather than letting the server generate
  * one — nothing else needs a second identity for the same record.
  */
-export async function createService({ id, name, priceRm, durationMinutes, category, target, type, styleNotes }) {
+export async function createService({ id, name, priceRm, durationMinutes, category, target, type, styleNotes, imageUrlFront, imageUrlBack }) {
     const { data, error } = await supabase
         .from('services')
         .insert({
@@ -74,7 +85,9 @@ export async function createService({ id, name, priceRm, durationMinutes, catego
             price_sen: Math.round(priceRm * 100),
             duration_minutes: durationMinutes,
             category, target, type,
-            style_notes: styleNotes || null
+            style_notes: styleNotes || null,
+            image_url_front: imageUrlFront || null,
+            image_url_back: imageUrlBack || null
         })
         .select(SERVICE_COLUMNS)
         .single();
@@ -93,6 +106,8 @@ export async function updateService(id, patch = {}) {
     if (patch.target !== undefined) dbPatch.target = patch.target;
     if (patch.type !== undefined) dbPatch.type = patch.type;
     if (patch.styleNotes !== undefined) dbPatch.style_notes = patch.styleNotes || null;
+    if (patch.imageUrlFront !== undefined) dbPatch.image_url_front = patch.imageUrlFront || null;
+    if (patch.imageUrlBack !== undefined) dbPatch.image_url_back = patch.imageUrlBack || null;
 
     const { data, error } = await supabase
         .from('services')
@@ -108,6 +123,46 @@ export async function updateService(id, patch = {}) {
 export async function deleteService(id) {
     const { error } = await supabase.from('services').delete().eq('id', id);
     raiseOnError(error);
+}
+
+/**
+ * Item 3 (style photo preview) -- resize+re-encode happens in index.html
+ * (canvas, same technique as the existing announcement-image uploader);
+ * this just uploads the resulting JPEG Blob to Supabase Storage and hands
+ * back a public URL for the caller to save onto the service row.
+ *
+ * Uploaded to a FIXED path per service+slot (`${id}/${slot}.jpg`, upsert:
+ * true) rather than a fresh filename every time, so re-uploading a photo
+ * replaces the old object instead of leaving it orphaned in Storage
+ * forever. Supabase's public URL for a given path never changes, so a
+ * same-path overwrite would otherwise keep showing the OLD image to
+ * anyone whose browser/CDN already cached that URL -- the `?v=` query
+ * param busts that without needing a new path.
+ *
+ * `slot` must be 'front' or 'back' -- index.html only ever passes those
+ * two, matching the services.image_url_front/image_url_back columns.
+ */
+export async function uploadServicePhoto(id, slot, blob) {
+    const path = `${id}/${slot}.jpg`;
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, blob, {
+        contentType: 'image/jpeg',
+        upsert: true
+    });
+    if (error) throw new Error(`[serviceRepository] ${error.message ?? error}`, { cause: error });
+    const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+    return `${data.publicUrl}?v=${Date.now()}`;
+}
+
+/**
+ * Removes the stored object for one slot. Safe to call even if nothing was
+ * ever uploaded there (Supabase's remove() does not error on a missing
+ * path) -- callers still separately clear the service row's URL column via
+ * updateService(), since deleting the Storage object alone would leave a
+ * dangling URL pointing at nothing.
+ */
+export async function deleteServicePhoto(id, slot) {
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).remove([`${id}/${slot}.jpg`]);
+    if (error) throw new Error(`[serviceRepository] ${error.message ?? error}`, { cause: error });
 }
 
 /**
