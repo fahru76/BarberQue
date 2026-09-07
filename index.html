@@ -1350,21 +1350,65 @@
         .admin-content { min-width: 0; }
         .admin-content-section { display: none; }
         .admin-content-section.active { display: block; animation: fadeIn .25s ease; }
-        /* Mobile-only "Susun" toggle: hidden on desktop, where the drag
-           handle + arrows are already visible at all times. On narrow
-           screens it switches the sidebar between a clean horizontal pill
-           strip (default -- just for navigating) and a stacked list with
-           the reorder controls back (opt-in, since dragging/tapping tiny
-           arrows inside a horizontal scroller is fiddly on touch). */
+        /* Mobile nav: the desktop sidebar collapses into a single
+           "current section" dropdown button. Tapping it opens the same
+           .admin-sidebar list (still reorderable) as a floating panel;
+           picking an item closes it again. Desktop is untouched -- these
+           rules only ever apply under the 900px breakpoint. */
+        .admin-sidebar-current { display: none; }
         .admin-sidebar-order-toggle { display: none; }
 
         @media (max-width: 900px) {
             .admin-layout { grid-template-columns: 1fr; gap: 14px; }
+            .admin-sidebar-block { position: relative; }
+            .admin-sidebar-current {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                width: 100%;
+                padding: 12px 16px;
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-lg);
+                background: var(--surface-color);
+                color: var(--text-main);
+                font-family: 'Manrope', sans-serif;
+                font-size: .88rem;
+                font-weight: 700;
+                letter-spacing: -.01em;
+                cursor: pointer;
+                box-shadow: var(--shadow-sm);
+                transition: .15s var(--ease);
+            }
+            .admin-sidebar-block.menu-open .admin-sidebar-current {
+                border-color: var(--sleek-accent);
+                color: var(--sleek-accent-strong);
+            }
+            .admin-sidebar-current-chevron { color: var(--text-muted); font-size: .7rem; transition: transform .18s var(--ease); }
+            .admin-sidebar-block.menu-open .admin-sidebar-current-chevron { transform: rotate(180deg); color: var(--sleek-accent-strong); }
+            .admin-sidebar-dropdown {
+                display: none;
+                flex-direction: column;
+                gap: 8px;
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: calc(100% + 8px);
+                z-index: 40;
+                padding: 10px;
+                max-height: min(65vh, 480px);
+                overflow-y: auto;
+                background: linear-gradient(150deg, color-mix(in srgb, var(--surface-elevated) 72%, var(--surface-color)), var(--surface-color));
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-lg);
+                box-shadow: 0 22px 60px rgba(0,0,0,.32);
+            }
+            .admin-sidebar-block.menu-open .admin-sidebar-dropdown { display: flex; }
             .admin-sidebar-order-toggle {
                 display: inline-flex;
                 align-items: center;
+                align-self: flex-start;
                 gap: 6px;
-                margin-bottom: 8px;
                 padding: 6px 14px;
                 border: 1px solid var(--border-color);
                 border-radius: 999px;
@@ -1386,48 +1430,13 @@
             .admin-sidebar {
                 position: static;
                 max-height: none;
-                flex-direction: row;
-                overflow-x: auto;
-                gap: 8px;
-                padding: 4px 2px 8px;
+                overflow: visible;
+                padding: 0;
             }
-            .admin-nav-row { flex: 0 0 auto; }
+            .admin-nav-row { width: 100%; }
             .admin-nav-handle, .admin-nav-order-actions { display: none; }
-            .admin-nav-item {
-                padding: 9px 16px;
-                border: 1px solid var(--border-color);
-                border-radius: 999px;
-                background: var(--surface-color);
-                max-width: 60vw;
-            }
-            .admin-nav-item.active {
-                background: var(--sleek-accent);
-                color: #fff;
-                border-color: var(--sleek-accent);
-            }
-            /* Order mode (via the "Susun" toggle): stack vertically, full
-               width, with the drag handle + up/down arrows back -- same
-               shape as the desktop sidebar, just not sticky. */
-            .admin-sidebar.order-mode {
-                flex-direction: column;
-                overflow-x: visible;
-            }
-            .admin-sidebar.order-mode .admin-nav-row { flex: 0 0 auto; width: 100%; }
             .admin-sidebar.order-mode .admin-nav-handle { display: grid; }
             .admin-sidebar.order-mode .admin-nav-order-actions { display: flex; }
-            .admin-sidebar.order-mode .admin-nav-item {
-                max-width: none;
-                padding: 10px 8px;
-                border: none;
-                border-left: 3px solid transparent;
-                border-radius: 10px;
-                background: transparent;
-            }
-            .admin-sidebar.order-mode .admin-nav-item.active {
-                background: var(--card-hover);
-                color: var(--sleek-accent-strong);
-                border-left-color: var(--sleek-accent);
-            }
         }
 
         .ticket-box {
@@ -1918,10 +1927,16 @@
 
             <div class="admin-layout">
                 <div class="admin-sidebar-block">
-                    <button type="button" class="admin-sidebar-order-toggle" id="adminSidebarOrderToggle" aria-pressed="false" onclick="toggleAdminSidebarOrderMode()">
-                        <span aria-hidden="true">&#8645;</span> <span id="adminSidebarOrderToggleLabel">Susun</span>
+                    <button type="button" class="admin-sidebar-current" id="adminSidebarCurrentBtn" aria-haspopup="true" aria-expanded="false" aria-controls="adminSidebarDropdown" onclick="toggleAdminSidebarMobileMenu()">
+                        <span id="adminSidebarCurrentLabel">Kakitangan</span>
+                        <span class="admin-sidebar-current-chevron" aria-hidden="true">&#9662;</span>
                     </button>
-                    <nav class="admin-sidebar" id="adminSidebarNav" role="tablist" aria-label="Navigasi tetapan admin (boleh disusun semula -- seret atau guna anak panah)"></nav>
+                    <div class="admin-sidebar-dropdown" id="adminSidebarDropdown">
+                        <button type="button" class="admin-sidebar-order-toggle" id="adminSidebarOrderToggle" aria-pressed="false" onclick="toggleAdminSidebarOrderMode()">
+                            <span aria-hidden="true">&#8645;</span> <span id="adminSidebarOrderToggleLabel">Susun</span>
+                        </button>
+                        <nav class="admin-sidebar" id="adminSidebarNav" role="tablist" aria-label="Navigasi tetapan admin (boleh disusun semula -- seret atau guna anak panah)"></nav>
+                    </div>
                 </div>
 
                 <div class="admin-content">
@@ -5214,6 +5229,8 @@
                     </span>
                 </div>`;
             }).join('');
+            const currentLabel = document.getElementById('adminSidebarCurrentLabel');
+            if (currentLabel) currentLabel.textContent = ADMIN_SECTION_LABELS[currentAdminSection] || currentAdminSection;
         }
 
         function toggleAdminSidebarOrderMode() {
@@ -5224,6 +5241,38 @@
             const isOn = nav.classList.toggle('order-mode');
             toggle.setAttribute('aria-pressed', String(isOn));
             if (label) label.textContent = isOn ? 'Selesai' : 'Susun';
+        }
+
+        // Mobile-only "current section" dropdown -- the desktop sidebar
+        // itself lives inside .admin-sidebar-dropdown and is reused as-is;
+        // this just shows/hides that panel below a summary button. A
+        // capture-phase outside-click listener (added only while open)
+        // closes it, mirroring a native <select>.
+        function toggleAdminSidebarMobileMenu() {
+            const block = document.querySelector('.admin-sidebar-block');
+            const btn = document.getElementById('adminSidebarCurrentBtn');
+            if (!block || !btn) return;
+            const isOpen = block.classList.toggle('menu-open');
+            btn.setAttribute('aria-expanded', String(isOpen));
+            if (isOpen) {
+                document.addEventListener('click', handleAdminSidebarOutsideClick, true);
+            } else {
+                document.removeEventListener('click', handleAdminSidebarOutsideClick, true);
+            }
+        }
+
+        function handleAdminSidebarOutsideClick(event) {
+            const block = document.querySelector('.admin-sidebar-block');
+            if (block && !block.contains(event.target)) closeAdminSidebarMobileMenu();
+        }
+
+        function closeAdminSidebarMobileMenu() {
+            const block = document.querySelector('.admin-sidebar-block');
+            const btn = document.getElementById('adminSidebarCurrentBtn');
+            if (!block) return;
+            block.classList.remove('menu-open');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+            document.removeEventListener('click', handleAdminSidebarOutsideClick, true);
         }
 
         function setAdminSection(sectionId) {
@@ -5241,6 +5290,9 @@
             document.querySelectorAll('.admin-content-section').forEach(sec => {
                 sec.classList.toggle('active', sec.dataset.adminSection === sectionId);
             });
+            const currentLabel = document.getElementById('adminSidebarCurrentLabel');
+            if (currentLabel) currentLabel.textContent = ADMIN_SECTION_LABELS[sectionId] || sectionId;
+            closeAdminSidebarMobileMenu();
         }
 
         function moveAdminSection(sectionId, direction) {
