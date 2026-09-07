@@ -32,7 +32,7 @@ const COLUMNS =
     'app_name, shop_name, shop_map_link, shop_map_query, shop_map_address, shop_location_name, ' +
     'shop_announcement, shop_announcement_html, shop_announcement_enabled, ' +
     'shop_status, shop_status_changed_at, max_queue, seat_count, closed_dates, ' +
-    'booking_advance_days, weekly_op_hours';
+    'booking_advance_days, weekly_op_hours, admin_sidebar_order';
 
 // camelCase (matches both the localStorage key and this module's public
 // object shape) -> snake_case column name.
@@ -52,7 +52,8 @@ const FIELD_TO_COLUMN = {
     seatCount: 'seat_count',
     closedDates: 'closed_dates',
     bookingAdvanceDays: 'booking_advance_days',
-    weeklyOpHours: 'weekly_op_hours'
+    weeklyOpHours: 'weekly_op_hours',
+    adminSidebarOrder: 'admin_sidebar_order'
 };
 
 function raiseOnError(error) {
@@ -77,7 +78,8 @@ function mapRow(row) {
         seatCount: row.seat_count,
         closedDates: row.closed_dates,
         bookingAdvanceDays: row.booking_advance_days,
-        weeklyOpHours: row.weekly_op_hours
+        weeklyOpHours: row.weekly_op_hours,
+        adminSidebarOrder: row.admin_sidebar_order
     };
 }
 
@@ -94,7 +96,9 @@ function toColumns(fields) {
 
 /**
  * The one row, or `null` if nothing has seeded it yet. Readable by anon —
- * every field here is shown to customers somewhere.
+ * every field except `adminSidebarOrder` is shown to customers somewhere;
+ * that one rides this table purely to reuse the existing sync pipeline (see
+ * its migration's comment), not because customers need it.
  */
 export async function getShopSettings() {
     const { data, error } = await supabase.from('shop_settings').select(COLUMNS).maybeSingle();

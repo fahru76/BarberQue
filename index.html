@@ -2716,6 +2716,11 @@
             if (!remote) return;
             Object.entries(remote).forEach(([key, value]) => window.safeSetItem?.(key, value));
             window.updateUI?.();
+            // adminSidebarOrder isn't read by updateUI() (it's not part of
+            // the customer-facing render path) -- re-render the sidebar
+            // explicitly so a menu order set on another device shows up
+            // here once this pull completes.
+            window.renderAdminSidebar?.();
         }
 
         AuthRepo.onAuthStateChange((event) => {
@@ -3824,7 +3829,8 @@
                 seatCount: getSeatCount(),
                 closedDates: getClosedDates(),
                 bookingAdvanceDays: getBookingAdvanceDays(),
-                weeklyOpHours: getWeeklyOpHours()
+                weeklyOpHours: getWeeklyOpHours(),
+                adminSidebarOrder: getAdminSectionOrder()
             };
         }
         window.collectCurrentShopSettingsSnapshot = collectCurrentShopSettingsSnapshot;
@@ -5180,10 +5186,12 @@
         // sees the same default (first item in their current order) each
         // time they open the panel. The ORDER itself, though, is exactly
         // the kind of thing worth remembering -- it's saved to localStorage
-        // (adminSidebarOrder) so it survives reloads. This is a per-browser
-        // preference, not shop data: it only changes which order the menu
-        // labels appear in for whoever is using this browser, so it doesn't
-        // need a migration/RLS policy the way customer-visible settings do.
+        // (adminSidebarOrder) as a fast local cache, AND synced to
+        // shop_settings.admin_sidebar_order (see saveAdminSectionOrder()
+        // below and the migration that added that column) so every device
+        // an admin signs in on shows the same order -- reordering it on
+        // desktop used to leave mobile showing something different, since
+        // localStorage alone never left that one browser.
         const ADMIN_SECTIONS = [
             { id: 'staff', label: 'Kakitangan' },
             { id: 'shop', label: 'Kedai & Lokasi' },
@@ -5215,8 +5223,29 @@
             return [...valid, ...missing];
         }
 
-        function saveAdminSectionOrder(order) {
+        /**
+         * Persists a reordered admin sidebar -- optimistically, unlike every
+         * other admin setting in this file. The usual rule (see
+         * syncShopSettingsToServer()'s doc comment) is "sync to the server
+         * FIRST, only write/render locally once it confirms", because those
+         * settings are customer-facing and a silent local/server mismatch
+         * would be confusing. adminSidebarOrder is different: it's a pure
+         * admin-only UI preference nobody else ever sees, and it's driven by
+         * rapid click/drag interactions (see moveAdminSection,
+         * handleAdminNavDrop) where waiting on a network round-trip before
+         * ANY visual feedback would feel broken. So: update local + re-render
+         * immediately, sync in the background, and roll back (with an alert)
+         * only if that sync actually fails.
+         */
+        async function saveAdminSectionOrder(order, previousOrder) {
             safeSetItem('adminSidebarOrder', order);
+            renderAdminSidebar();
+            const sync = await syncShopSettingsToServer({ adminSidebarOrder: order });
+            if (!sync.ok) {
+                safeSetItem('adminSidebarOrder', previousOrder);
+                renderAdminSidebar();
+                await showAlertDialog(sync.error?.message || 'Turutan menu admin gagal disegerakkan ke pelayan (kekal seperti asal pada peranti ini). Sila cuba lagi.');
+            }
         }
 
         function renderAdminSidebar() {
@@ -5298,12 +5327,12 @@
 
         function moveAdminSection(sectionId, direction) {
             const order = getAdminSectionOrder();
+            const previousOrder = [...order];
             const index = order.indexOf(sectionId);
             const targetIndex = index + direction;
             if (index < 0 || targetIndex < 0 || targetIndex >= order.length) return;
             [order[index], order[targetIndex]] = [order[targetIndex], order[index]];
-            saveAdminSectionOrder(order);
-            renderAdminSidebar();
+            saveAdminSectionOrder(order, previousOrder);
         }
 
         function reorderAdminSections(order, sourceId, targetId, placeAfter) {
@@ -5350,9 +5379,9 @@
             const placeAfter = event.currentTarget.dataset.dropAfter === 'true';
             clearAdminNavDropIndicators();
             draggedAdminSectionId = '';
-            const order = reorderAdminSections(getAdminSectionOrder(), sourceId, targetId, placeAfter);
-            saveAdminSectionOrder(order);
-            renderAdminSidebar();
+            const previousOrder = getAdminSectionOrder();
+            const order = reorderAdminSections(previousOrder, sourceId, targetId, placeAfter);
+            saveAdminSectionOrder(order, previousOrder);
         }
 
         function handleAdminNavDragEnd() {
