@@ -1350,25 +1350,84 @@
         .admin-content { min-width: 0; }
         .admin-content-section { display: none; }
         .admin-content-section.active { display: block; animation: fadeIn .25s ease; }
+        /* Mobile-only "Susun" toggle: hidden on desktop, where the drag
+           handle + arrows are already visible at all times. On narrow
+           screens it switches the sidebar between a clean horizontal pill
+           strip (default -- just for navigating) and a stacked list with
+           the reorder controls back (opt-in, since dragging/tapping tiny
+           arrows inside a horizontal scroller is fiddly on touch). */
+        .admin-sidebar-order-toggle { display: none; }
 
         @media (max-width: 900px) {
             .admin-layout { grid-template-columns: 1fr; gap: 14px; }
+            .admin-sidebar-order-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                margin-bottom: 8px;
+                padding: 6px 14px;
+                border: 1px solid var(--border-color);
+                border-radius: 999px;
+                background: var(--surface-color);
+                color: var(--text-muted);
+                font-family: 'Manrope', sans-serif;
+                font-size: .74rem;
+                font-weight: 700;
+                letter-spacing: -.01em;
+                cursor: pointer;
+                transition: .15s var(--ease);
+            }
+            .admin-sidebar-order-toggle:hover { border-color: var(--sleek-accent); color: var(--sleek-accent-strong); }
+            .admin-sidebar-order-toggle[aria-pressed="true"] {
+                background: var(--sleek-accent);
+                border-color: var(--sleek-accent);
+                color: #fff;
+            }
             .admin-sidebar {
                 position: static;
                 max-height: none;
                 flex-direction: row;
                 overflow-x: auto;
-                gap: 6px;
-                padding: 8px;
+                gap: 8px;
+                padding: 4px 2px 8px;
             }
             .admin-nav-row { flex: 0 0 auto; }
+            .admin-nav-handle, .admin-nav-order-actions { display: none; }
             .admin-nav-item {
-                padding: 10px 6px;
-                border-left: none;
-                border-bottom: 3px solid transparent;
-                max-width: 34vw;
+                padding: 9px 16px;
+                border: 1px solid var(--border-color);
+                border-radius: 999px;
+                background: var(--surface-color);
+                max-width: 60vw;
             }
-            .admin-nav-item.active { border-bottom-color: var(--sleek-accent); border-left-color: transparent; }
+            .admin-nav-item.active {
+                background: var(--sleek-accent);
+                color: #fff;
+                border-color: var(--sleek-accent);
+            }
+            /* Order mode (via the "Susun" toggle): stack vertically, full
+               width, with the drag handle + up/down arrows back -- same
+               shape as the desktop sidebar, just not sticky. */
+            .admin-sidebar.order-mode {
+                flex-direction: column;
+                overflow-x: visible;
+            }
+            .admin-sidebar.order-mode .admin-nav-row { flex: 0 0 auto; width: 100%; }
+            .admin-sidebar.order-mode .admin-nav-handle { display: grid; }
+            .admin-sidebar.order-mode .admin-nav-order-actions { display: flex; }
+            .admin-sidebar.order-mode .admin-nav-item {
+                max-width: none;
+                padding: 10px 8px;
+                border: none;
+                border-left: 3px solid transparent;
+                border-radius: 10px;
+                background: transparent;
+            }
+            .admin-sidebar.order-mode .admin-nav-item.active {
+                background: var(--card-hover);
+                color: var(--sleek-accent-strong);
+                border-left-color: var(--sleek-accent);
+            }
         }
 
         .ticket-box {
@@ -1858,7 +1917,12 @@
             <h2>Panel Admin</h2>
 
             <div class="admin-layout">
-                <nav class="admin-sidebar" id="adminSidebarNav" role="tablist" aria-label="Navigasi tetapan admin (boleh disusun semula -- seret atau guna anak panah)"></nav>
+                <div class="admin-sidebar-block">
+                    <button type="button" class="admin-sidebar-order-toggle" id="adminSidebarOrderToggle" aria-pressed="false" onclick="toggleAdminSidebarOrderMode()">
+                        <span aria-hidden="true">&#8645;</span> <span id="adminSidebarOrderToggleLabel">Susun</span>
+                    </button>
+                    <nav class="admin-sidebar" id="adminSidebarNav" role="tablist" aria-label="Navigasi tetapan admin (boleh disusun semula -- seret atau guna anak panah)"></nav>
+                </div>
 
                 <div class="admin-content">
                     <div class="admin-content-section active" data-admin-section="staff">
@@ -5150,6 +5214,16 @@
                     </span>
                 </div>`;
             }).join('');
+        }
+
+        function toggleAdminSidebarOrderMode() {
+            const nav = document.getElementById('adminSidebarNav');
+            const toggle = document.getElementById('adminSidebarOrderToggle');
+            const label = document.getElementById('adminSidebarOrderToggleLabel');
+            if (!nav || !toggle) return;
+            const isOn = nav.classList.toggle('order-mode');
+            toggle.setAttribute('aria-pressed', String(isOn));
+            if (label) label.textContent = isOn ? 'Selesai' : 'Susun';
         }
 
         function setAdminSection(sectionId) {
