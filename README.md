@@ -4,6 +4,22 @@ Pure business logic extracted from the single-file prototype. No DOM, no storage
 no wall clock: every time-dependent input arrives as a parameter. That is what lets
 these run under test, and what will let the server reuse them unchanged.
 
+## AI agent coordination (for any session that can execute code)
+
+- `HANDOFF.md` is the canonical execution handoff: current status, completed work,
+and unfinished items.
+- `QUEUECUT_HANDOVER.md` is the roadmap for planned/blocked/ scoped items.
+- `HERMES_AGENT_HANDOFF.md` is the live cross-agent protocol used when multiple AI agents
+work on this repo in parallel.
+- `AGENT_STATUS_CHECKLIST.md` has the session-start sync command + quick checklist.
+- Before coding, verify the pending items in `HANDOFF.md` and update them before
+handing off.
+- Run at session start:
+
+```bash
+git log --oneline -n 3 && git status --short --branch && printf "\n--- open/remaining status ---\n" && grep -nE "## Still open|## Done —|Status:" HANDOFF.md QUEUECUT_HANDOVER.md HERMES_AGENT_HANDOFF.md
+```
+
 ## Layout
 
 ```

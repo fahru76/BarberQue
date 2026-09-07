@@ -27,18 +27,33 @@ did.
 ## Read these first, in this order
 
 1. **`README.md`** — the extracted pure domain layer (scheduling logic) and its test
-   suite.
-2. **`HANDOFF.md`** — the full project history, step by step, including a **"Design
-   decisions already made — don't relitigate these"** section. Read that section before
-   proposing a different architecture for something already decided (e.g. individual
-   barber accounts vs. shared login, `price_sen integer` not float, no DELETE policy
-   anywhere, phone write-only for anon, claim-token-based customer cancellation).
+suite.
+2. **`HANDOFF.md`** — the full project history, step by step, and the canonical
+   current-status tracker (for what is finished and what is still open).
 3. **`QUEUECUT_HANDOVER.md`** — the open roadmap. Item 6 (closing-time warning) is now
    **done — shipped to `main` 2026-09-07** via PR #1 (see `HANDOFF.md`'s "Done — item 6"
    entry for detail). Item 7 (cross-platform install script) is still proposal-level only
    and gated on Fahru confirming there's a real second shop to build it for — don't start
    it without confirming with Fahru first.
-4. **This file**, for the coordination protocol below.
+4. **`HERMES_AGENT_HANDOFF.md`** (this file), for the coordination protocol below.
+
+## Live synchronization snapshot (for any AI agent about to execute code)
+
+- **Canonical source of truth for status:** `HANDOFF.md`.
+- **Secondary roadmap view:** `QUEUECUT_HANDOVER.md`.
+- **Session start command:** `git log --oneline -n 3 && git status --short --branch && printf "\n--- open/remaining status ---\n" && grep -nE "## Still open|## Done —|Status:" HANDOFF.md QUEUECUT_HANDOVER.md HERMES_AGENT_HANDOFF.md`
+- **Last handoff sync commit:** `7cc3663` (item 6 shipped logging and state updates).
+- **Remaining unfinished work at a glance (as of this commit):**
+  - `notificationOutbox` is write-only in `index.html` (phone collected, WhatsApp promise
+    not yet wired).
+  - Bootstrap admin account display name still defaults to `fahru76` (manual rename action
+    pending).
+  - No `<footer>` exists in `index.html`.
+  - Item 7 (cross-platform install script for another shop) in
+    `QUEUECUT_HANDOVER.md` remains proposal-level and blocked on Fahru's confirmation.
+- **Sync rule:** any AI agent touching code must append a new `## Done — ...` entry to
+  `HANDOFF.md` and then run through this section again before finishing.
+
 
 ## Current state as of this handoff
 
