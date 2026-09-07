@@ -27,7 +27,7 @@ did.
 ## Read these first, in this order
 
 1. **`README.md`** — the extracted pure domain layer (scheduling logic) and its test
-suite.
+   suite.
 2. **`HANDOFF.md`** — the full project history, step by step, and the canonical
    current-status tracker (for what is finished and what is still open).
 3. **`QUEUECUT_HANDOVER.md`** — the open roadmap. Item 6 (closing-time warning) is now
@@ -54,11 +54,13 @@ suite.
 - **Sync rule:** any AI agent touching code must append a new `## Done — ...` entry to
   `HANDOFF.md` and then run through this section again before finishing.
 
-
 ## Current state as of this handoff
 
-- `main` is at commit `9e0dce3` (merge of Fahru's local docs/CI commits with the item 6
-  PR merge commit), 2026-09-07.
+- `main` was at commit `9e0dce3` as of the item 6 sync (merge of Fahru's local docs/CI
+  commits with the item 6 PR merge commit), 2026-09-07 -- since then, two more local
+  docs-only commits landed (agent-coordination checklist + protocol updates). For the
+  current head, don't trust this hash: use the "Live synchronization snapshot" section
+  above, or run `git log --oneline -n 3`.
 - Most recent migration unchanged since the previous handoff entry below: still
   `supabase/migrations/20260907011800_admin_sidebar_order.sql`. Item 6 (see next bullet)
   needed no schema/migration change.
