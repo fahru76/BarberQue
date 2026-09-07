@@ -2272,6 +2272,34 @@ build/legacy.cjs                                    regenerable reference impl
 - Validated the changes via `npm test` and committed as:
   `7a323fd ci: harden workflow checks with cache and checksum`.
 
+## Done — item 6: proactive closing-time warning for walk-in queue (2026-09-07)
+
+- Built exactly as scoped in `QUEUECUT_HANDOVER.md` item 6, after confirming the three
+  open decisions with Fahru: trigger = queue not full AND projected completion time >
+  closing time (mutually exclusive with the existing `#queueFullAlert`); suggested Malay
+  copy used as-is; optional `bookTicket()` dead-end upgrade included.
+- `index.html` only, no schema/migration/repository changes (matches item 6's "not
+  blocked on anything" status):
+  - New `#closingSoonAlert` banner (same reminder-box treatment as `#queueFullAlert`),
+    toggled from `renderWalkinQueuePreview()` using the exact same
+    `currentMinutes + wait + duration > closeMinutes` formula `bookTicket()` already used
+    for its own submit-time rejection.
+  - New `offerNextDayBooking()` helper wired to the banner's "TEMPAH UNTUK ESOK" button:
+    switches to booking mode, advances the visual calendar to tomorrow's month, and
+    pre-selects tomorrow via `selectCalDate()` only when `isOnlineBookingDateAllowed()`
+    says it's bookable; otherwise just opens booking mode with no date forced.
+  - `bookTicket()`'s existing dead-end `showAlertDialog(...)` for the same closing-time
+    rejection upgraded to `showConfirmDialog(...)`, offering the same next-day jump via
+    `offerNextDayBooking()`.
+- Verified: both inline `<script>` blocks pass `node --check`; `npm test` (23 domain
+  tests + 20,000-comparison differential + sql-consistency) passes unchanged before and
+  after.
+- Shipped via `feat/item-6-closing-soon-warning` -> PR #1 -> merged by Fahru into `main`
+  at commit `af90a36`, now folded into `main` at `9e0dce3` after a routine sync merge
+  with Fahru's own concurrent local docs/CI commits (no conflicts -- those touched only
+  `.github/workflows/ci.yml` and this file). PR branch deleted from GitHub after merge.
+- `QUEUECUT_HANDOVER.md` item 6 updated to reflect shipped status.
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with

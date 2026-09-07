@@ -153,7 +153,7 @@ This table is a starting shape for a conversation with Fahru, not a recommendati
 
 ## 6. Proactive "kedai akan tutup" warning for walk-in customers + next-day booking offer
 
-**Status:** Scoped by Claude on Fahru's request (2026-09-06), based on infrastructure that already exists in `index.html`. **Not yet reviewed in detail by Fahru** — reasonable defaults are chosen below wherever the request was open-ended; confirm before building if something here should be different. **Not blocked on anything** — `index.html` only, no schema/migration/repository change needed.
+**Status: SHIPPED (2026-09-07).** Scoped by Claude on Fahru's request (2026-09-06); decisions confirmed by Fahru (trigger = queue not full AND projected completion > closing time; suggested copy used as-is; optional `bookTicket()` dead-end upgrade included). Built, tested (`npm test` unchanged, 23 domain tests + differential + sql-consistency), shipped via `feat/item-6-closing-soon-warning` -> PR #1 -> merged into `main`. See `HANDOFF.md`'s "Done — item 6" section for full implementation detail. **Not blocked on anything** — `index.html` only, no schema/migration/repository change needed.
 
 ### What already exists (do not rebuild this part)
 - `renderWalkinQueuePreview()` already computes a live "kalau sertai sekarang" wait estimate (via `estimateQueueWaitMinutes()`), shown as `#walkinQueueEta` and re-run on every service-checkbox change through `calcWalkinTotal()`.
@@ -222,7 +222,7 @@ The script would need to, at minimum: check prerequisites (`node`, `git`, `supab
 
 Items 4 and 5 are parked and intentionally excluded from this order — neither is scoped, and neither should be started without Fahru first deciding it's worth scoping at all.
 
-**Item 6** (proactive closing-time warning + next-day booking offer for walk-in) is scoped above but **not yet confirmed by Fahru** in detail and not yet started — do not build it until he's reviewed the "what counts as tak ramai" decision and the suggested copy in that section.
+**Item 6** (proactive closing-time warning + next-day booking offer for walk-in) is **done — shipped to `main` 2026-09-07** (PR #1). See the "Status: SHIPPED" note in that section above and `HANDOFF.md`'s "Done — item 6" entry.
 
 **Item 7** (cross-platform installer for a new shop's own instance) is scoped above at a proposal level only — it is the least ready to start of everything in this document. Confirm there's a real second shop to build it for, and resolve the security-posture and Management-API questions in that section, before writing any installer code.
 

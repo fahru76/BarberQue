@@ -33,25 +33,32 @@ did.
    proposing a different architecture for something already decided (e.g. individual
    barber accounts vs. shared login, `price_sen integer` not float, no DELETE policy
    anywhere, phone write-only for anon, claim-token-based customer cancellation).
-3. **`QUEUECUT_HANDOVER.md`** — the open roadmap. Items 6 and 7 are proposal-level only
-   (documented, not approved to build yet) — don't start building either without
-   confirming with Fahru first.
+3. **`QUEUECUT_HANDOVER.md`** — the open roadmap. Item 6 (closing-time warning) is now
+   **done — shipped to `main` 2026-09-07** via PR #1 (see `HANDOFF.md`'s "Done — item 6"
+   entry for detail). Item 7 (cross-platform install script) is still proposal-level only
+   and gated on Fahru confirming there's a real second shop to build it for — don't start
+   it without confirming with Fahru first.
 4. **This file**, for the coordination protocol below.
 
 ## Current state as of this handoff
 
-- `main` is at commit `48443679665fddd63f46617cc16d1769a3b7eab5`
-  (`fix: sync admin sidebar menu order across devices via shop_settings`),
-  2026-09-07T01:19:54+00:00.
-- Most recent migration: `supabase/migrations/20260907011800_admin_sidebar_order.sql`
-  — added `shop_settings.admin_sidebar_order` (jsonb, not null, defaults to the 10
-  known Panel Admin section ids). Already applied to the live project — confirmed via
-  `get_advisors` (no new findings) and a direct read against the live table.
-- What Claude just built this session (4 commits, all already live): the Panel Admin
-  left sidebar became a reorderable list (drag or up/down arrows); on mobile it's now a
-  dropdown with its own card-list style (not a shrunk copy of the desktop sidebar); and
-  the sidebar order now syncs across devices via `shop_settings` instead of being stuck
-  in whichever browser's `localStorage` last touched it.
+- `main` is at commit `9e0dce3` (merge of Fahru's local docs/CI commits with the item 6
+  PR merge commit), 2026-09-07.
+- Most recent migration unchanged since the previous handoff entry below: still
+  `supabase/migrations/20260907011800_admin_sidebar_order.sql`. Item 6 (see next bullet)
+  needed no schema/migration change.
+- What Claude (Cowork) just built and shipped this session: item 6 from
+  `QUEUECUT_HANDOVER.md` — a proactive "kedai akan tutup" (closing soon) banner for the
+  walk-in queue, plus a "TEMPAH UNTUK ESOK" (book for tomorrow) button, plus an upgrade
+  to `bookTicket()`'s existing dead-end rejection to also offer the next-day jump.
+  `index.html` only, no schema change. Full detail in `HANDOFF.md`'s "Done — item 6"
+  section. Shipped via `feat/item-6-closing-soon-warning` -> PR #1 -> merged by Fahru ->
+  synced to `main` and pushed. PR branch deleted.
+- What the previous agent built (4 commits, already live before this session): the Panel
+  Admin left sidebar became a reorderable list (drag or up/down arrows); on mobile it's
+  now a dropdown with its own card-list style (not a shrunk copy of the desktop
+  sidebar); and the sidebar order now syncs across devices via `shop_settings` instead
+  of being stuck in whichever browser's `localStorage` last touched it.
 
 If your task touches `index.html`'s `admin-app` section, the Panel Admin sidebar
 (`ADMIN_SECTIONS`, `renderAdminSidebar()`, `getAdminSectionOrder()` and friends),
