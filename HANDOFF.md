@@ -2257,6 +2257,21 @@ build/legacy.cjs                                    regenerable reference impl
 
 `index.html` (the 5,500-line prototype) is unchanged and still the running app.
 
+## Done — CI hardening for workflow quality (2026-09-07)
+
+- Added cryptographic verification to workflow linting before running Actionlint:
+  - in `.github/workflows/ci.yml`, `ACTIONLINT_VERSION` and `ACTIONLINT_SHA256` are
+    pinned and validated with `sha256sum -c -`.
+- Switched Node test step to `npm ci` and enabled cache via `actions/setup-node@v4`
+  cache mode + `cache-dependency-path: package-lock.json` for deterministic installs and
+  quicker runs.
+- Added concurrency control to prevent stale CI runs from older commits:
+  `group: ci-${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress: true`.
+- Created a committed `package-lock.json` (generated with `npm install --package-lock-only`) so
+  cache + `npm ci` are valid in CI.
+- Validated the changes via `npm test` and committed as:
+  `7a323fd ci: harden workflow checks with cache and checksum`.
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with
