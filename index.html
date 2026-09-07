@@ -1351,12 +1351,15 @@
         .admin-content-section { display: none; }
         .admin-content-section.active { display: block; animation: fadeIn .25s ease; }
         /* Mobile nav: the desktop sidebar collapses into a single
-           "current section" dropdown button. Tapping it opens the same
-           .admin-sidebar list (still reorderable) as a floating panel;
-           picking an item closes it again. Desktop is untouched -- these
-           rules only ever apply under the 900px breakpoint. */
+           "current section" dropdown button. Tapping it opens a mobile-only
+           list of its own -- deliberately NOT the desktop's block/underline
+           row style, since dragging by handle doesn't work on touch (this
+           codebase has no touch-event handling at all): every row is a
+           standalone rounded card with the up/down arrows always visible
+           and tappable, no extra "enter reorder mode" step. Desktop is
+           untouched -- these rules only ever apply under the 900px
+           breakpoint. */
         .admin-sidebar-current { display: none; }
-        .admin-sidebar-order-toggle { display: none; }
 
         @media (max-width: 900px) {
             .admin-layout { grid-template-columns: 1fr; gap: 14px; }
@@ -1404,39 +1407,46 @@
                 box-shadow: 0 22px 60px rgba(0,0,0,.32);
             }
             .admin-sidebar-block.menu-open .admin-sidebar-dropdown { display: flex; }
-            .admin-sidebar-order-toggle {
-                display: inline-flex;
-                align-items: center;
-                align-self: flex-start;
-                gap: 6px;
-                padding: 6px 14px;
-                border: 1px solid var(--border-color);
-                border-radius: 999px;
-                background: var(--surface-color);
-                color: var(--text-muted);
-                font-family: 'Manrope', sans-serif;
-                font-size: .74rem;
-                font-weight: 700;
-                letter-spacing: -.01em;
-                cursor: pointer;
-                transition: .15s var(--ease);
-            }
-            .admin-sidebar-order-toggle:hover { border-color: var(--sleek-accent); color: var(--sleek-accent-strong); }
-            .admin-sidebar-order-toggle[aria-pressed="true"] {
-                background: var(--sleek-accent);
-                border-color: var(--sleek-accent);
-                color: #fff;
-            }
             .admin-sidebar {
                 position: static;
                 max-height: none;
                 overflow: visible;
+                gap: 8px;
                 padding: 0;
             }
-            .admin-nav-row { width: 100%; }
-            .admin-nav-handle, .admin-nav-order-actions { display: none; }
-            .admin-sidebar.order-mode .admin-nav-handle { display: grid; }
-            .admin-sidebar.order-mode .admin-nav-order-actions { display: flex; }
+            /* Each row is its own rounded card -- label left, sort arrows
+               right, always both visible. This is the part that reads as
+               "a dropdown list", not a relocated copy of the desktop
+               sidebar (which uses a flat list with a left accent bar). */
+            .admin-nav-row {
+                width: 100%;
+                gap: 6px;
+                padding: 4px 6px 4px 14px;
+                border: 1px solid var(--border-color);
+                border-radius: 14px;
+                background: var(--surface-color);
+                cursor: default;
+            }
+            .admin-nav-row.active {
+                border-color: var(--sleek-accent);
+                background: color-mix(in srgb, var(--sleek-accent) 14%, var(--surface-color));
+            }
+            .admin-nav-handle { display: none; }
+            .admin-nav-item {
+                flex: 1 1 auto;
+                padding: 12px 0;
+                border: none;
+                border-radius: 0;
+                background: transparent;
+                white-space: normal;
+            }
+            .admin-nav-item.active {
+                background: transparent;
+                border-left-color: transparent;
+                color: var(--sleek-accent-strong);
+            }
+            .admin-nav-order-actions { display: flex; }
+            .admin-nav-arrow { width: 30px; height: 30px; font-size: .78rem; }
         }
 
         .ticket-box {
@@ -1932,10 +1942,7 @@
                         <span class="admin-sidebar-current-chevron" aria-hidden="true">&#9662;</span>
                     </button>
                     <div class="admin-sidebar-dropdown" id="adminSidebarDropdown">
-                        <button type="button" class="admin-sidebar-order-toggle" id="adminSidebarOrderToggle" aria-pressed="false" onclick="toggleAdminSidebarOrderMode()">
-                            <span aria-hidden="true">&#8645;</span> <span id="adminSidebarOrderToggleLabel">Susun</span>
-                        </button>
-                        <nav class="admin-sidebar" id="adminSidebarNav" role="tablist" aria-label="Navigasi tetapan admin (boleh disusun semula -- seret atau guna anak panah)"></nav>
+                        <nav class="admin-sidebar" id="adminSidebarNav" role="tablist" aria-label="Navigasi tetapan admin (boleh disusun semula -- guna anak panah, atau seret pada desktop)"></nav>
                     </div>
                 </div>
 
@@ -5233,21 +5240,15 @@
             if (currentLabel) currentLabel.textContent = ADMIN_SECTION_LABELS[currentAdminSection] || currentAdminSection;
         }
 
-        function toggleAdminSidebarOrderMode() {
-            const nav = document.getElementById('adminSidebarNav');
-            const toggle = document.getElementById('adminSidebarOrderToggle');
-            const label = document.getElementById('adminSidebarOrderToggleLabel');
-            if (!nav || !toggle) return;
-            const isOn = nav.classList.toggle('order-mode');
-            toggle.setAttribute('aria-pressed', String(isOn));
-            if (label) label.textContent = isOn ? 'Selesai' : 'Susun';
-        }
-
         // Mobile-only "current section" dropdown -- the desktop sidebar
-        // itself lives inside .admin-sidebar-dropdown and is reused as-is;
-        // this just shows/hides that panel below a summary button. A
-        // capture-phase outside-click listener (added only while open)
-        // closes it, mirroring a native <select>.
+        // itself lives inside .admin-sidebar-dropdown; this just shows/hides
+        // that panel below a summary button. On mobile the up/down arrows
+        // are always visible in every row (see the 900px CSS block) so
+        // reordering needs no separate mode -- dragging by handle doesn't
+        // work on touch anyway (no touch-event handling in this codebase),
+        // so the desktop-only drag handle stays hidden here. A capture-phase
+        // outside-click listener (added only while open) closes the panel,
+        // mirroring a native <select>.
         function toggleAdminSidebarMobileMenu() {
             const block = document.querySelector('.admin-sidebar-block');
             const btn = document.getElementById('adminSidebarCurrentBtn');
