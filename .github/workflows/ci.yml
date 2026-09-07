@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-workflows:
+    name: Actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install actionlint
+        run: |
+          curl -fsSL -o actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v1.6.25/actionlint_1.6.25_linux_amd64.tar.gz"
+          tar -xzf actionlint.tar.gz
+          chmod +x actionlint
+          ./actionlint -color .github/workflows
+
+  test:
+    name: Node tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run test suite
+        run: npm test
