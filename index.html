@@ -1497,6 +1497,7 @@
         #customer-take-ticket { display: none; border-style: dashed; }
         #walkinQueueStatus { margin-bottom:18px; }
         #queueFullAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 8px; }
+        #adminNoActiveSeatsWarning { display:none; text-align:center; margin-bottom:18px; background: rgba(220, 53, 69, 0.12); border: 1px solid var(--danger); color: var(--danger); padding: 14px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; }
         #closingSoonAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 8px; }
         #closingSoonAlertText { margin-bottom:10px; font-size:0.9rem; }
         #walkinServiceHint { display:none; }
@@ -1948,6 +1949,10 @@
     <main id="admin-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Admin</h2>
+
+            <div id="adminNoActiveSeatsWarning" class="admin-no-active-seats-warning" role="alert" onclick="setAdminSection('seats')">
+                &#9888; TIADA KERUSI AKTIF &mdash; tempahan online dan giliran walk-in baharu TIDAK BOLEH dibuat sehingga sekurang-kurangnya satu kerusi diaktifkan. Klik untuk pergi ke tab <strong>Kerusi &amp; Giliran</strong>.
+            </div>
 
             <div class="admin-layout">
                 <div class="admin-sidebar-block">
@@ -5888,6 +5893,13 @@
                 select?.focus({ preventScroll: true });
                 return;
             }
+            if (!change.activating && Object.values(change.seats).filter(Boolean).length === 0) {
+                const proceed = await showConfirmDialog(
+                    `Kerusi ${seatNum} ialah kerusi AKTIF terakhir. Menutupnya akan menghentikan SEMUA tempahan online dan giliran walk-in baharu sehingga sekurang-kurangnya satu kerusi diaktifkan semula. Teruskan?`,
+                    { title: 'Tiada Kerusi Aktif Akan Tinggal' }
+                );
+                if (!proceed) return;
+            }
             const result = commitStorageTransaction({ activeSeats: change.seats, barberAssignments: change.assignments });
             if (!result.ok) return (await showAlertDialog("Status kerusi gagal disimpan. Sila cuba lagi."));
             if (select) delete select.dataset.dirty;
@@ -7115,7 +7127,16 @@
                 return;
             }
             const activeSeats = getActiveSeats();
-            if(!isOnlineBookingDateAllowed(d) || Object.values(activeSeats).filter(Boolean).length === 0) {
+            if (Object.values(activeSeats).filter(Boolean).length === 0) {
+                s.innerHTML = '<option value="">KEDAI BELUM SEDIA UNTUK TEMPAHAN ONLINE</option>';
+                s.disabled = true;
+                if (slotNotice) {
+                    slotNotice.textContent = 'Kedai belum bersedia menerima tempahan online buat masa ini (tiada kerusi aktif). Sila hubungi kedai terus atau cuba sebentar lagi.';
+                    slotNotice.style.display = 'block';
+                }
+                return;
+            }
+            if (!isOnlineBookingDateAllowed(d)) {
                 s.innerHTML='<option value="">TARIKH TIDAK TERSEDIA / TIADA SLOT</option>'; s.disabled = true; return;
             }
             
@@ -7928,6 +7949,8 @@
             renderWalkinQueuePreview(queues, activeSeats, maxQueue, waitByRecordId);
 
             // --- ADMIN TOGGLES ---
+            const noActiveSeatsWarning = document.getElementById('adminNoActiveSeatsWarning');
+            if (noActiveSeatsWarning) noActiveSeatsWarning.style.display = Object.values(activeSeats).filter(Boolean).length === 0 ? 'block' : 'none';
             document.getElementById('adminShopStatusText').innerText = isShopOpen ? "DIBUKA" : "DITUTUP";
             document.getElementById('adminShopStatusText').style.color = isShopOpen ? "var(--success)" : "var(--danger)";
             document.getElementById('toggleShopBtn').innerText = isShopOpen ? "TUTUP OPERASI KEDAI (KECEMASAN)" : "BUKA OPERASI KEDAI";
