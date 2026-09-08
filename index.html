@@ -3189,7 +3189,7 @@
                 <label class="capability-row">
                     <input type="checkbox" class="capability-check" data-service-id="${escapeHTML(service.id)}" ${capabilitySet.has(service.id) ? 'checked' : ''} onchange="onCapabilityCheckboxChange(this)">
                     <span class="capability-row-name">${escapeHTML(service.name)}</span>
-                    <input type="number" class="capability-duration-input" data-service-id="${escapeHTML(service.id)}" min="1" max="480" step="1" inputmode="numeric" placeholder="${service.duration}m" value="${Number.isInteger(durationMap[service.id]) ? durationMap[service.id] : ''}" title="Tempoh tersuai (minit) untuk tukang gunting ini bagi servis ini. Kosongkan untuk guna lalai kedai (${service.duration} minit).">
+                    <input type="number" class="capability-duration-input" data-service-id="${escapeHTML(service.id)}" min="1" max="480" step="1" inputmode="numeric" placeholder="${service.duration}" value="${Number.isInteger(durationMap[service.id]) ? durationMap[service.id] : ''}" title="Tempoh tersuai (minit) untuk tukang gunting ini bagi servis ini. Masukkan nombor sahaja (unit minit automatik). Kosongkan untuk guna lalai kedai (${service.duration} minit).">
                     <button type="button" class="specialty-star${specialtySet.has(service.id) ? ' active' : ''}" onclick="toggleSpecialtyStar(this)" title="Jadikan servis utama (diutamakan)">&#9733;</button>
                 </label>`).join('');
             return `
