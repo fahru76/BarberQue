@@ -2300,6 +2300,47 @@ build/legacy.cjs                                    regenerable reference impl
   `.github/workflows/ci.yml` and this file). PR branch deleted from GitHub after merge.
 - `QUEUECUT_HANDOVER.md` item 6 updated to reflect shipped status.
 
+## Done — barber-specific custom service durations (2026-09-08)
+
+- Fahru's request: any registered barber should be able to set their own timing for a
+  given hairstyle/service, distinct from the shop-wide `services.duration_minutes`.
+  Confirmed two decisions before building: admin enters it (extends the existing
+  "Kebolehan & Keutamaan Servis" staff capability panel, not barber self-service), and it
+  must feed into live wait-time math, not just be a reference value.
+- New migration `20260908130000_barber_service_durations.sql`:
+  - `staff.service_durations jsonb` (nullable) — a `{ [service_id]: minutes }` map, keyed
+    by the same `service.id` values as `capability_service_ids`/`specialty_service_ids`.
+    NULL/missing key for a service = fall back to that service's shop-wide default, same
+    "safe by default" pattern as item 1's capability columns.
+  - `call_next_customer()` rewritten (all prior logic preserved unchanged) to compute an
+    effective duration override at the moment a ticket is called: only applied when
+    EVERY `service_ids` entry on that ticket has an explicit, well-formed (1-999 minute)
+    override for the calling barber -- any gap or malformed value falls back to the
+    ticket's original snapshotted `duration_minutes`, untouched. This is the one point in
+    the app where a ticket's barber AND service are both certain, so it's also the only
+    place this override is applied -- the pre-call wait estimate shown to a waiting
+    customer is deliberately left alone (no barber assigned yet, nothing barber-specific
+    to show), and the override never re-derives from live `services` data, preserving the
+    existing "editing/deleting a service must not retroactively change an already-taken
+    ticket" snapshot invariant.
+- `js/repositories/authRepository.js`: `listStaff()` now selects and maps
+  `serviceDurations`; `setStaffStatus()` accepts and persists it, following the exact
+  same "pass to set, empty/null to clear, omit to leave untouched" convention as
+  `capabilityServiceIds`/`specialtyServiceIds`.
+- `index.html`: the staff capability panel (`renderStaffCapabilityPanel()`) gained a
+  small number input per service row (placeholder shows the shop's default duration),
+  and `saveStaffCapabilities()` collects and client-side validates them (integer,
+  1-480 minutes, matching the `queues.duration_minutes` check constraint) before calling
+  `AuthRepo.setStaffStatus(...)`.
+- Verified: both inline `<script>` blocks pass `node --check`; `npm test` (23 domain
+  tests + 20,000-comparison differential + sql-consistency) passes unchanged before and
+  after; `get_advisors` (security) shows no new findings introduced by this migration.
+- Shipped via `feat/barber-service-durations` -> PR #2 -> squash-merged into `main` at
+  `e9154ac`. Migration applied directly to the live Supabase project
+  (`cojaebzxrtyvxrnadiuv`) immediately before the merge, so the deployed frontend and the
+  live `call_next_customer()` definition became consistent at the same time. PR branch
+  deleted from GitHub after merge.
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with
