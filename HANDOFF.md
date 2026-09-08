@@ -1846,8 +1846,9 @@ attributing a residual color difference (light theme looked different when Andro
 OS-level display mode was dark) to Samsung's "Eye comfort shield" filter. **The user
 disabled Eye Comfort Shield and the problem persisted** — that explanation was wrong.
 A second-opinion investigation handoff for a different AI assistant (Codex) was written
-to `CODEX_HANDOFF_LIGHT_THEME.md` in this same directory (kept for its accurate
-round 1/round 2 technical history and full "what's confirmed vs. ruled out" detail).
+to `docs/archive/CODEX_HANDOFF_LIGHT_THEME.md` (archived there once resolved --
+kept for its accurate round 1/round 2 technical history and full "what's confirmed
+vs. ruled out" detail).
 
 **Codex's finding (round 3):** bare `color-scheme: light` or `color-scheme: dark` — what
 rounds 1 and 2 both used — only *declares which scheme(s) the page can render in*. Per
@@ -2191,8 +2192,8 @@ index.html                                          the running app; bookTicket(
                                                      code -- see "Round 3 -- resolved by
                                                      browser configuration, not by code"
                                                      section above and
-                                                     CODEX_HANDOFF_LIGHT_THEME.md (same
-                                                     directory) for full history. Code
+                                                     docs/archive/
+                                                     CODEX_HANDOFF_LIGHT_THEME.md for full history. Code
                                                      fix (round 3): every color-scheme
                                                      signal (static meta, static html
                                                      style attr, static :root/
