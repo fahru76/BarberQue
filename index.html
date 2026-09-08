@@ -754,6 +754,7 @@
         }
         .barber-assignment-card label { display: block; margin-bottom: 7px; color: var(--text-muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
         .barber-duty-name { min-height: 18px; margin-top: 5px; color: var(--text-muted); font-size: .72rem; font-weight: 600; }
+        .admin-seat-toggle-barber { display:block; font-size: .68rem; font-weight: 500; opacity: .8; margin: 3px 0; letter-spacing: normal; }
 
         .custom-calendar { padding: 16px; border-radius: 16px; background: var(--card-bg); }
         .cal-header { font-family: 'Manrope', sans-serif; font-size: .9rem; font-weight: 700; }
@@ -7998,7 +7999,11 @@
 
             getSeatNumbers().forEach(n => {
                 let sBtn = document.getElementById(`btnToggleSeat${n}`);
-                sBtn.innerText = `Kerusi ${n} : ${activeSeats[n] ? 'AKTIF' : 'TUTUP'}`;
+                const seatBarberName = String(seatServerState[String(n)]?.barberName || '').trim() || getBarberAssignments()[n] || '';
+                const barberLabel = seatBarberName
+                    ? `<span class="admin-seat-toggle-barber">${escapeHTML(seatBarberName)}</span>`
+                    : '';
+                sBtn.innerHTML = `Kerusi ${n} : ${activeSeats[n] ? 'AKTIF' : 'TUTUP'}${barberLabel}`;
                 sBtn.className = activeSeats[n] ? "btn btn-action" : "btn btn-reset";
             });
 
