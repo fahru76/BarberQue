@@ -4869,6 +4869,35 @@
             }
             return normalized;
         }
+
+        // Fahru's follow-up (2026-09-08): two ACTIVE seats must never display
+        // the same barber name at once -- the dropdown filtering and DB
+        // constraint added earlier stop a NEW duplicate from being created via
+        // the admin UI, but they can't retroactively fix data that predates
+        // them (an old localStorage cache from before this rule existed, a
+        // realtime sync race, a device that was briefly offline during a
+        // reassignment). This is the same "heal rather than trust", close-not-
+        // crash posture as normalizeActiveSeatsForAssignments() above: on any
+        // duplicate, every seat after the first with that name is closed
+        // (never reassigned or renamed) -- unless it's mid-serving a customer,
+        // in which case it's left alone so the barber isn't yanked out from
+        // under someone already in the chair.
+        function normalizeActiveSeatsForDuplicateBarbers(activeSeats, assignments, queues = []) {
+            const normalized = { ...activeSeats };
+            const seenBarberNames = new Set();
+            for (const seat of getSeatNumbers()) {
+                if (!normalized[seat]) continue;
+                const barberName = normalizeBarberName(assignments[seat]);
+                if (!barberName) continue;
+                if (seenBarberNames.has(barberName)) {
+                    const hasServingCustomer = queues.some(queue => queue.status === 'serving' && Number(queue.seat) === seat);
+                    if (!hasServingCustomer) normalized[seat] = false;
+                } else {
+                    seenBarberNames.add(barberName);
+                }
+            }
+            return normalized;
+        }
         const DEFAULT_OP_HOURS = Object.freeze({ closed:false, open:'10:00', close:'22:00', break1Start:'', break1End:'', break2Start:'', break2End:'', sessionSplit1:'', sessionSplit2:'' });
 
         function normalizeOpHours(value, fallback = DEFAULT_OP_HOURS) {
@@ -5107,7 +5136,11 @@
                 safeSetItem('barberAssignments', initialBarbers);
             }
             if (isStoredJSONValid('barberAssignments')) safeSetItem('barberAssignments', getBarberAssignments());
-            const normalizedSeats = normalizeActiveSeatsForAssignments(getActiveSeats(), getBarberAssignments(), getQueues());
+            const normalizedSeats = normalizeActiveSeatsForDuplicateBarbers(
+                normalizeActiveSeatsForAssignments(getActiveSeats(), getBarberAssignments(), getQueues()),
+                getBarberAssignments(),
+                getQueues()
+            );
             if (JSON.stringify(normalizedSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(normalizedSeats);
             if(!localStorage.getItem('closedDates')) safeSetItem('closedDates', []);
             if(!localStorage.getItem('bookingAdvanceDays')) safeSetItem('bookingAdvanceDays', '30');
@@ -7971,6 +8004,8 @@
             let isShopOpen = localStorage.getItem('shopStatus') === 'open';
             renderSeatStructures();
             renderBarberAssignments();
+            const healedActiveSeats = normalizeActiveSeatsForDuplicateBarbers(getActiveSeats(), getBarberAssignments(), getQueues());
+            if (JSON.stringify(healedActiveSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(healedActiveSeats);
             let activeSeats = getActiveSeats();
             let maxQueue = parseInt(localStorage.getItem('maxQueue')) || 10;
             let queues = getQueues();
