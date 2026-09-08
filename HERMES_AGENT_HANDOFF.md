@@ -42,7 +42,7 @@ did.
 - **Canonical source of truth for status:** `HANDOFF.md`.
 - **Secondary roadmap view:** `QUEUECUT_HANDOVER.md`.
 - **Session start command:** `git log --oneline -n 3 && git status --short --branch && printf "\n--- open/remaining status ---\n" && grep -nE "## Still open|## Done —|Status:" HANDOFF.md QUEUECUT_HANDOVER.md HERMES_AGENT_HANDOFF.md`
-- **Last handoff sync commit:** `e9154ac` (barber-specific custom service durations shipped -- see HANDOFF.md's matching entry).
+- **Last handoff sync commit:** `32cc290` (optional pagi/petang/malam same-day booking session gate shipped -- see HANDOFF.md's matching entry).
 - **Remaining unfinished work at a glance (as of this commit):**
   - `notificationOutbox` is write-only in `index.html` (phone collected, WhatsApp promise
     not yet wired).

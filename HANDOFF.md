@@ -2341,6 +2341,50 @@ build/legacy.cjs                                    regenerable reference impl
   live `call_next_customer()` definition became consistent at the same time. PR branch
   deleted from GitHub after merge.
 
+## Done — optional pagi/petang/malam session gate for same-day online booking (2026-09-08)
+
+- Fahru's request: a customer must not be able to book online for a session
+  (pagi/petang/malam) that is currently happening or already past, TODAY
+  only -- e.g. if it is currently petang, only malam is bookable today.
+  Tomorrow and later dates are completely unrestricted regardless of the
+  current time. Confirmed decisions before building: admin sets the two
+  cut-off times in Panel Admin (not hardcoded, not auto-split); restriction
+  applies to today's date only; if "now" is still before the shop opens,
+  pagi (and every later session) today remains bookable; a session with no
+  actual slots simply shows nothing for it, no special casing needed.
+- Admin UI: two new optional per-day dropdowns in the existing "Waktu
+  Operasi" panel -- "Pemisah Pagi -> Petang" and "Pemisah Petang -> Malam"
+  -- stored as `sessionSplit1`/`sessionSplit2` inside the already-jsonb
+  `weekly_op_hours` (no schema change). Both blank (the default) means the
+  shop hasn't opted in for that day; behaviour is completely unchanged.
+- Client: `isAppointmentSlotAvailable()` -- the single choke point already
+  used by slot listing, final submit, and reschedule -- gates a same-day
+  slot by comparing "now" against the START of whichever session
+  (pagi/petang/malam) that slot's own time falls into, not just the slot's
+  own start time. Session boundaries and "now" are both run through the
+  same overnight-aware `businessMinutes()` axis shift every other time
+  comparison in this file already uses.
+- Server: new migration `20260908133500_booking_session_gate.sql` rewrites
+  `_appointment_hours_ok()` (the one function `book_appointment()`,
+  `reschedule_own_appointment()` and `convert_walkin_to_appointment()` all
+  call) with the identical logic in PL/pgSQL, including the existing
+  overnight "+1440" axis handling -- enforcement, not just client-side UX.
+  Applied directly to the live project before the PR merged.
+- Fixed a latent bug surfaced while wiring the new selects into
+  `populateOperationalTimeSelects()`: its bounded-value filter keyed off
+  `id.startsWith('br')`, which silently skipped bounds-checking for any
+  future optional select that wasn't break-prefixed -- generalized to the
+  existing `optional` flag instead.
+- Verified: `npm test` (23 domain fixtures + 20,000-comparison differential
+  + sql-consistency) unchanged before/after; `node --check` on both inline
+  `<script>` blocks; a 10-scenario arithmetic check of the session-boundary
+  algorithm run directly against the live project (isolated computation, no
+  `shop_settings` row touched) covering all three "which session is
+  current" cases plus the before-opening case; `get_advisors` (security)
+  shows no new findings introduced by the migration.
+- Shipped via `feat/booking-session-gate` -> PR #3 -> squash-merged into
+  `main` at `32cc290`. PR branch deleted from GitHub after merge.
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with
