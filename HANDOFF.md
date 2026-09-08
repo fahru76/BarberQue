@@ -2444,6 +2444,46 @@ build/legacy.cjs                                    regenerable reference impl
 - Shipped directly to `main` at `d665805` (scoped bug fix, same treatment
   as the calendar-tap fix above -- no PR).
 
+## Done — a barber can only be tied to one seat, active or not (2026-09-08)
+
+- Fahru's follow-up, unsatisfied with the earlier same-session fix
+  (`## Done -- same barber assignable to two active seats at once` above):
+  that fix only rejected a duplicate ACTIVE assignment, but an INACTIVE
+  seat could still hold a barber as a placeholder while the admin UI let
+  that same barber also be picked and activated elsewhere -- e.g. Kerusi 3
+  keeps a placeholder name from before it was closed, then Kerusi 1 gets
+  activated with the same name. Fahru's own framing: "cuba buat approach
+  yang lebih mudah" -- a simpler approach, not another after-the-fact
+  validation layer.
+- The simpler rule: a barber can be tied to AT MOST ONE seat at a time,
+  full stop, whether that seat is active or inactive. No more "is this a
+  live conflict or just a harmless placeholder" distinction to reason
+  about.
+- Client: a new `refreshBarberAssignmentDropdownOptions()` (called from
+  `renderBarberAssignments()` and wired into every seat select's
+  `onchange`) recomputes every seat's `<option>` list live -- a staff
+  member already picked on ANY other seat's dropdown simply doesn't
+  appear as a choice elsewhere. The mistake becomes structurally
+  impossible via the UI instead of being caught and alerted after the
+  fact. To reassign a barber, clear their old seat's dropdown first,
+  which frees the name up everywhere else immediately.
+  `saveBarberAssignments()`'s duplicate check (previously active-seat-only)
+  is generalized to catch any repeated staffId regardless of active state,
+  and `toggleSeatStatus()` -- a separate single-seat-toggle code path that
+  had NO duplicate check at all before this -- gets the same backstop.
+- Server: `20260908143140_one_seat_per_barber_global.sql` drops the
+  previous partial index (`seats_one_active_seat_per_barber_uidx`, scoped
+  to `where active`) and replaces it with `seats_one_seat_per_barber_uidx`
+  -- unique on `seats(barber_id) where barber_id is not null`, no
+  active-state condition.
+- Verified: queried live `seats` data before applying (no `barber_id`
+  already shared across two seats) so the migration applied cleanly;
+  `get_advisors` shows no new security findings; `npm test` (23 fixtures +
+  20,000-comparison differential) and `tests/sql-consistency.mjs` both
+  pass; `node --check` on both inline `<script>` blocks.
+- Shipped directly to `main` at `4aa34a2` (same scoped-bug-fix treatment
+  as the other two fixes today -- no PR).
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with

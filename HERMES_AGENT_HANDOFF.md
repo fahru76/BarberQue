@@ -56,17 +56,18 @@ did.
 
 ## Current state as of this handoff
 
-- `main` is at commit `d665805`
-  (`fix: prevent same barber assigned to two active seats at once`), 2026-09-08. Don't
+- `main` is at commit `4aa34a2`
+  (`fix: a barber can only be assigned to one seat, active or not`), 2026-09-08. Don't
   trust this hash if it's been a while: run `git log --oneline -n 3` for the current
   head.
-- Most recent migration: `supabase/migrations/20260908135754_one_barber_per_active_seat.sql`
-  — a partial unique index `seats_one_active_seat_per_barber_uidx` on
-  `seats(barber_id) where active and barber_id is not null`, so the same registered
-  barber can no longer be assigned to two active seats at once. Already applied to the
-  live project — confirmed via `get_advisors` (no new findings) and a pre-apply query
-  against the live `seats` table (no active seat had a barber_id conflict at apply
-  time).
+- Most recent migration: `supabase/migrations/20260908143140_one_seat_per_barber_global.sql`
+  — replaces the earlier partial index (`seats_one_active_seat_per_barber_uidx`, scoped
+  to `where active`) with `seats_one_seat_per_barber_uidx`, unique on
+  `seats(barber_id) where barber_id is not null` -- NO active-state condition, so a
+  barber can be tied to at most one seat slot at all, active or inactive. Already
+  applied to the live project — confirmed via `get_advisors` (no new findings) and a
+  pre-apply query against the live `seats` table (no barber_id was already shared
+  across two seats at apply time).
 - What Claude (Cowork) built and shipped this session (chronological; full detail in
   `HANDOFF.md`'s matching "Done — ..." sections):
   1. Barber-specific per-service duration overrides (admin-configured per staff member,
@@ -79,9 +80,14 @@ did.
      refresh (DOM-diff-guard on `renderVisualCalendar()`/`renderAdminVisualCalendar()`,
      same pattern as the existing `operationalTimeOptionsSignature` guard). Shipped
      directly to `main` at `e0dd062`.
-  4. This session's last fix: blocked the same barber from being assigned to two
-     active seats at once (client validation in `saveBarberAssignments()` + the DB
-     partial-unique-index above). Shipped directly to `main` at `d665805`.
+  4. Blocked the same barber from being assigned to two ACTIVE seats at once (client
+     validation in `saveBarberAssignments()` + a partial DB unique index). Shipped
+     directly to `main` at `d665805`.
+  5. Fahru's follow-up, unsatisfied with #4: replaced it with a simpler, stricter rule
+     -- a barber can be tied to at most ONE seat, active or inactive, full stop. Each
+     seat's barber dropdown now live-filters out any name already picked on a
+     different seat (structural prevention, not after-the-fact validation), backed by
+     the global DB unique index above. Shipped directly to `main` at `4aa34a2`.
 - What the previous agent built (4 commits, already live before this session's work):
   the Panel Admin left sidebar became a reorderable list (drag or up/down arrows); on
   mobile it's now a dropdown with its own card-list style (not a shrunk copy of the
