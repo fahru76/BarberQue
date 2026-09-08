@@ -79,7 +79,7 @@ export async function getMyStaffProfile() {
 export async function listStaff() {
     const { data, error } = await supabase
         .from('staff')
-        .select('id, display_name, role, active, created_at, capability_service_ids, specialty_service_ids')
+        .select('id, display_name, role, active, created_at, capability_service_ids, specialty_service_ids, service_durations')
         .order('created_at', { ascending: true });
     raiseOnError(error);
     return data.map(row => ({
@@ -89,7 +89,11 @@ export async function listStaff() {
         // call_next_customer() and QUEUECUT_HANDOVER.md Item 1. Normalised to
         // [] here so index.html's admin checklist never has to null-check.
         capabilityServiceIds: row.capability_service_ids || [],
-        specialtyServiceIds: row.specialty_service_ids || []
+        specialtyServiceIds: row.specialty_service_ids || [],
+        // Per-service duration override in minutes, keyed by services.id —
+        // see 20260908130000_barber_service_durations.sql. NULL normalised
+        // to {} for the same reason as above.
+        serviceDurations: row.service_durations || {}
     }));
 }
 
@@ -116,14 +120,27 @@ export async function listStaff() {
  * untouched. The server independently rejects a specialty list that isn't a
  * subset of a restricted capability list (`staff_specialty_subset_of_capability`
  * check constraint) — this function does not pre-validate that itself.
+ *
+ * `serviceDurations` (per-barber custom haircut/service duration overrides,
+ * set from the admin panel's staff capability card) is a map of
+ * `{ [service_id]: minutes }` covering the barber's own service list.
+ * Follow the same "only patch what's explicitly passed" convention: pass an
+ * object with at least one entry to set/replace it, an empty object or
+ * `null` to clear back to "use the shop's default service durations", or
+ * omit the key to leave it untouched. Minute values are validated
+ * client-side (index.html, 1-480 to match the `queues.duration_minutes`
+ * check constraint) and defensively re-checked inside `call_next_customer()`
+ * before being applied to a ticket — this function does not validate them
+ * itself.
  */
-export async function setStaffStatus(id, { active, role, displayName, capabilityServiceIds, specialtyServiceIds } = {}) {
+export async function setStaffStatus(id, { active, role, displayName, capabilityServiceIds, specialtyServiceIds, serviceDurations } = {}) {
     const patch = {};
     if (active !== undefined) patch.active = active;
     if (role !== undefined) patch.role = role;
     if (displayName !== undefined) patch.display_name = displayName;
     if (capabilityServiceIds !== undefined) patch.capability_service_ids = capabilityServiceIds?.length ? capabilityServiceIds : null;
     if (specialtyServiceIds !== undefined) patch.specialty_service_ids = specialtyServiceIds?.length ? specialtyServiceIds : null;
+    if (serviceDurations !== undefined) patch.service_durations = serviceDurations && Object.keys(serviceDurations).length ? serviceDurations : null;
     const { error } = await supabase.from('staff').update(patch).eq('id', id);
     raiseOnError(error);
 }

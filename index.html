@@ -1689,6 +1689,7 @@
         .capability-row-name { flex:1; }
         .specialty-star { background:none; border:1px solid var(--border-color); border-radius:6px; width:32px; height:32px; font-size:1rem; line-height:1; cursor:pointer; color:var(--border-color); }
         .specialty-star.active { color:#fff; background:#f39c12; border-color:#f39c12; }
+        .capability-duration-input { width:64px; padding:4px 6px; border:1px solid var(--border-color); border-radius:6px; font-size:0.85rem; text-align:center; }
 </style>
 </head>
 <body>
@@ -3182,16 +3183,18 @@
             if (!services.length) return '';
             const capabilitySet = new Set(member.capabilityServiceIds || []);
             const specialtySet = new Set(member.specialtyServiceIds || []);
+            const durationMap = member.serviceDurations || {};
             const rows = services.map(service => `
                 <label class="capability-row">
                     <input type="checkbox" class="capability-check" data-service-id="${escapeHTML(service.id)}" ${capabilitySet.has(service.id) ? 'checked' : ''} onchange="onCapabilityCheckboxChange(this)">
                     <span class="capability-row-name">${escapeHTML(service.name)}</span>
+                    <input type="number" class="capability-duration-input" data-service-id="${escapeHTML(service.id)}" min="1" max="480" step="1" inputmode="numeric" placeholder="${service.duration}m" value="${Number.isInteger(durationMap[service.id]) ? durationMap[service.id] : ''}" title="Tempoh tersuai (minit) untuk tukang gunting ini bagi servis ini. Kosongkan untuk guna lalai kedai (${service.duration} minit).">
                     <button type="button" class="specialty-star${specialtySet.has(service.id) ? ' active' : ''}" onclick="toggleSpecialtyStar(this)" title="Jadikan servis utama (diutamakan)">&#9733;</button>
                 </label>`).join('');
             return `
                 <details class="staff-capability-panel" data-staff-id="${member.id}">
                     <summary>Kebolehan &amp; Keutamaan Servis${capabilitySet.size ? ` (dihadkan kepada ${capabilitySet.size})` : ' (tiada had -- boleh semua)'}</summary>
-                    <p class="text-muted capability-hint">Jika TIADA servis ditanda "Boleh", tukang gunting ini dianggap boleh buat SEMUA servis (lalai, sama seperti sekarang). Tanda &#9733; untuk jadikan servis itu keutamaan -- pelanggan servis tersebut akan dipanggil dahulu oleh tukang gunting ini.</p>
+                    <p class="text-muted capability-hint">Jika TIADA servis ditanda "Boleh", tukang gunting ini dianggap boleh buat SEMUA servis (lalai, sama seperti sekarang). Tanda &#9733; untuk jadikan servis itu keutamaan -- pelanggan servis tersebut akan dipanggil dahulu oleh tukang gunting ini. Masukkan tempoh (minit) untuk tetapkan tempoh tersuai tukang gunting ini bagi servis tersebut -- kosongkan untuk guna tempoh lalai kedai.</p>
                     ${rows}
                     <button type="button" class="btn btn-sm btn-action mt-8" onclick="saveStaffCapabilities('${member.id}')">Simpan Kebolehan</button>
                 </details>`;
@@ -3221,8 +3224,23 @@
             const specialtyServiceIds = Array.from(panel.querySelectorAll('.specialty-star.active')).map(star =>
                 star.closest('.capability-row')?.querySelector('.capability-check')?.dataset.serviceId
             ).filter(Boolean);
+            // Item: per-barber custom service durations. Same "1-480 minutes" range as
+            // the queues.duration_minutes check constraint (call_next_customer() also
+            // re-validates server-side). An empty box means "use the shop's default
+            // duration for this service" and is simply omitted from the map.
+            const serviceDurations = {};
+            for (const input of panel.querySelectorAll('.capability-duration-input')) {
+                const raw = input.value.trim();
+                if (!raw) continue;
+                const minutes = Number.parseInt(raw, 10);
+                if (!Number.isInteger(minutes) || minutes < 1 || minutes > 480) {
+                    (await showAlertDialog('Tempoh servis tersuai mesti nombor bulat antara 1 hingga 480 minit.'));
+                    return;
+                }
+                serviceDurations[input.dataset.serviceId] = minutes;
+            }
             try {
-                await window.AuthRepo.setStaffStatus(staffId, { capabilityServiceIds, specialtyServiceIds });
+                await window.AuthRepo.setStaffStatus(staffId, { capabilityServiceIds, specialtyServiceIds, serviceDurations });
                 await refreshStaffList();
             } catch (error) {
                 (await showAlertDialog(error.message || 'Gagal menyimpan kebolehan servis.'));
