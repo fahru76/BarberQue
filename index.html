@@ -7999,7 +7999,15 @@
 
             getSeatNumbers().forEach(n => {
                 let sBtn = document.getElementById(`btnToggleSeat${n}`);
-                const seatBarberName = String(seatServerState[String(n)]?.barberName || '').trim() || getBarberAssignments()[n] || '';
+                // Fahru's follow-up: only show the barber name while the seat
+                // is ACTIVE. The assignment is retained internally when a seat
+                // closes (so it's ready to reopen with the same barber), but
+                // showing that placeholder name under a TUTUP button read as
+                // if the barber were still on duty there -- so it's hidden
+                // here even though the underlying data isn't cleared.
+                const seatBarberName = activeSeats[n]
+                    ? (String(seatServerState[String(n)]?.barberName || '').trim() || getBarberAssignments()[n] || '')
+                    : '';
                 const barberLabel = seatBarberName
                     ? `<span class="admin-seat-toggle-barber">${escapeHTML(seatBarberName)}</span>`
                     : '';
