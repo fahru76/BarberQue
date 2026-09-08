@@ -5804,6 +5804,30 @@
             const activeSeats = getActiveSeats();
             const activeSeatWithoutName = getSeatNumbers().find(seat => activeSeats[seat] && !assignments[seat]);
             if (activeSeatWithoutName) return (await showAlertDialog(`Tukang gunting Kerusi ${activeSeatWithoutName} tidak boleh dikosongkan ketika kerusi masih aktif. Tutup kerusi dahulu.`));
+            // Fahru's request (2026-09-08): one barber can't physically serve two
+            // active seats at once, so the same registered staff account must not
+            // be assigned to more than one ACTIVE seat at the same time. Inactive
+            // seats are exempt -- their assignment is just a placeholder for when
+            // they're reopened, not a live scheduling conflict (findNextSeatStart()
+            // and every wait-time estimate already only ever consider active
+            // seats). Keyed on staffId (the real account), not the display-name
+            // string, so this can't be defeated by two seats merely rendering the
+            // same name differently.
+            const seatsByStaffId = new Map();
+            getSeatNumbers().forEach(seat => {
+                if (!activeSeats[seat] || !staffIdsBySeat[seat]) return;
+                const seatsForStaff = seatsByStaffId.get(staffIdsBySeat[seat]) || [];
+                seatsForStaff.push(seat);
+                seatsByStaffId.set(staffIdsBySeat[seat], seatsForStaff);
+            });
+            const duplicateAssignment = [...seatsByStaffId.entries()].find(([, seats]) => seats.length > 1);
+            if (duplicateAssignment) {
+                const [duplicateStaffId, seats] = duplicateAssignment;
+                return (await showAlertDialog(
+                    `${getStaffDisplayName(duplicateStaffId)} tidak boleh ditugaskan pada lebih daripada satu kerusi aktif pada masa sama ` +
+                    `(Kerusi ${seats.join(', ')}). Sila pilih tukang gunting lain untuk salah satu kerusi tersebut.`
+                ));
+            }
             if (!safeSetItem('barberAssignments', assignments)) return (await showAlertDialog("Tukang gunting gagal disimpan. Sila cuba lagi."));
             document.querySelectorAll('#adminBarberAssignments select').forEach(select => delete select.dataset.dirty);
             appendAuditEvent('barber_assignments_updated', 'shop_setting', 'barberAssignments', 'admin', { assignments });
