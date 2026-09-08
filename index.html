@@ -2390,6 +2390,12 @@
                         <div><label for="br2Start" class="text-danger">Mula Rehat 2:</label><select id="br2Start" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
                         <div><label for="br2End" class="text-danger">Tamat Rehat 2:</label><select id="br2End" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
                     </div>
+                    <hr class="border-subtle my-20">
+                    <p class="text-muted fs-85 mb-5">Sekatan sesi Tempahan Online (pilihan): elak pelanggan tempah sesi yang SEDANG berlangsung atau sudah lepas pada HARI INI sahaja (esok dan seterusnya tidak terjejas). Pilih “Tiada sekatan sesi” pada kedua-dua ruangan untuk lumpuhkan ciri ini.</p>
+                    <div class="input-row">
+                        <div><label for="sessSplit1">Pemisah Pagi &rarr; Petang:</label><select id="sessSplit1" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
+                        <div><label for="sessSplit2">Pemisah Petang &rarr; Malam:</label><select id="sessSplit2" onchange="clearOperationalHoursNoticeIfResolved()"></select></div>
+                    </div>
                     <p id="operationalHoursNotice" role="status" aria-live="polite"></p>
                 </div>
                 <button class="btn" id="saveOperationalHoursBtn" onclick="saveOperationalHours()">SIMPAN WAKTU HARI</button>
@@ -3354,7 +3360,7 @@
         let announcementCache = { initialized: false, source: null, plainSource: '', html: '', visible: false, version: 0 };
         const OPERATION_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
         const OPERATION_DAY_LABELS = { 0: 'Ahad', 1: 'Isnin', 2: 'Selasa', 3: 'Rabu', 4: 'Khamis', 5: 'Jumaat', 6: 'Sabtu' };
-        const OPERATION_TIME_INPUT_IDS = ['opClosed','opOpen','opClose','br1Start','br1End','br2Start','br2End'];
+        const OPERATION_TIME_INPUT_IDS = ['opClosed','opOpen','opClose','br1Start','br1End','br2Start','br2End','sessSplit1','sessSplit2'];
         const OPERATION_BREAK_PAIRS = [
             { startId: 'br1Start', endId: 'br1End', startKey: 'break1Start', endKey: 'break1End', label: 'Rehat 1' },
             { startId: 'br2Start', endId: 'br2End', startKey: 'break2Start', endKey: 'break2End', label: 'Rehat 2' }
@@ -3419,7 +3425,8 @@
                 opClosed: ops.closed,
                 opOpen: ops.open, opClose: ops.close,
                 br1Start: ops.break1Start, br1End: ops.break1End,
-                br2Start: ops.break2Start, br2End: ops.break2End
+                br2Start: ops.break2Start, br2End: ops.break2End,
+                sessSplit1: ops.sessionSplit1, sessSplit2: ops.sessionSplit2
             };
             return values[id] ?? '';
         }
@@ -4095,7 +4102,8 @@
             const selectConfigs = [
                 ['opOpen', ops.open, false], ['opClose', ops.close, false],
                 ['br1Start', ops.break1Start, true], ['br1End', ops.break1End, true],
-                ['br2Start', ops.break2Start, true], ['br2End', ops.break2End, true]
+                ['br2Start', ops.break2Start, true], ['br2End', ops.break2End, true],
+                ['sessSplit1', ops.sessionSplit1, true, 'Tiada sekatan sesi'], ['sessSplit2', ops.sessionSplit2, true, 'Tiada sekatan sesi']
             ];
             const signature = JSON.stringify({ closed: ops.closed === true, values: selectConfigs.map(([id, value]) => [id, value || '']) });
             const optionsAreCurrent = selectConfigs.every(([id, storedValue]) => {
@@ -4120,12 +4128,17 @@
             // (a close time at/before open means "next day" -- see businessMinutes doc).
             const opsForSelects = { open: effectiveOpen, close: effectiveClose };
             const bm = value => businessMinutes(timeToMinutes(value), opsForSelects);
-            selectConfigs.forEach(([id, storedValue, optional]) => {
+            selectConfigs.forEach(([id, storedValue, optional, emptyLabel]) => {
                 const select = document.getElementById(id);
                 if (!select) return;
                 const isDirty = select.dataset.dirty === 'true';
                 const displayedValue = select.value;
-                const isBreakSelect = id.startsWith('br');
+                // Was `id.startsWith('br')` -- renamed/generalized so the new
+                // sessSplit1/2 selects (also optional, also bounded to the
+                // open-close window, but not break-prefixed ids) get the same
+                // bounded-value filtering breaks already had, instead of
+                // silently skipping it (see HANDOFF.md for the bug this fixed).
+                const isBreakSelect = optional;
                 // A close time no longer has to be later than open on the same clock --
                 // only the exact same instant as open is meaningless (a zero-length day).
                 const values = id === 'opClose'
@@ -4153,7 +4166,7 @@
                 if (optional) {
                     const emptyOption = document.createElement('option');
                     emptyOption.value = '';
-                    emptyOption.textContent = 'Tiada rehat';
+                    emptyOption.textContent = emptyLabel || 'Tiada rehat';
                     select.appendChild(emptyOption);
                 }
                 values.forEach(value => {
@@ -4173,7 +4186,7 @@
 
         function syncOperationalHoursDisabledState() {
             const closed = document.getElementById('opClosed')?.checked === true;
-            ['opOpen','opClose','br1Start','br1End','br2Start','br2End'].forEach(id => {
+            ['opOpen','opClose','br1Start','br1End','br2Start','br2End','sessSplit1','sessSplit2'].forEach(id => {
                 const input = document.getElementById(id);
                 if (input) input.disabled = closed;
             });
@@ -4850,12 +4863,12 @@
             }
             return normalized;
         }
-        const DEFAULT_OP_HOURS = Object.freeze({ closed:false, open:'10:00', close:'22:00', break1Start:'', break1End:'', break2Start:'', break2End:'' });
+        const DEFAULT_OP_HOURS = Object.freeze({ closed:false, open:'10:00', close:'22:00', break1Start:'', break1End:'', break2Start:'', break2End:'', sessionSplit1:'', sessionSplit2:'' });
 
         function normalizeOpHours(value, fallback = DEFAULT_OP_HOURS) {
             const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
             const normalized = { closed: source.closed === true };
-            ['open','close','break1Start','break1End','break2Start','break2End'].forEach(key => {
+            ['open','close','break1Start','break1End','break2Start','break2End','sessionSplit1','sessionSplit2'].forEach(key => {
                 const candidate = String(source[key] ?? fallback[key] ?? '');
                 normalized[key] = /^\d{2}:\d{2}$/.test(candidate) || candidate === '' ? candidate : String(fallback[key] || '');
             });
@@ -5474,7 +5487,8 @@
                 closed: document.getElementById('opClosed').checked,
                 open: document.getElementById('opOpen').value, close: document.getElementById('opClose').value,
                 break1Start: document.getElementById('br1Start').value, break1End: document.getElementById('br1End').value,
-                break2Start: document.getElementById('br2Start').value, break2End: document.getElementById('br2End').value
+                break2Start: document.getElementById('br2Start').value, break2End: document.getElementById('br2End').value,
+                sessionSplit1: document.getElementById('sessSplit1').value, sessionSplit2: document.getElementById('sessSplit2').value
             };
         }
 
@@ -5506,6 +5520,20 @@
             const b2Start = data.break2Start ? bm(data.break2Start) : -1, b2End = data.break2Start ? bm(data.break2End) : -1;
             if (b1Start >= 0 && b2Start >= 0 && b1Start < b2End && b2Start < b1End) {
                 return "Waktu Rehat 1 dan Rehat 2 tidak boleh bertindih.";
+            }
+            // Fahru's request (2026-09-08): optional pagi/petang/malam session
+            // split, used only to gate same-day online booking (see
+            // isAppointmentSlotAvailable()). Both blank = feature off for this
+            // day; both must be set together, strictly ordered inside the
+            // operating window so all three sessions are non-empty.
+            if (Boolean(data.sessionSplit1) !== Boolean(data.sessionSplit2)) {
+                return "Kedua-dua pemisah sesi (Pagi\u2192Petang dan Petang\u2192Malam) mesti diisi bersama, atau kosongkan kedua-duanya untuk lumpuhkan sekatan sesi.";
+            }
+            if (data.sessionSplit1) {
+                const s1 = bm(data.sessionSplit1), s2 = bm(data.sessionSplit2);
+                if (!(openMinutes < s1 && s1 < s2 && s2 < closeMinutes)) {
+                    return "Pemisah sesi mesti tersusun dalam waktu operasi: Buka < Pagi\u2192Petang < Petang\u2192Malam < Tutup.";
+                }
             }
             return '';
         }
@@ -6892,7 +6920,22 @@
             const closeMinutes = businessMinutes(timeToMinutes(ops.close), ops);
             if (start < timeToMinutes(ops.open) || end > closeMinutes || intervalOverlapsBreak(start, end, ops)) return false;
             if (date === getCurrentBusinessDate()) {
-                if (start <= businessMinutes(getMalaysiaCurrentMinutes(), ops)) return false;
+                const nowBusinessMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
+                if (start <= nowBusinessMinutes) return false;
+                // Fahru's request (2026-09-08): optional pagi/petang/malam
+                // session gate, TODAY only -- a slot inside the session
+                // currently happening (or one already past) is blocked even
+                // though its own start time is still in the future; only a
+                // session that hasn't started yet is bookable today. Future
+                // dates are completely unaffected (see the outer `date ===
+                // getCurrentBusinessDate()` guard). Blank ops.sessionSplit1/2
+                // means this shop hasn't opted in for this day -- no change.
+                if (ops.sessionSplit1 && ops.sessionSplit2) {
+                    const petangStart = businessMinutes(timeToMinutes(ops.sessionSplit1), ops);
+                    const malamStart = businessMinutes(timeToMinutes(ops.sessionSplit2), ops);
+                    const sessionStart = start < petangStart ? timeToMinutes(ops.open) : (start < malamStart ? petangStart : malamStart);
+                    if (nowBusinessMinutes >= sessionStart) return false;
+                }
             }
 
             const existing = availabilityContext?.appointments || getAppointments().filter(a => a.date === date && a.status === 'upcoming' && a.id !== excludeAppointmentId);
