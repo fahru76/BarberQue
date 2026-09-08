@@ -5768,16 +5768,10 @@
             if (!force && container.querySelector('select[data-dirty="true"]')) return;
             const pendingEdits = new Map();
             container.querySelectorAll('select[data-dirty="true"]').forEach(select => pendingEdits.set(select.id, select.value));
-            const staffOptions = cachedStaffList.map(member =>
-                `<option value="${escapeHTML(member.id)}">${escapeHTML(member.displayName)}${member.active ? '' : ' (tidak aktif)'}</option>`
-            ).join('');
-            container.innerHTML = getSeatNumbers().map((seat, index) => `
+            container.innerHTML = getSeatNumbers().map(seat => `
                 <div class="barber-assignment-card">
                     <label for="barberNameSeat${seat}">Kerusi ${seat}</label>
-                    <select id="barberNameSeat${seat}" onchange="this.dataset.dirty='true'">
-                        <option value="">— Pilih tukang gunting —</option>
-                        ${staffOptions}
-                    </select>
+                    <select id="barberNameSeat${seat}" onchange="this.dataset.dirty='true'; refreshBarberAssignmentDropdownOptions();"></select>
                 </div>`).join('');
             getSeatNumbers().forEach((seat, index) => {
                 const select = document.getElementById(`barberNameSeat${seat}`);
@@ -5790,11 +5784,43 @@
                     select.dataset.dirty = 'true';
                 }
             });
+            // Fahru's request (2026-09-08, follow-up): a barber must never be
+            // pickable on more than one seat's dropdown at the same time --
+            // active or not. The earlier fix only rejected a duplicate at save
+            // time (an alert AFTER the fact); this instead makes the mistake
+            // impossible to make: each seat's own <option> list simply omits
+            // any staff member already selected on a DIFFERENT seat, so a name
+            // held as an inactive seat's "placeholder" (e.g. Kerusi 3) can't
+            // also show up in Kerusi 1's list. To move a barber from one seat
+            // to another, clear the old seat's dropdown first -- that frees
+            // the name up everywhere else immediately.
+            refreshBarberAssignmentDropdownOptions();
             if (!cachedStaffList.length) {
                 container.insertAdjacentHTML('beforeend',
                     '<div class="text-muted">Belum ada akaun kakitangan berdaftar. Jemput seorang tukang gunting dahulu di panel KAKITANGAN di atas.</div>');
             }
             container.dataset.signature = signature;
+        }
+
+        function refreshBarberAssignmentDropdownOptions() {
+            const seats = getSeatNumbers();
+            const currentValues = {};
+            seats.forEach(seat => { currentValues[seat] = document.getElementById(`barberNameSeat${seat}`)?.value || ''; });
+            seats.forEach(seat => {
+                const select = document.getElementById(`barberNameSeat${seat}`);
+                if (!select) return;
+                const ownValue = currentValues[seat];
+                const takenElsewhere = new Set(
+                    seats.filter(other => other !== seat).map(other => currentValues[other]).filter(Boolean)
+                );
+                const options = ['<option value="">— Pilih tukang gunting —</option>'].concat(
+                    cachedStaffList
+                        .filter(member => member.id === ownValue || !takenElsewhere.has(member.id))
+                        .map(member => `<option value="${escapeHTML(member.id)}">${escapeHTML(member.displayName)}${member.active ? '' : ' (tidak aktif)'}</option>`)
+                );
+                select.innerHTML = options.join('');
+                select.value = ownValue;
+            });
         }
 
         async function saveBarberAssignments() {
@@ -5809,18 +5835,19 @@
             const activeSeats = getActiveSeats();
             const activeSeatWithoutName = getSeatNumbers().find(seat => activeSeats[seat] && !assignments[seat]);
             if (activeSeatWithoutName) return (await showAlertDialog(`Tukang gunting Kerusi ${activeSeatWithoutName} tidak boleh dikosongkan ketika kerusi masih aktif. Tutup kerusi dahulu.`));
-            // Fahru's request (2026-09-08): one barber can't physically serve two
-            // active seats at once, so the same registered staff account must not
-            // be assigned to more than one ACTIVE seat at the same time. Inactive
-            // seats are exempt -- their assignment is just a placeholder for when
-            // they're reopened, not a live scheduling conflict (findNextSeatStart()
-            // and every wait-time estimate already only ever consider active
-            // seats). Keyed on staffId (the real account), not the display-name
-            // string, so this can't be defeated by two seats merely rendering the
-            // same name differently.
+            // Fahru's request (2026-09-08, follow-up): a barber can only ever be
+            // tied to ONE seat at a time -- active or not. The dropdowns
+            // themselves now enforce this structurally (refreshBarberAssignmentDropdownOptions()
+            // hides a name from every other seat's list the moment it's picked
+            // anywhere), so this duplicate check can normally never trigger via
+            // the UI. It stays as a defense-in-depth backstop (same posture as
+            // the DB's seats_one_seat_per_barber_uidx constraint) in case
+            // assignments were written some other way. Keyed on staffId (the
+            // real account), not the display-name string, so this can't be
+            // defeated by two seats merely rendering the same name differently.
             const seatsByStaffId = new Map();
             getSeatNumbers().forEach(seat => {
-                if (!activeSeats[seat] || !staffIdsBySeat[seat]) return;
+                if (!staffIdsBySeat[seat]) return;
                 const seatsForStaff = seatsByStaffId.get(staffIdsBySeat[seat]) || [];
                 seatsForStaff.push(seat);
                 seatsByStaffId.set(staffIdsBySeat[seat], seatsForStaff);
@@ -5829,7 +5856,7 @@
             if (duplicateAssignment) {
                 const [duplicateStaffId, seats] = duplicateAssignment;
                 return (await showAlertDialog(
-                    `${getStaffDisplayName(duplicateStaffId)} tidak boleh ditugaskan pada lebih daripada satu kerusi aktif pada masa sama ` +
+                    `${getStaffDisplayName(duplicateStaffId)} tidak boleh ditugaskan pada lebih daripada satu kerusi pada masa sama ` +
                     `(Kerusi ${seats.join(', ')}). Sila pilih tukang gunting lain untuk salah satu kerusi tersebut.`
                 ));
             }
@@ -5885,6 +5912,16 @@
             const assignments = getBarberAssignments();
             const select = document.getElementById(`barberNameSeat${seatNum}`);
             const requestedStaffId = select?.value || '';
+            // Defense-in-depth backstop for the dropdown filtering in
+            // refreshBarberAssignmentDropdownOptions() -- that already hides a
+            // taken name from every other seat's <option> list, so this should
+            // never actually trigger via the UI, but toggleSeatStatus() is a
+            // separate code path from saveBarberAssignments() and stale
+            // options (a render that hasn't caught up yet) are still possible.
+            if (requestedStaffId && getSeatNumbers().some(otherSeat => otherSeat !== seatNum && document.getElementById(`barberNameSeat${otherSeat}`)?.value === requestedStaffId)) {
+                (await showAlertDialog(`${getStaffDisplayName(requestedStaffId)} sudah ditugaskan pada kerusi lain. Kosongkan tugasan tersebut dahulu sebelum memilihnya di sini.`));
+                return;
+            }
             const requestedBarberName = normalizeBarberName(getStaffDisplayName(requestedStaffId) || assignments[seatNum]);
             const change = buildSeatStatusChange(activeSeats, assignments, seatNum, requestedBarberName);
             if (!change.ok) {
