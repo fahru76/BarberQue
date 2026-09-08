@@ -4898,6 +4898,36 @@
             }
             return normalized;
         }
+
+        // Fahru's video demo (2026-09-08): reopening Kerusi 2 kept reactivating
+        // it with "FAHRU" even though its dropdown showed unselected -- because
+        // toggleSeatStatus() falls back to assignments[seat] (the legacy
+        // per-seat "remembered barber" string in localStorage, kept so closing
+        // then reopening the SAME seat doesn't force a reselect) whenever the
+        // live dropdown has no staffId chosen. Old data, from before the
+        // one-seat-per-barber rule existed, had the SAME name remembered
+        // independently on more than one seat -- so every reopen just recreated
+        // the duplicate the seat-level healer above had only just cleaned up,
+        // an endless loop the admin has no way to break from the UI. This
+        // dedupes the remembered-name cache itself, across ALL seats (active
+        // or not, unlike the sibling above): once a name is claimed by the
+        // first seat that has it, every other seat's remembered name is
+        // cleared (never reassigned) so reopening them can't silently collide
+        // again -- it instead correctly asks for an explicit barber pick.
+        function normalizeBarberAssignmentsForDuplicates(assignments) {
+            const normalized = { ...assignments };
+            const seenBarberNames = new Set();
+            for (const seat of getSeatNumbers()) {
+                const barberName = normalizeBarberName(normalized[seat]);
+                if (!barberName) continue;
+                if (seenBarberNames.has(barberName)) {
+                    normalized[seat] = '';
+                } else {
+                    seenBarberNames.add(barberName);
+                }
+            }
+            return normalized;
+        }
         const DEFAULT_OP_HOURS = Object.freeze({ closed:false, open:'10:00', close:'22:00', break1Start:'', break1End:'', break2Start:'', break2End:'', sessionSplit1:'', sessionSplit2:'' });
 
         function normalizeOpHours(value, fallback = DEFAULT_OP_HOURS) {
@@ -5136,6 +5166,8 @@
                 safeSetItem('barberAssignments', initialBarbers);
             }
             if (isStoredJSONValid('barberAssignments')) safeSetItem('barberAssignments', getBarberAssignments());
+            const normalizedAssignments = normalizeBarberAssignmentsForDuplicates(getBarberAssignments());
+            if (JSON.stringify(normalizedAssignments) !== JSON.stringify(getBarberAssignments())) safeSetItem('barberAssignments', normalizedAssignments);
             const normalizedSeats = normalizeActiveSeatsForDuplicateBarbers(
                 normalizeActiveSeatsForAssignments(getActiveSeats(), getBarberAssignments(), getQueues()),
                 getBarberAssignments(),
@@ -8004,6 +8036,8 @@
             let isShopOpen = localStorage.getItem('shopStatus') === 'open';
             renderSeatStructures();
             renderBarberAssignments();
+            const healedAssignments = normalizeBarberAssignmentsForDuplicates(getBarberAssignments());
+            if (JSON.stringify(healedAssignments) !== JSON.stringify(getBarberAssignments())) safeSetItem('barberAssignments', healedAssignments);
             const healedActiveSeats = normalizeActiveSeatsForDuplicateBarbers(getActiveSeats(), getBarberAssignments(), getQueues());
             if (JSON.stringify(healedActiveSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(healedActiveSeats);
             let activeSeats = getActiveSeats();
