@@ -56,26 +56,37 @@ did.
 
 ## Current state as of this handoff
 
-- `main` was at commit `9e0dce3` as of the item 6 sync (merge of Fahru's local docs/CI
-  commits with the item 6 PR merge commit), 2026-09-07 -- since then, two more local
-  docs-only commits landed (agent-coordination checklist + protocol updates). For the
-  current head, don't trust this hash: use the "Live synchronization snapshot" section
-  above, or run `git log --oneline -n 3`.
-- Most recent migration unchanged since the previous handoff entry below: still
-  `supabase/migrations/20260907011800_admin_sidebar_order.sql`. Item 6 (see next bullet)
-  needed no schema/migration change.
-- What Claude (Cowork) just built and shipped this session: item 6 from
-  `QUEUECUT_HANDOVER.md` — a proactive "kedai akan tutup" (closing soon) banner for the
-  walk-in queue, plus a "TEMPAH UNTUK ESOK" (book for tomorrow) button, plus an upgrade
-  to `bookTicket()`'s existing dead-end rejection to also offer the next-day jump.
-  `index.html` only, no schema change. Full detail in `HANDOFF.md`'s "Done — item 6"
-  section. Shipped via `feat/item-6-closing-soon-warning` -> PR #1 -> merged by Fahru ->
-  synced to `main` and pushed. PR branch deleted.
-- What the previous agent built (4 commits, already live before this session): the Panel
-  Admin left sidebar became a reorderable list (drag or up/down arrows); on mobile it's
-  now a dropdown with its own card-list style (not a shrunk copy of the desktop
-  sidebar); and the sidebar order now syncs across devices via `shop_settings` instead
-  of being stuck in whichever browser's `localStorage` last touched it.
+- `main` is at commit `d665805`
+  (`fix: prevent same barber assigned to two active seats at once`), 2026-09-08. Don't
+  trust this hash if it's been a while: run `git log --oneline -n 3` for the current
+  head.
+- Most recent migration: `supabase/migrations/20260908135754_one_barber_per_active_seat.sql`
+  — a partial unique index `seats_one_active_seat_per_barber_uidx` on
+  `seats(barber_id) where active and barber_id is not null`, so the same registered
+  barber can no longer be assigned to two active seats at once. Already applied to the
+  live project — confirmed via `get_advisors` (no new findings) and a pre-apply query
+  against the live `seats` table (no active seat had a barber_id conflict at apply
+  time).
+- What Claude (Cowork) built and shipped this session (chronological; full detail in
+  `HANDOFF.md`'s matching "Done — ..." sections):
+  1. Barber-specific per-service duration overrides (admin-configured per staff member,
+     feeding into live wait-time math via `call_next_customer()`).
+  2. An optional pagi/petang/malam session gate on same-day online booking — admin sets
+     two cut-off times in Panel Admin; today's date only, tomorrow and later
+     unaffected. Shipped via `feat/booking-session-gate` -> PR #3 -> squash-merged at
+     `32cc290`.
+  3. Fixed the booking calendar silently dropping user taps during background realtime
+     refresh (DOM-diff-guard on `renderVisualCalendar()`/`renderAdminVisualCalendar()`,
+     same pattern as the existing `operationalTimeOptionsSignature` guard). Shipped
+     directly to `main` at `e0dd062`.
+  4. This session's last fix: blocked the same barber from being assigned to two
+     active seats at once (client validation in `saveBarberAssignments()` + the DB
+     partial-unique-index above). Shipped directly to `main` at `d665805`.
+- What the previous agent built (4 commits, already live before this session's work):
+  the Panel Admin left sidebar became a reorderable list (drag or up/down arrows); on
+  mobile it's now a dropdown with its own card-list style (not a shrunk copy of the
+  desktop sidebar); and the sidebar order now syncs across devices via `shop_settings`
+  instead of being stuck in whichever browser's `localStorage` last touched it.
 
 If your task touches `index.html`'s `admin-app` section, the Panel Admin sidebar
 (`ADMIN_SECTIONS`, `renderAdminSidebar()`, `getAdminSectionOrder()` and friends),

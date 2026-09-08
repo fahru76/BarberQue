@@ -2385,6 +2385,64 @@ build/legacy.cjs                                    regenerable reference impl
 - Shipped via `feat/booking-session-gate` -> PR #3 -> squash-merged into
   `main` at `32cc290`. PR branch deleted from GitHub after merge.
 
+## Done — booking calendar dropping taps during background refresh (2026-09-08)
+
+- Fahru's report while testing the session-gate feature: online booking time
+  couldn't be set even for tomorrow or later dates. Diagnosed live via the
+  built-in browser against `fahru76.github.io/BarberQue` -- NOT a
+  session-gate logic bug (`isAppointmentSlotAvailable()`/`selectCalDate()`/
+  `generateTimeSlots()` all verified correct via direct function calls,
+  returning 19 valid slots for a future date) but a pre-existing DOM-
+  replacement race: `renderVisualCalendar()`/`renderAdminVisualCalendar()`
+  rebuilt the calendar day-cell DOM unconditionally on every `updateUI()`
+  call, including ones triggered by the debounced realtime queues/
+  appointments subscription and the 15s `refreshTimeSensitiveUI` interval --
+  a genuine user tap could land on a cell just as it got replaced underneath
+  the click, silently dropping it. Confirmed root cause via
+  `elementFromPoint()` (no overlay issue -- the cell itself was directly
+  clickable) and by comparing coordinate clicks (sometimes failed) against
+  programmatic `.click()` calls (always worked).
+- Fix: added `calDaysHTMLCache`/`adminCalDaysHTMLCache` (same pattern as the
+  existing `operationalTimeOptionsSignature` guard) -- both render functions
+  now skip the `innerHTML` rebuild entirely when the freshly-computed HTML
+  string is unchanged from last render, so a re-render triggered by
+  unrelated realtime traffic no longer touches DOM the user might be
+  mid-click on.
+- Verified: `npm test` unchanged before/after; `node --check` on both inline
+  `<script>` blocks; re-tested the exact repro on the live site after
+  deploy.
+- Shipped directly to `main` at `e0dd062` (small, low-risk DOM-diff guard
+  following an established in-repo pattern -- no PR).
+
+## Done — same barber assignable to two active seats at once (2026-09-08)
+
+- Fahru's report: with 2 or 3 active seats, the admin UI let the same
+  registered barber be assigned to more than one active seat simultaneously
+  -- something no real barber can physically do (one barber, one chair, at
+  a time).
+- Client: `saveBarberAssignments()` now groups the pending assignment by
+  `staffId` (not display name, so it can't be defeated by two seats
+  rendering the same name differently) and blocks the save with a Malay
+  error naming the barber and the conflicting seat numbers if any staffId
+  maps to more than one *active* seat. Inactive seats are exempt --
+  `findNextSeatStart()` and every wait-time estimate already only ever
+  consider active seats, so an inactive seat's stored `barber_id` is just a
+  placeholder for when it reopens, not a live conflict.
+- Server (defense in depth, per this project's "never trust client-side
+  validation alone" posture -- same precedent as `seats_active_requires_barber`
+  and `staff_name_key_uidx`): new migration
+  `20260908135754_one_barber_per_active_seat.sql` adds a PARTIAL unique
+  index `seats_one_active_seat_per_barber_uidx` on `seats(barber_id) where
+  active and barber_id is not null` -- scoped to active rows only, so
+  inactive seats sharing a placeholder barber_id stays allowed.
+- Verified: queried live `seats` data before applying (no active seat
+  currently has a barber_id assigned) to confirm the migration would apply
+  cleanly; `get_advisors` (security) shows no new findings; `npm test` (23
+  fixtures + 20,000-comparison differential + sql-consistency) and
+  `node --check` on both inline `<script>` blocks all pass.
+- Shipped directly to `main` at `d665805` (scoped bug fix, same treatment
+  as the calendar-tap fix above -- no PR).
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with
