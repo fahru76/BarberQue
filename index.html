@@ -7574,6 +7574,21 @@
         let calCurrentDate = new Date(malaysiaToday.year, malaysiaToday.month - 1, 1, 12, 0, 0, 0);
         let adminCalCurrentDate = new Date(malaysiaToday.year, malaysiaToday.month - 1, 1, 12, 0, 0, 0);
         let calSelectedDate = "";
+        // Bug fix (2026-09-08, Fahru's report: "masa tak boleh set even untuk
+        // esok"): renderVisualCalendar()/renderAdminVisualCalendar() used to
+        // unconditionally replace every day cell's innerHTML on every call --
+        // including the ones triggered by updateUI() from the debounced
+        // realtime queue/appointment refresh (refreshQueuesFromServer(),
+        // refreshAppointmentsFromServer()), which can fire every few hundred ms
+        // on a busy shop regardless of whether anything calendar-relevant
+        // changed. A customer's tap landing between that mousedown and mouseup
+        // could have its target cell swapped out from under it, silently
+        // dropping the click -- browsers do not fire click when the original
+        // target left the document mid-gesture. Caching the last-rendered HTML
+        // and skipping the DOM write when nothing actually changed keeps cell
+        // identity stable across those redundant re-renders.
+        let calDaysHTMLCache = "";
+        let adminCalDaysHTMLCache = "";
         function changeCalMonth(d) { calCurrentDate = new Date(calCurrentDate.getFullYear(), calCurrentDate.getMonth() + d, 1, 12, 0, 0, 0); renderVisualCalendar(calCurrentDate); }
         function changeAdminCalMonth(d) { adminCalCurrentDate = new Date(adminCalCurrentDate.getFullYear(), adminCalCurrentDate.getMonth() + d, 1, 12, 0, 0, 0); renderAdminVisualCalendar(adminCalCurrentDate); }
         
@@ -7594,7 +7609,10 @@
                 else if(dStr === calSelectedDate) cls += " selected";
                 html += `<div class="${cls}" ${act}>${i}</div>`;
             }
-            document.getElementById('calDaysContainer').innerHTML = html;
+            if (html !== calDaysHTMLCache) {
+                document.getElementById('calDaysContainer').innerHTML = html;
+                calDaysHTMLCache = html;
+            }
         }
         async function selectCalDate(d) {
             if (!isOnlineBookingDateAllowed(d)) return (await showAlertDialog("Tarikh ini tidak tersedia untuk Tempahan Online."));
@@ -7668,7 +7686,10 @@
                 else if (adminPendingClosedDates.has(dStr)) cls += " selected";
                 html += `<div class="${cls}" ${action}>${i}</div>`;
             }
-            document.getElementById('adminCalDaysContainer').innerHTML = html;
+            if (html !== adminCalDaysHTMLCache) {
+                document.getElementById('adminCalDaysContainer').innerHTML = html;
+                adminCalDaysHTMLCache = html;
+            }
             updateAdminClosedSelectionSummary();
         }
 
