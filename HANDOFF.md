@@ -2823,3 +2823,37 @@ build/legacy.cjs                                    regenerable reference impl
   layout issues found this pass. No SQL/migration changes -- `q.barberId`
   and `staff.display_name` already existed.
 - Shipped directly to `main` at `e88abc1`.
+
+## Done — Admin nav button hidden from non-admins (2026-09-09)
+
+- Fahru asked that the Admin nav button not be visible to everyone.
+  Previously it stayed visible to customers, signed-out visitors, and
+  barbers alike -- same "always visible, gated on click" convenience
+  pattern as the Tukang Gunting button -- and only `switchView()`'s role
+  check blocked entry with an alert. That server-side/UI-gate boundary
+  is unchanged and still correct; this only removes the confusing
+  always-visible button for accounts that can never use it.
+- New `#navAdminBtn` id, hidden by default via CSS (mirrors the existing
+  `#staffLoginBtn`/`#staffLogoutBtn` pattern, so no flash-of-visible on
+  load). `updateStaffAuthUI()` -- already the one place toggling Log
+  Masuk/Log Keluar on every auth change -- now also shows it only when
+  `staffProfile.role === 'admin'`.
+- **Caught by visual verification, not inspection**: naively copying the
+  existing `btn.style.display = ''` "show" pattern silently fails for
+  any element that also has an ID-selector `display:none` default --
+  removing an inline override falls back to the cascade, where an ID
+  selector always beats a class rule, so the button stayed hidden even
+  for a real admin. Fixed with an explicit `'inline-block'` instead of
+  `''`. **Flagging, not fixing**: the pre-existing `loginBtn`/`logoutBtn`
+  toggle code uses the exact same `''`-to-show pattern and may have the
+  identical latent bug (i.e. the header's own "Log Masuk"/"Log Keluar"
+  buttons possibly never actually becoming visible via that code path) --
+  out of scope for what was asked this round, left untouched, worth a
+  dedicated look.
+- Verified: `node --check` on both script blocks, `npm test` (23/23 +
+  20,000/20,000 + sql-consistency clean, no logic touched). Visually
+  verified via Playwright against the real staged nav markup across
+  three states (signed out, signed-in barber, signed-in admin) -- Admin
+  button confirmed hidden in the first two, visible only in the third.
+  No SQL/migration changes.
+- Shipped directly to `main` at `ff16335`.
