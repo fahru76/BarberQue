@@ -2632,6 +2632,58 @@ build/legacy.cjs                                    regenerable reference impl
 - Shipped directly to `main` at `0049fd6` (migration
   `20260909133619_close_staff_privilege_escalation_and_pii_leak.sql`).
 
+## Done — the two smaller audit findings: server-side price validation + monthly report month-boundary fix (2026-09-09)
+
+- Fahru's call on the two non-security items flagged above: fix both.
+- **Server-side price validation.** A customer editing devtools (or
+  calling the anon REST/RPC endpoints directly) could submit any
+  `price_sen` for a walk-in ticket or online booking -- nothing
+  cross-checked it against `services.price_sen`. Didn't affect access
+  control, but corrupted sales totals (`barber_performance()` and the
+  admin sales report both sum `price_sen` straight off these rows).
+  Fixed at the two genuine customer-input boundaries, both of which
+  already carry a `service_ids` snapshot from the smart-barber-assignment
+  work:
+  - Walk-in ticket creation (`queues`, `source='walkin'`): new
+    `BEFORE INSERT` trigger `recompute_walkin_price_from_services()`
+    recomputes `price_sen`/`duration_minutes` from `public.services`,
+    rejecting empty or all-inactive/invalid `service_ids`.
+    `checkin_appointment()` is deliberately left unchanged -- it only
+    copies an already-validated appointment row, and re-pricing it at
+    checkin time (which can be days or weeks after booking) would
+    silently change what the customer agreed to pay when they booked.
+  - `book_appointment()` / `convert_walkin_to_appointment()`: both
+    recompute `price_sen`/`duration_minutes` from `p_service_ids`
+    server-side instead of trusting the caller's parameters, preserving
+    the existing "snapshot at creation time" pricing semantics.
+  - Live-verified in a rolled-back transaction against real service data
+    (`SVC-d7ceff60-...`, price_sen=1500, duration_minutes=40), running as
+    `anon`: a walk-in insert with a real service but `price_sen=1` came
+    back stored as `price_sen=1500`/`duration_minutes=40`; an insert with
+    `service_ids=null` was rejected with `'Tiket mesti mempunyai
+    sekurang-kurangnya satu servis yang sah.'`; an insert with a
+    nonexistent service id was rejected with `'Servis yang dipilih tidak
+    sah atau tidak aktif.'`. No test rows left behind (rolled back,
+    confirmed by re-querying afterward).
+- **Monthly sales report business-day fix.** The monthly report filtered
+  `completedAt` by its raw calendar month/year; the daily report already
+  shifts a ticket completed just after midnight on an overnight-schedule
+  day back to the business day it belongs to, via
+  `getBusinessDateForTimestamp()`. A ticket completed at, say, 00:15 on
+  the 1st of a new month on a shift that opened the day before was being
+  attributed to the new month instead of the shift's actual month --
+  only matters at month boundaries on overnight-schedule days. Now parses
+  the shifted business-date string's own year/month instead, keeping the
+  monthly report consistent with the daily one.
+- `tests/sql-consistency.mjs`: added `recompute_walkin_price_from_services`
+  to the known-function allowlist.
+- Verified: `node --check` on both `index.html` script blocks, `npm test`
+  (23 domain fixtures + 20,000-comparison differential, both clean),
+  `get_advisors` shows no new findings, plus the live rolled-back
+  transaction test above.
+- Shipped directly to `main` at `3028848` (migration
+  `20260909134535_server_validate_ticket_and_booking_price.sql`).
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with
