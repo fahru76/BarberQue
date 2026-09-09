@@ -8346,8 +8346,17 @@
                 let yr = malaysiaNow.month === 1 ? malaysiaNow.year - 1 : malaysiaNow.year;
                 targQ = queues.filter(q => {
                     if(q.status !== 'done' || !q.completedAt) return false;
-                    const completed = getMalaysiaDateTimeParts(q.completedAt);
-                    return completed && completed.month === lM && completed.year === yr;
+                    // Same business-day shift the daily report above already applies
+                    // (via getBusinessDateForTimestamp): a ticket completed just after
+                    // midnight on an overnight-schedule day belongs to the shift that
+                    // opened the day before, not the new calendar day/month. Parsing
+                    // the shifted business-date string's own year/month here (instead
+                    // of completedAt's raw calendar year/month) keeps this report
+                    // consistent with the daily one at month boundaries.
+                    const businessDateStr = getBusinessDateForTimestamp(q.completedAt);
+                    if (!businessDateStr) return false;
+                    const [businessYear, businessMonth] = businessDateStr.split('-').map(Number);
+                    return businessMonth === lM && businessYear === yr;
                 });
             }
             targQ.forEach(q => tSales += (Number(q.price) || 0));
