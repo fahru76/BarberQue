@@ -3150,6 +3150,7 @@
                 ]);
                 cachedStaffList = staff;
                 seatServerState = Object.fromEntries(seats.map(seat => [String(seat.seatNo), seat]));
+                reconcileLocalSeatStateFromServer();
                 container.innerHTML = staff.map(member => `
                     <div class="admin-list-item d-flex justify-between items-center flex-wrap gap-10">
                         <div class="d-flex items-center gap-6 flex-wrap">
@@ -3274,10 +3275,33 @@
             try {
                 const seats = await window.SeatRepo.listSeats();
                 seatServerState = Object.fromEntries(seats.map(seat => [String(seat.seatNo), seat]));
+                reconcileLocalSeatStateFromServer();
                 updateUI();
             } catch (error) {
                 console.warn('Memuatkan status kerusi gagal.', error);
             }
+        }
+
+        // public.seats is the single source of truth for which seats are open
+        // and who they're assigned to (see seatRepository.js). This copies
+        // that truth down into the local activeSeats/barberAssignments cache
+        // every time fresh server data arrives -- on boot, after any
+        // admin-initiated change, and on every realtime push from another
+        // device -- so the local cache can never drift into showing a seat
+        // active (or assigned to a barber) that the server disagrees with.
+        // A seat_no the server has no row for yet is left on its existing
+        // local value rather than guessed.
+        function reconcileLocalSeatStateFromServer() {
+            const nextActiveSeats = { ...getActiveSeats() };
+            const nextAssignments = { ...getBarberAssignments() };
+            for (const seat of getSeatNumbers()) {
+                const serverSeat = seatServerState[String(seat)];
+                if (!serverSeat) continue;
+                nextActiveSeats[seat] = !!serverSeat.active;
+                nextAssignments[seat] = normalizeBarberName(serverSeat.barberName || '');
+            }
+            if (JSON.stringify(nextActiveSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(nextActiveSeats);
+            if (JSON.stringify(nextAssignments) !== JSON.stringify(getBarberAssignments())) safeSetItem('barberAssignments', nextAssignments);
         }
 
         /**
@@ -4870,64 +4894,6 @@
             return normalized;
         }
 
-        // Fahru's follow-up (2026-09-08): two ACTIVE seats must never display
-        // the same barber name at once -- the dropdown filtering and DB
-        // constraint added earlier stop a NEW duplicate from being created via
-        // the admin UI, but they can't retroactively fix data that predates
-        // them (an old localStorage cache from before this rule existed, a
-        // realtime sync race, a device that was briefly offline during a
-        // reassignment). This is the same "heal rather than trust", close-not-
-        // crash posture as normalizeActiveSeatsForAssignments() above: on any
-        // duplicate, every seat after the first with that name is closed
-        // (never reassigned or renamed) -- unless it's mid-serving a customer,
-        // in which case it's left alone so the barber isn't yanked out from
-        // under someone already in the chair.
-        function normalizeActiveSeatsForDuplicateBarbers(activeSeats, assignments, queues = []) {
-            const normalized = { ...activeSeats };
-            const seenBarberNames = new Set();
-            for (const seat of getSeatNumbers()) {
-                if (!normalized[seat]) continue;
-                const barberName = normalizeBarberName(assignments[seat]);
-                if (!barberName) continue;
-                if (seenBarberNames.has(barberName)) {
-                    const hasServingCustomer = queues.some(queue => queue.status === 'serving' && Number(queue.seat) === seat);
-                    if (!hasServingCustomer) normalized[seat] = false;
-                } else {
-                    seenBarberNames.add(barberName);
-                }
-            }
-            return normalized;
-        }
-
-        // Fahru's video demo (2026-09-08): reopening Kerusi 2 kept reactivating
-        // it with "FAHRU" even though its dropdown showed unselected -- because
-        // toggleSeatStatus() falls back to assignments[seat] (the legacy
-        // per-seat "remembered barber" string in localStorage, kept so closing
-        // then reopening the SAME seat doesn't force a reselect) whenever the
-        // live dropdown has no staffId chosen. Old data, from before the
-        // one-seat-per-barber rule existed, had the SAME name remembered
-        // independently on more than one seat -- so every reopen just recreated
-        // the duplicate the seat-level healer above had only just cleaned up,
-        // an endless loop the admin has no way to break from the UI. This
-        // dedupes the remembered-name cache itself, across ALL seats (active
-        // or not, unlike the sibling above): once a name is claimed by the
-        // first seat that has it, every other seat's remembered name is
-        // cleared (never reassigned) so reopening them can't silently collide
-        // again -- it instead correctly asks for an explicit barber pick.
-        function normalizeBarberAssignmentsForDuplicates(assignments) {
-            const normalized = { ...assignments };
-            const seenBarberNames = new Set();
-            for (const seat of getSeatNumbers()) {
-                const barberName = normalizeBarberName(normalized[seat]);
-                if (!barberName) continue;
-                if (seenBarberNames.has(barberName)) {
-                    normalized[seat] = '';
-                } else {
-                    seenBarberNames.add(barberName);
-                }
-            }
-            return normalized;
-        }
         const DEFAULT_OP_HOURS = Object.freeze({ closed:false, open:'10:00', close:'22:00', break1Start:'', break1End:'', break2Start:'', break2End:'', sessionSplit1:'', sessionSplit2:'' });
 
         function normalizeOpHours(value, fallback = DEFAULT_OP_HOURS) {
@@ -5166,13 +5132,14 @@
                 safeSetItem('barberAssignments', initialBarbers);
             }
             if (isStoredJSONValid('barberAssignments')) safeSetItem('barberAssignments', getBarberAssignments());
-            const normalizedAssignments = normalizeBarberAssignmentsForDuplicates(getBarberAssignments());
-            if (JSON.stringify(normalizedAssignments) !== JSON.stringify(getBarberAssignments())) safeSetItem('barberAssignments', normalizedAssignments);
-            const normalizedSeats = normalizeActiveSeatsForDuplicateBarbers(
-                normalizeActiveSeatsForAssignments(getActiveSeats(), getBarberAssignments(), getQueues()),
-                getBarberAssignments(),
-                getQueues()
-            );
+            // Boot-time-only safety net: public.seats hasn't been fetched yet
+            // at this point (refreshSeatServerState()/refreshStaffList() run
+            // async, shortly after), so this local-only check just prevents
+            // rendering an active seat with no barber name at all during that
+            // brief window. Real reconciliation against the server happens in
+            // reconcileLocalSeatStateFromServer() as soon as server data
+            // arrives -- see refreshSeatServerState().
+            const normalizedSeats = normalizeActiveSeatsForAssignments(getActiveSeats(), getBarberAssignments(), getQueues());
             if (JSON.stringify(normalizedSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(normalizedSeats);
             if(!localStorage.getItem('closedDates')) safeSetItem('closedDates', []);
             if(!localStorage.getItem('bookingAdvanceDays')) safeSetItem('bookingAdvanceDays', '30');
@@ -5807,12 +5774,21 @@
         // cancelCustomerWalkin() elsewhere in this file: local storage stays
         // the thing every other function in this file reads, the server call
         // is what lets call_next_customer()/complete_service() actually work.
+        // Push one seat's open/closed + assigned-staff state to the server and
+        // report whether it actually succeeded. The server (public.seats) is
+        // now the single source of truth -- callers must await this and only
+        // commit to local storage / update the UI once it resolves ok:true,
+        // never optimistically beforehand. This is what stops the local
+        // cache from ever recording a state the server rejected or never
+        // received (the root cause of the duplicate-active-seat display bug).
         async function syncSeatAssignmentToServer(seatNum, active, staffId) {
-            if (!window.SeatRepo) return;
+            if (!window.SeatRepo) return { ok: false, error: 'Repositori kerusi tidak tersedia.' };
             try {
                 await window.SeatRepo.setSeatAssignment(seatNum, { active, staffId: staffId || null });
+                return { ok: true };
             } catch (error) {
                 console.warn(`Segerak kerusi ${seatNum} ke pelayan gagal.`, error);
+                return { ok: false, error: error?.message || 'Status kerusi gagal disegerakkan ke pelayan.' };
             }
         }
 
@@ -5926,15 +5902,29 @@
                     `(Kerusi ${seats.join(', ')}). Sila pilih tukang gunting lain untuk salah satu kerusi tersebut.`
                 ));
             }
-            if (!safeSetItem('barberAssignments', assignments)) return (await showAlertDialog("Tukang gunting gagal disimpan. Sila cuba lagi."));
-            document.querySelectorAll('#adminBarberAssignments select').forEach(select => delete select.dataset.dirty);
-            appendAuditEvent('barber_assignments_updated', 'shop_setting', 'barberAssignments', 'admin', { assignments });
-            Promise.all(getSeatNumbers().map(seat =>
+            // Server first, same posture as toggleSeatStatus(): push every
+            // seat's assignment to public.seats and only commit the local
+            // cache for the seats the server actually accepted. A seat whose
+            // server write failed keeps its previous local value rather than
+            // silently taking on a name the server never confirmed.
+            const syncResults = await Promise.all(getSeatNumbers().map(seat =>
                 syncSeatAssignmentToServer(seat, activeSeats[seat] === true, staffIdsBySeat[seat])
-            )).then(() => refreshStaffList());
+                    .then(result => ({ seat, ...result }))
+            ));
+            const failedSeats = syncResults.filter(result => !result.ok);
+            const confirmedAssignments = { ...getBarberAssignments() };
+            syncResults.filter(result => result.ok).forEach(result => { confirmedAssignments[result.seat] = assignments[result.seat]; });
+            if (!safeSetItem('barberAssignments', confirmedAssignments)) return (await showAlertDialog("Tukang gunting gagal disimpan. Sila cuba lagi."));
+            document.querySelectorAll('#adminBarberAssignments select').forEach(select => delete select.dataset.dirty);
+            appendAuditEvent('barber_assignments_updated', 'shop_setting', 'barberAssignments', 'admin', { assignments: confirmedAssignments });
+            await refreshSeatServerState();
             renderBarberAssignments(true);
             updateUI();
-            (await showAlertDialog("Pasukan bertugas telah disimpan. Servis baharu akan direkodkan mengikut tukang gunting ini."));
+            if (failedSeats.length) {
+                (await showAlertDialog(`Sebahagian tugasan gagal disimpan ke pelayan (Kerusi ${failedSeats.map(f => f.seat).join(', ')}). Sila cuba semula untuk kerusi tersebut.`));
+            } else {
+                (await showAlertDialog("Pasukan bertugas telah disimpan. Servis baharu akan direkodkan mengikut tukang gunting ini."));
+            }
         }
 
         async function saveSeatCountSetting() {
@@ -5988,7 +5978,13 @@
                 (await showAlertDialog(`${getStaffDisplayName(requestedStaffId)} sudah ditugaskan pada kerusi lain. Kosongkan tugasan tersebut dahulu sebelum memilihnya di sini.`));
                 return;
             }
-            const requestedBarberName = normalizeBarberName(getStaffDisplayName(requestedStaffId) || assignments[seatNum]);
+            // The dropdown's own value is the only input here -- no fallback
+            // to the legacy per-seat "remembered name" cache. Reopening the
+            // SAME seat still remembers its barber correctly because the
+            // server retains seats.barber_id across a close, and the dropdown
+            // is populated from that server value (renderBarberAssignments()),
+            // not from this local string cache.
+            const requestedBarberName = normalizeBarberName(getStaffDisplayName(requestedStaffId));
             const change = buildSeatStatusChange(activeSeats, assignments, seatNum, requestedBarberName);
             if (!change.ok) {
                 (await showAlertDialog(`Tukang gunting wajib dipilih sebelum Kerusi ${seatNum} boleh diaktifkan.`));
@@ -6003,6 +5999,14 @@
                 );
                 if (!proceed) return;
             }
+            // Server first: public.seats (with its seats_active_requires_barber
+            // and seats_one_seat_per_barber_uidx constraints) is the single
+            // source of truth. Only commit to local storage / re-render once
+            // the server has actually accepted this change -- an optimistic
+            // local write that the server later rejects or never receives is
+            // exactly how two seats ended up showing the same barber before.
+            const sync = await syncSeatAssignmentToServer(seatNum, change.seats[seatNum] === true, requestedStaffId);
+            if (!sync.ok) return (await showAlertDialog(sync.error || "Status kerusi gagal disimpan ke pelayan. Sila cuba lagi."));
             const result = commitStorageTransaction({ activeSeats: change.seats, barberAssignments: change.assignments });
             if (!result.ok) return (await showAlertDialog("Status kerusi gagal disimpan. Sila cuba lagi."));
             if (select) delete select.dataset.dirty;
@@ -6010,7 +6014,7 @@
                 seat: seatNum,
                 barberName: change.assignments[seatNum] || ''
             });
-            syncSeatAssignmentToServer(seatNum, change.seats[seatNum] === true, requestedStaffId).then(() => refreshStaffList());
+            await refreshSeatServerState();
             renderBarberAssignments(true);
             updateUI();
         }
@@ -8036,10 +8040,6 @@
             let isShopOpen = localStorage.getItem('shopStatus') === 'open';
             renderSeatStructures();
             renderBarberAssignments();
-            const healedAssignments = normalizeBarberAssignmentsForDuplicates(getBarberAssignments());
-            if (JSON.stringify(healedAssignments) !== JSON.stringify(getBarberAssignments())) safeSetItem('barberAssignments', healedAssignments);
-            const healedActiveSeats = normalizeActiveSeatsForDuplicateBarbers(getActiveSeats(), getBarberAssignments(), getQueues());
-            if (JSON.stringify(healedActiveSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(healedActiveSeats);
             let activeSeats = getActiveSeats();
             let maxQueue = parseInt(localStorage.getItem('maxQueue')) || 10;
             let queues = getQueues();
