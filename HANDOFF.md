@@ -2574,6 +2574,64 @@ build/legacy.cjs                                    regenerable reference impl
   passing), `tests/sql-consistency.mjs` clean, `node --check` on both inline
   `<script>` blocks. Shipped directly to `main` at `fbbaa92`.
 
+## Done — security audit: 3 verified live RLS/grant holes closed (2026-09-09)
+
+- Fahru asked for a proactive bug hunt across the whole application, not
+  tied to any specific report. Ran two focused audit passes and verified
+  every finding directly against the live Supabase project (policies,
+  grants, function bodies), not just by reading migration files.
+- **CRITICAL, fixed:** `"staff update own display name"` (a policy from
+  `20260901000100_rls_policies.sql`) only checked `id = auth.uid()` -- RLS
+  cannot itself restrict which *columns* an allowed row update touches, and
+  the accompanying grant was unrestricted. Any signed-in barber could run
+  `supabase.from('staff').update({ role: 'admin', active: true }).eq('id', <own id>)`
+  from the browser console and become a fully active admin. Confirmed
+  nothing in the app relied on unrestricted self-update (`setStaffStatus()`
+  goes through the separate admin-only policy) before fixing. Closed with a
+  new `BEFORE UPDATE` trigger, `enforce_staff_self_update_scope()`, that
+  lets a non-admin change only their own `display_name` -- everything else
+  (`role`, `active`, capability/specialty arrays, `service_durations`) is
+  rejected unless `is_admin()`. Exempts anything not running as the
+  `authenticated` Postgres role, so the manual admin-bootstrap SQL-editor
+  step documented above still works.
+- **HIGH, fixed:** `"queue readable by all"` / `"appointments readable by
+  all"` granted `SELECT` to any `authenticated` account with no
+  `is_active_staff()` check, and unlike `anon`'s column grant (which
+  already excluded `phone`/`price_sen`), the `authenticated` grant was
+  unrestricted. An invited-but-unapproved or deactivated staff account
+  could read every customer's phone number directly via the API, bypassing
+  the "must be active staff" rule every other privileged action already
+  enforces. Split each policy into an unchanged `anon` policy and a new
+  staff policy gated on `is_active_staff()`, matching the existing
+  `services` pattern.
+- **MEDIUM, fixed:** `barber_performance()` only checked `is_active_staff()`,
+  not `is_admin()`, though the sales report is admin-only in the UI. Any
+  active barber could call the RPC directly and see every colleague's
+  revenue. Now requires `is_admin()`. Confirmed via full-repo grep this RPC
+  has no current client caller, so tightening it has zero client-side
+  impact.
+- Two smaller non-security findings, not yet acted on: the monthly admin
+  sales report can misattribute a ticket completed just after midnight to
+  the wrong month on an overnight-schedule day (the daily report already
+  handles this correctly via `getBusinessDateForTimestamp`) -- low impact,
+  only near month boundaries. And client-submitted `price_sen` on a new
+  ticket/booking isn't cross-checked against `services.price_sen`
+  server-side, so a customer editing devtools could submit any price --
+  doesn't affect access control, only means sales figures currently trust
+  the browser. Flag to Fahru before deciding whether either is worth a
+  follow-up.
+- Verified: `get_advisors` shows no new findings (only the same
+  already-documented intentional warnings on public-facing customer RPCs).
+  A live test inside a rolled-back transaction against the real (only)
+  staff row confirmed both that the exploit is rejected with the trigger's
+  own error and that a legitimate display-name-only self-rename still
+  succeeds; live data confirmed unchanged afterward. `npm test` (23 domain
+  fixtures + 20,000-comparison differential) and `tests/sql-consistency.mjs`
+  both pass (added `enforce_staff_self_update_scope` to its known-function
+  allowlist).
+- Shipped directly to `main` at `0049fd6` (migration
+  `20260909133619_close_staff_privilege_escalation_and_pii_leak.sql`).
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with
