@@ -181,3 +181,31 @@ export async function setNewPassword(password) {
     const { error } = await supabase.auth.updateUser({ password });
     raiseOnError(error);
 }
+
+/**
+ * Permanently deletes a staff member's Supabase Auth account (they will
+ * need a fresh invite through inviteBarber() to sign in again) --
+ * `admin_remove_staff()` (20260909_staff_removal_and_barber_name_snapshot.sql)
+ * runs `delete from auth.users`, which cascades to delete their
+ * `public.staff` row (`staff.id references auth.users(id) on delete
+ * cascade`). Unlike inviteBarber(), this does NOT need an Edge Function or
+ * the service_role key -- the migration's DELETE runs as the function's
+ * owner (`postgres`), which already has DELETE on `auth.users` in this
+ * project, confirmed before that migration was written.
+ *
+ * Deactivating a staff row (setStaffStatus({ active: false })) only hides
+ * them from active use and is reversible; this is not -- there is no undo
+ * once it succeeds. The server independently rejects removing your own
+ * account and removing the last remaining active admin, regardless of what
+ * the UI allows a caller to attempt; the client-side checks in index.html
+ * are a convenience, not the real boundary. Every past ticket this barber
+ * ever served keeps its `queues.barber_name` snapshot (set by a trigger the
+ * moment `barber_id` is assigned, independent of the staff row still
+ * existing) even after this call succeeds, so reports/exports don't lose
+ * their name -- only `queues.barber_id` itself goes null (`on delete set
+ * null`).
+ */
+export async function removeStaffMember(id) {
+    const { error } = await supabase.rpc('admin_remove_staff', { p_staff_id: id });
+    raiseOnError(error);
+}

@@ -157,6 +157,16 @@ function mapQueueRowFull(row) {
         price: row.price_sen / 100,
         seat: row.seat_no,
         barberId: row.barber_id,
+        // Snapshotted server-side the moment barber_id is assigned (see
+        // 20260909_staff_removal_and_barber_name_snapshot.sql's
+        // sync_queue_barber_name() trigger) -- unlike barberId, this
+        // survives the staff row itself being deleted later (barber_id
+        // goes null on delete, barber_name does not), so reports/exports
+        // keep a readable name for a barber who no longer has an account.
+        // index.html also keeps its own client-side snapshot at call-time
+        // for same-session immediacy; this is the durable, cross-device
+        // source of truth once a fresh row merges in.
+        barberName: row.barber_name,
         status: row.status,
         queueSource: row.source,
         isFastPass: row.is_fast_pass,

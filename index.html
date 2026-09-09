@@ -2102,6 +2102,7 @@
                 <div class="mode-toggle mb-15">
                     <button class="mode-btn active" id="btnRepDaily" onclick="showReport('daily')">Penghujung Hari</button>
                     <button class="mode-btn" id="btnRepMonthly" onclick="showReport('monthly')">Bulan Lepas</button>
+                    <button class="mode-btn" id="btnRepYearly" onclick="showReport('yearly')">Tahun Lepas</button>
                 </div>
                 <div class="report-summary-box">
                     <div class="report-card">
@@ -2113,6 +2114,7 @@
                         <div class="report-val" id="reportCount">0</div>
                     </div>
                 </div>
+                <button type="button" class="btn btn-sm btn-action mb-15" onclick="exportReportToExcel()">Muat Turun Excel (.xlsx)</button>
                 <h4 id="barberPerformanceHeading">Prestasi Mengikut Tukang Gunting</h4>
                 <div id="barberPerformanceSummary" class="barber-performance-grid"></div>
                 <h4 class="mb-10 fs-90 text-muted">Senarai Pelanggan Selesai:</h4>
@@ -2579,6 +2581,11 @@
          so the existing catalog isn't wiped back to empty on cutover. Every
          run after that treats the server as the sole source of truth and
          overwrites local `shopServices` with what it returns. -->
+    <!-- SheetJS (xlsx) -- only external dependency in this app, used solely to
+         build the admin sales report's .xlsx download (buildReportExcelWorkbook()/
+         exportReportToExcel() below). Pinned to an exact version per this
+         project's dependency policy; nothing else in the app touches it. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
         import { listSeats, setSeatAssignment, subscribeSeatChanges } from './js/repositories/seatRepository.js';
@@ -3165,6 +3172,9 @@
                             ${member.active
                                 ? `<button type="button" class="btn btn-reset" onclick="toggleStaffActive('${member.id}', false)">NYAHAKTIF</button>`
                                 : `<button type="button" class="btn btn-action" onclick="toggleStaffActive('${member.id}', true)">AKTIFKAN</button>`}
+                            ${member.id !== staffProfile?.id
+                                ? `<button type="button" class="btn btn-reset" onclick="removeStaffMember('${member.id}')" title="Padam akaun secara kekal">BUANG</button>`
+                                : ''}
                         </div>
                         ${renderStaffCapabilityPanel(member)}
                     </div>`).join('') || '<div class="text-muted">Tiada kakitangan lagi.</div>';
@@ -3368,6 +3378,32 @@
                 console.warn(error);
             }
         }
+
+        /**
+         * Permanently deletes a staff member's account (removeStaffMember()
+         * in authRepository.js) -- unlike toggleStaffActive()/setStaffRole()
+         * above, this cannot be undone: they will need a fresh invite to
+         * sign in again. The "BUANG" button is already hidden for the
+         * signed-in admin's own row (see refreshStaffList()), so this only
+         * ever runs against someone else's account -- the server
+         * independently re-checks that (and the last-active-admin rule)
+         * regardless. A generic confirm dialog covers every rejection
+         * reason (self-removal, last admin) since the server's own error
+         * message is always shown too.
+         */
+        async function removeStaffMember(id) {
+            const member = cachedStaffList.find(m => m.id === id);
+            const name = member?.displayName || 'kakitangan ini';
+            const confirmed = await showConfirmDialog(`Padam akaun ${name} secara KEKAL? Mereka tidak akan dapat log masuk lagi dan perlu dijemput semula jika perlu di masa hadapan. Sejarah tiket/prestasi mereka yang lepas akan kekal untuk laporan, tetapi tindakan ini sendiri TIDAK boleh dibuat asal.`);
+            if (!confirmed) return;
+            try {
+                await window.AuthRepo.removeStaffMember(id);
+                await refreshStaffList();
+            } catch (error) {
+                (await showAlertDialog(error.message || 'Gagal membuang kakitangan.'));
+                console.warn(error);
+            }
+        }
         // ============= END STAFF AUTH =============
         const DEFAULT_MAP_LINK = 'https://www.google.com/maps/search/?api=1&query=FCQQ%2BX6%20Kerteh%2C%20Terengganu';
         const WALKIN_PREVIEW_RECORD_ID = '__QUEUECUT_WALKIN_PREVIEW__';
@@ -3375,6 +3411,11 @@
         const ANNOUNCEMENT_HTML_LIMIT = 700000;
         const ANNOUNCEMENT_IMAGE_DATA_URL_LIMIT = 500000;
         let currentReportType = 'daily';
+        // Populated by updateUI()'s report-rendering block each time it runs;
+        // read by exportReportToExcel() so the button doesn't have to
+        // recompute the same date-filtered set from scratch.
+        let lastReportRecords = [];
+        let lastReportBarberPerformance = [];
         let adminServiceTab = 'asas';
         let bookingChangeMode = null;
         let pendingAdminCancellation = null;
@@ -7924,7 +7965,59 @@
             currentReportType = type;
             document.getElementById('btnRepDaily').className = type === 'daily' ? 'mode-btn active' : 'mode-btn';
             document.getElementById('btnRepMonthly').className = type === 'monthly' ? 'mode-btn active' : 'mode-btn';
+            document.getElementById('btnRepYearly').className = type === 'yearly' ? 'mode-btn active' : 'mode-btn';
             updateUI();
+        }
+
+        const REPORT_TYPE_LABELS = { daily: 'Harian', monthly: 'Bulanan', yearly: 'Tahunan' };
+
+        /**
+         * Builds an .xlsx workbook (SheetJS, loaded via CDN -- see the
+         * <script> tag near the end of <body>) for whatever report is
+         * currently on screen: one sheet with every completed ticket in the
+         * period, one with the per-barber summary already shown on screen.
+         * `record.barberName` here is whichever value updateUI() last put on
+         * the in-memory queue object -- the client-side call-time snapshot
+         * for anything served on this device, or (once a fresh row has
+         * merged in from another device -- see mergeServerRows()) the
+         * server-persisted queues.barber_name snapshot, which survives even
+         * a barber whose account has since been removed
+         * (admin_remove_staff()/removeStaffMember()).
+         */
+        function buildReportExcelWorkbook(records, barberPerformance) {
+            const detailRows = records.map(q => ({
+                'No Tiket': q.id,
+                'Nama Pelanggan': q.name,
+                'Servis': q.service,
+                'Tukang Gunting': q.barberName || 'Tidak direkodkan',
+                'Kerusi': q.seat || '-',
+                'Tarikh Selesai': formatMalaysiaDateTime(q.completedAt),
+                'Harga (RM)': Number(q.price || 0)
+            }));
+            const summaryRows = barberPerformance.map(item => ({
+                'Tukang Gunting': item.barberName,
+                'Bilangan Pelanggan': item.customers,
+                'Jumlah Jualan (RM)': Number(item.sales.toFixed(2)),
+                'Purata Tiket (RM)': Number(item.averageSale.toFixed(2))
+            }));
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(detailRows), 'Rekod Jualan');
+            XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), 'Prestasi Tukang Gunting');
+            return workbook;
+        }
+
+        async function exportReportToExcel() {
+            if (typeof XLSX === 'undefined') {
+                (await showAlertDialog('Pustaka Excel gagal dimuatkan. Sila semak sambungan internet dan cuba lagi.'));
+                return;
+            }
+            if (!lastReportRecords.length) {
+                (await showAlertDialog('Tiada rekod jualan untuk tempoh ini.'));
+                return;
+            }
+            const label = REPORT_TYPE_LABELS[currentReportType] || currentReportType;
+            const workbook = buildReportExcelWorkbook(lastReportRecords, lastReportBarberPerformance);
+            XLSX.writeFile(workbook, `QueueCut_Laporan_${label}_${getCurrentBusinessDate()}.xlsx`);
         }
 
         function renderCustomerTicket(queues, activeSeats, isWalkin, isShopOpen, waitByRecordId = null) {
@@ -8340,7 +8433,7 @@
             if(currentReportType === 'daily') {
                 let tStr = getCurrentBusinessDate();
                 targQ = queues.filter(q => q.status === 'done' && q.completedAt && getBusinessDateForTimestamp(q.completedAt) === tStr);
-            } else {
+            } else if (currentReportType === 'monthly') {
                 const malaysiaNow = getMalaysiaDateTimeParts();
                 let lM = malaysiaNow.month === 1 ? 12 : malaysiaNow.month - 1;
                 let yr = malaysiaNow.month === 1 ? malaysiaNow.year - 1 : malaysiaNow.year;
@@ -8358,11 +8451,32 @@
                     const [businessYear, businessMonth] = businessDateStr.split('-').map(Number);
                     return businessMonth === lM && businessYear === yr;
                 });
+            } else {
+                // 'yearly' -- same "previous period, business-day-shifted" pattern
+                // as 'monthly' above (mirrors "Bulan Lepas" with "Tahun Lepas": last
+                // full calendar year, not year-to-date), for the same reason: a
+                // ticket completed just after midnight on 1 Jan on an
+                // overnight-schedule shift still belongs to the year that shift
+                // opened in.
+                const malaysiaNow = getMalaysiaDateTimeParts();
+                let lY = malaysiaNow.year - 1;
+                targQ = queues.filter(q => {
+                    if(q.status !== 'done' || !q.completedAt) return false;
+                    const businessDateStr = getBusinessDateForTimestamp(q.completedAt);
+                    if (!businessDateStr) return false;
+                    const businessYear = Number(businessDateStr.split('-')[0]);
+                    return businessYear === lY;
+                });
             }
             targQ.forEach(q => tSales += (Number(q.price) || 0));
             document.getElementById('reportSales').innerText = `RM ${tSales.toFixed(2)}`;
             document.getElementById('reportCount').innerText = `${targQ.length}`;
             const barberPerformance = buildBarberPerformance(targQ, Object.values(getBarberAssignments()));
+            // Kept for exportReportToExcel(), which runs from a separate button
+            // click, not from inside this render pass -- rebuilding the same
+            // filtered set there would just be this block copy-pasted again.
+            lastReportRecords = targQ;
+            lastReportBarberPerformance = barberPerformance;
             document.getElementById('barberPerformanceSummary').innerHTML = barberPerformance.map(item => `
                 <div class="barber-performance-card">
                     <strong>${escapeHTML(item.barberName)}</strong>
