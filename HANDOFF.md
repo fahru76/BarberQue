@@ -2887,3 +2887,28 @@ build/legacy.cjs                                    regenerable reference impl
   sees neither Tukang Gunting nor Admin, barber sees Tukang Gunting
   only, admin sees both. No SQL/migration changes.
 - Shipped directly to `main` at `70dcef3`.
+
+## Done — Layar Kedai hidden from pelanggan too -- customer nav now shows only Pelanggan (2026-09-09)
+
+- Fahru: "Pelanggan can only see his page only. Other pages not for
+  available for him." Tukang Gunting and Admin were already fixed
+  (previous two entries); this closes the last gap -- Layar Kedai (the
+  shop's queue-status display) was still visible to every visitor.
+- Confirmed with Fahru first (Layar Kedai isn't sensitive staff data,
+  unlike the two staff panels) before hiding it: decided to hide it too,
+  matching the "pelanggan only sees his page" instruction literally.
+- New `#navDisplayBtn` id, hidden by default via CSS (same pattern as
+  `#navBarberBtn`/`#navAdminBtn`). `updateStaffAuthUI()` shows it for
+  any signed-in staff (barber or admin), same rule as Tukang Gunting.
+- The shop's own dedicated display-kiosk device (`?view=display`) is
+  unaffected: `applyKioskModeFromURL()` finds and switches to that view
+  via `document.querySelector()`, which works regardless of the
+  button's own CSS visibility, and kiosk-display mode already hides
+  every OTHER button -- nobody on that device ever clicks this button.
+- Verified: `node --check` on both script blocks, `npm test` (23/23 +
+  20,000/20,000 + sql-consistency clean, no logic touched). Visually
+  verified via Playwright using the real `updateStaffAuthUI()` function
+  body across three states: pelanggan now sees only "Pelanggan" (plus
+  Log Masuk); barber sees Pelanggan/Layar Kedai/Tukang Gunting; admin
+  sees all four. No SQL/migration changes.
+- Shipped directly to `main` at `8c7c916`.
