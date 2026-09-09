@@ -2757,3 +2757,69 @@ build/legacy.cjs                                    regenerable reference impl
 - Shipped directly to `main` at `f984dc0` (migrations
   `20260909141426_staff_removal_and_barber_name_snapshot.sql` and
   `20260909141439_revoke_anon_execute_on_admin_remove_staff.sql`).
+
+## Done — admin barber-performance report redesigned as a proper dashboard (2026-09-09)
+
+- Fahru asked for the admin "Prestasi Mengikut Tukang Gunting" report to be
+  rebuilt as a proper dashboard with a human-centered-design, modern
+  interface touch, instead of the plain list it was.
+- Report tab restructured into a `.report-dashboard`: a header with title,
+  subtitle and the existing Excel-export button (now with an inline SVG
+  icon), four KPI cards (Jumlah Jualan, Jumlah Pelanggan, and two new ones --
+  Purata Setiap Tiket and a highlighted Tukang Gunting Teratas card showing
+  the top performer's name/sales/customers), and the per-barber breakdown
+  rebuilt as a ranked card grid instead of a plain list: rank badge (gold/
+  silver/bronze accents for ranks 1-3), a colour-coded avatar with the
+  barber's initials (`getBarberInitials`/`getBarberAvatarColor`, a stable
+  hash-to-hue so the same name always gets the same colour), name, sales
+  figure, a comparison bar sized relative to the top performer, and a
+  metrics row (customers, average per ticket). Added a proper empty-state
+  block (icon + message) for when a period has zero completed tickets,
+  replacing what used to just render nothing.
+- All new CSS lives in the same "Quiet Precision" design-system block
+  already in `index.html` -- reuses existing tokens (`--card-bg`,
+  `--shadow-lg`, `--radius-md`, etc.), no new colour system introduced.
+- Caught by Playwright visual verification (not by inspection): long
+  barber names (e.g. "Muhammad Hafiz") were ellipsis-truncating to
+  "Muhamma..." in the 4-up card grid at ~1100px width. Fixed by widening
+  the grid's `minmax()` from 230px to 250px and switching the name from
+  single-line ellipsis truncation to a 2-line `-webkit-line-clamp` wrap.
+  Re-screenshotted (dark, light, mobile) to confirm before shipping.
+- Verified: `node --check` on both script blocks, div-tag balance check,
+  `npm test` (23/23 + 20,000/20,000, both clean, no logic touched). No SQL/
+  migration changes -- purely a rendering/markup/CSS change over data
+  `buildBarberPerformance()` already produced.
+- Shipped directly to `main` at `4598905`.
+
+## Done — barber's own performance summary panel on the Tukang Gunting panel (2026-09-09)
+
+- Fahru asked for each signed-in barber to get their own summary report
+  inside the Tukang Gunting panel, with the same human-centered-design
+  dashboard touch as the admin redesign above.
+- New `#barberOwnSummaryPanel` ("Ringkasan Prestasi Saya") added to
+  `#barber-app`, reusing the existing `.report-dashboard`/`.kpi-card`/
+  `.report-summary-box` CSS classes built for the admin dashboard -- no new
+  CSS needed. Own Penghujung Hari / Bulan Lepas / Tahun Lepas mode-toggle
+  (`showBarberReport()`/`currentBarberReportType`), independent of the
+  admin report's toggle state.
+- Filtering logic factored out of the admin report block into a shared
+  `filterCompletedQueuesForReportPeriod(queues, periodType)` helper (daily/
+  monthly/yearly, reusing `getBusinessDateForTimestamp()` for the same
+  month/year-boundary handling the admin report already had) so both views
+  stay consistent instead of drifting.
+- The barber's own records are isolated by `q.barberId === staffProfile.id`
+  -- the authoritative per-account identifier (`isMyAssignedSeat`/
+  `isMyServingSeat` already key off it the same way) -- not name matching,
+  so it stays exact even if two barbers share a display name, unlike
+  `buildBarberPerformance()`'s name-keyed grouping which the admin-wide
+  leaderboard has to tolerate for pre-Auth historical data.
+- Shows sales total, customers served this period, and average per ticket,
+  plus the same empty-state block used on the admin dashboard when there
+  are no completed tickets in the selected period yet.
+- Verified: `node --check` on both script blocks, div-tag balance (327/327
+  open/close), `npm test` (23/23 + 20,000/20,000 + sql-consistency clean).
+  Visually verified via Playwright screenshot with sample data and the
+  empty state, in dark theme, light theme, and mobile width (390px) -- no
+  layout issues found this pass. No SQL/migration changes -- `q.barberId`
+  and `staff.display_name` already existed.
+- Shipped directly to `main` at `e88abc1`.
