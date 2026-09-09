@@ -1534,6 +1534,7 @@
            on page load -- JS reveals it only once a signed-in admin profile
            is actually confirmed. */
         #navAdminBtn { display:none; }
+        #navBarberBtn { display:none; }
         #themeSelector { width: auto; padding: 8px 12px; height: auto; }
         #customer-header-text { text-align: center; margin-bottom: 25px; }
         #customerShopName { color: var(--primary-color); font-size: 2rem; }
@@ -1751,7 +1752,7 @@
         </div>
         <button class="btn active" data-view="customer-app" aria-pressed="true" onclick="switchView('customer-app', this)">Pelanggan</button>
         <button class="btn" data-view="display-app" aria-pressed="false" onclick="switchView('display-app', this)">Layar Kedai</button>
-        <button class="btn" data-view="barber-app" aria-pressed="false" onclick="switchView('barber-app', this)">Tukang Gunting</button>
+        <button class="btn" id="navBarberBtn" data-view="barber-app" aria-pressed="false" onclick="switchView('barber-app', this)">Tukang Gunting</button>
         <button class="btn" id="navAdminBtn" data-view="admin-app" aria-pressed="false" onclick="switchView('admin-app', this)">Admin</button>
 
         <div class="nav-spacer"></div>
@@ -3164,33 +3165,44 @@
             const statusEl = document.getElementById('staffAuthStatus');
             const loginBtn = document.getElementById('staffLoginBtn');
             const logoutBtn = document.getElementById('staffLogoutBtn');
-            // The Admin nav button used to stay visible to everyone (customers,
-            // signed-out visitors, and barbers alike), same as Tukang Gunting's --
-            // clicking it as a non-admin just hit switchView()'s role check and
-            // showed "Panel ini untuk Admin sahaja." That's still the real
-            // boundary (server-side is_admin() checks -- see switchView()'s own
-            // comment), but a barber seeing an Admin button they can never use is
-            // confusing UI, not a useful convenience like Tukang Gunting's is for
-            // a not-yet-signed-in visitor. So this one button is the exception:
-            // hidden outright unless the signed-in account is actually an admin.
+            // Both the Tukang Gunting and Admin nav buttons used to stay visible
+            // to everyone -- customers, signed-out visitors, barbers seeing
+            // Admin, everyone seeing Tukang Gunting -- and only switchView()'s
+            // session/role checks blocked entry (opening the login dialog, or an
+            // alert for the wrong role/inactive account). That's still the real
+            // boundary (server-side is_admin()/is_active_staff() checks -- see
+            // switchView()'s own comment), but Fahru asked that pelanggan not be
+            // able to SEE the Tukang Gunting or Admin panels at all, not just be
+            // blocked from opening them. Both are now hidden by default and
+            // revealed only once a real staff session exists: Tukang Gunting for
+            // any signed-in staff (barber or admin -- matches switchView()'s own
+            // gate, which lets either role into barber-app), Admin only when the
+            // role is specifically 'admin'.
+            //
+            // IMPORTANT for both toggles below: use an explicit 'inline-block',
+            // never '' -- '' removes the inline style override and falls back to
+            // the stylesheet, where an ID selector (#navBarberBtn/#navAdminBtn
+            // { display:none; }) always outranks a class rule, so '' would leave
+            // these permanently hidden even when they should show. This is also
+            // why loginBtn/logoutBtn below were switched off the old ''-based
+            // toggle: with Tukang Gunting no longer visible to signed-out
+            // visitors, Log Masuk is now the only nav entry point into signing
+            // in, so it must reliably become visible.
             const adminBtn = document.getElementById('navAdminBtn');
+            const barberBtn = document.getElementById('navBarberBtn');
             if (!statusEl || !loginBtn || !logoutBtn) return;
             if (staffSession && staffProfile) {
                 const roleLabel = staffProfile.role === 'admin' ? 'Admin' : 'Tukang Gunting';
                 statusEl.textContent = `${staffProfile.displayName} (${roleLabel}${staffProfile.active ? '' : ' — belum aktif'})`;
                 loginBtn.style.display = 'none';
-                logoutBtn.style.display = '';
-                // Explicit 'inline-block' (button's own default display), not '' --
-                // '' removes the inline override and falls back to the stylesheet,
-                // where #navAdminBtn { display:none; } (an ID selector) always
-                // outranks any class-based show rule, so '' would leave this
-                // permanently hidden even for a real admin. Only an inline style
-                // with a real value reliably wins.
+                logoutBtn.style.display = 'inline-block';
+                if (barberBtn) barberBtn.style.display = 'inline-block';
                 if (adminBtn) adminBtn.style.display = staffProfile.role === 'admin' ? 'inline-block' : 'none';
             } else {
                 statusEl.textContent = '';
-                loginBtn.style.display = '';
+                loginBtn.style.display = 'inline-block';
                 logoutBtn.style.display = 'none';
+                if (barberBtn) barberBtn.style.display = 'none';
                 if (adminBtn) adminBtn.style.display = 'none';
             }
         }
