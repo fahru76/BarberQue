@@ -33,7 +33,7 @@ jobs:
           echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
           tar -xzf actionlint.tar.gz
           chmod +x actionlint
-          ./actionlint -color .github/workflows
+          ./actionlint -color
           rm -f actionlint.tar.gz
 
   test:
