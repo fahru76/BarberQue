@@ -2857,3 +2857,33 @@ build/legacy.cjs                                    regenerable reference impl
   button confirmed hidden in the first two, visible only in the third.
   No SQL/migration changes.
 - Shipped directly to `main` at `ff16335`.
+
+## Done — Tukang Gunting nav button hidden from pelanggan too, Log Masuk/Keluar visibility bug fixed (2026-09-09)
+
+- Fahru: "pelanggan cannot see Tukang Gunting Panel and Admin panel."
+  Admin was already fixed (previous entry above); this closes the same
+  gap for Tukang Gunting, which was still always visible to everyone.
+- New `#navBarberBtn` id, hidden by default via CSS (same pattern as
+  `#navAdminBtn`). `updateStaffAuthUI()` shows it for ANY signed-in
+  staff (barber or admin) -- matches `switchView()`'s own gate, which
+  lets either role into `barber-app` (unlike `admin-app`, admin-only).
+- **The flagged loginBtn/logoutBtn bug from the previous entry had to be
+  fixed now, not later**: with Tukang Gunting no longer visible to
+  signed-out visitors, "Log Masuk" becomes the only nav entry point into
+  signing in at all. Root cause confirmed: `loginBtn.style.display = ''`
+  (and `logoutBtn`'s equivalent) never actually showed the button --
+  `''` removes the inline override and falls back to the stylesheet,
+  where the ID-selector `display:none` default always wins over any
+  class rule, so neither button was ever really appearing via this code
+  path. Fixed with explicit `'inline-block'`, same fix already applied
+  to `navAdminBtn`. Confirmed via Playwright that Log Masuk/Log Keluar
+  now genuinely toggle (they didn't before this fix, in production).
+- Verified: `node --check` on both script blocks, `npm test` (23/23 +
+  20,000/20,000 + sql-consistency clean, no logic touched). Visually
+  verified via Playwright using the REAL `updateStaffAuthUI()` function
+  body (extracted verbatim, not reimplemented, after the first attempt
+  at this used a hand-copied simulation that itself didn't match the
+  real fix and gave a false negative) against three states: pelanggan
+  sees neither Tukang Gunting nor Admin, barber sees Tukang Gunting
+  only, admin sees both. No SQL/migration changes.
+- Shipped directly to `main` at `70dcef3`.
