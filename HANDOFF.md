@@ -2484,6 +2484,96 @@ build/legacy.cjs                                    regenerable reference impl
 - Shipped directly to `main` at `4aa34a2` (same scoped-bug-fix treatment
   as the other two fixes today -- no PR).
 
+## Done — admin warned proactively before the shop is left with zero active seats (2026-09-08)
+
+- Fahru's report: online booking silently showed "TARIKH TIDAK TERSEDIA / TIADA SLOT"
+  for every date. Not a bug -- diagnosed via a direct Supabase query: zero seats were
+  `active`, which is a valid admin configuration, just one that stops all booking and
+  walk-in intake. Fahru's follow-up: admin should be warned *before* landing in that
+  state, not left to guess why booking looks broken.
+- Three changes, all client-side (`index.html`), matching Fahru's own multi-select
+  choice of every option offered:
+  1. `toggleSeatStatus()` now shows a confirm dialog before closing what would become
+     the LAST active seat, naming the consequence (all online booking and new walk-in
+     queueing stops) and requiring an explicit "teruskan?" before proceeding.
+  2. A persistent `#adminNoActiveSeatsWarning` banner in Panel Admin (clickable,
+     jumps to the Kerusi section) shown whenever `activeSeats` has zero `true` values.
+  3. `generateTimeSlots()` gives customers a clearer message
+     ("KEDAI BELUM SEDIA UNTUK TEMPAHAN ONLINE") specifically for the zero-active-seats
+     case, distinct from the existing "TARIKH TIDAK TERSEDIA / TIADA SLOT" message
+     (which stays for the closed-day / advance-window case).
+- Shipped directly to `main` at `db13276` (scoped UI fix, no PR).
+
+## Done — barber name shown on the seat toggle button in Panel Admin (2026-09-08)
+
+- Fahru: "I need barber name to be displayed on the chair in the admin panel rather
+  than only display at tukang gunting panel" -- previously only the barber-app's own
+  seat cards showed who was assigned; the admin toggle buttons just said "Kerusi N :
+  AKTIF/TUTUP" with no name.
+- `updateUI()`'s admin-toggle render loop now appends the barber's name (preferring
+  `seatServerState[n].barberName` -- the real `staff.display_name` via the server join
+  -- falling back to the local `barberAssignments` cache) as a small line under the
+  AKTIF/TUTUP label. Shipped at `8fe361a`.
+- Follow-up same day: Fahru noticed a closed (TUTUP) seat still showed its retained
+  placeholder name underneath, reading as if that barber were still on duty there. The
+  name is now shown only while `activeSeats[n]` is true -- the underlying data isn't
+  cleared (still needed so reopening the same seat remembers its barber), only the
+  display is gated. Shipped at `87a6622`.
+
+## Done — duplicate-active-seat display bug root-caused and closed at the source (2026-09-08 to 2026-09-09)
+
+- Fahru's report, with a screenshot: two ACTIVE seats both showing "FAHRU" at once --
+  physically impossible (one barber, one chair) and something he explicitly said he
+  didn't want to be *possible*, not just alerted-on. First attempt (`a4f824d`): a
+  render-time healer, `normalizeActiveSeatsForDuplicateBarbers()`, closing every
+  active seat after the first with a repeated barber name (unless it's mid-serving a
+  customer). Second attempt, after a user-supplied screen recording showed the bug
+  surviving a reopen (`ffmpeg`-extracted frames traced the exact click sequence):
+  `normalizeBarberAssignmentsForDuplicates()` (`5f6afe0`), deduping the legacy
+  per-seat "remembered barber name" string cache in `localStorage` that
+  `toggleSeatStatus()` fell back to whenever the dropdown was left unselected.
+- Fahru reported the bug persisting even in a fresh Incognito window (`"masih sama
+  dalam incognito"`) -- conclusive proof it wasn't stale browser cache, since Incognito
+  guarantees empty `localStorage`. A live Supabase query at that point showed the
+  server (`public.seats`) was completely clean: only one seat genuinely
+  `active = true` with a `barber_id`. That meant local storage and the server had
+  diverged, and the two heals above were only ever cleaning up symptoms after the
+  fact -- the actual defect was structural: `toggleSeatStatus()` and
+  `saveBarberAssignments()` wrote to `localStorage` first and pushed to
+  `public.seats` via `syncSeatAssignmentToServer()` as a **fire-and-forget,
+  error-swallowing side call**. A failed or delayed server write left the local
+  cache confidently wrong with nothing to reconcile it, and every render-time
+  healer was patching a symptom that could reappear from a fresh divergence at any
+  time.
+- The real fix (`fbbaa92`): made `public.seats` the single source of truth end to
+  end, using guarantees the database already enforced but the client had never
+  relied on (`seats_active_requires_barber`, `seats_one_seat_per_barber_uidx`):
+  - `toggleSeatStatus()` and `saveBarberAssignments()` now `await` the server
+    write and only commit to `localStorage` / re-render once it actually
+    succeeds -- an optimistic local write the server later rejects can no longer
+    happen.
+  - New `reconcileLocalSeatStateFromServer()` copies the server's `active`/
+    `barber_id` truth down into `localStorage` every time fresh seat data
+    arrives: on boot, after any admin action, and on every realtime push from
+    another device (`subscribeSeatChanges`) -- so the local cache can no longer
+    drift from the server on its own, from any browser, at any time.
+  - `toggleSeatStatus()` drops its fallback to the legacy remembered-name
+    string cache entirely -- the dropdown's own value (backed by
+    `seatServerState`) is the only input now. Reopening a seat still correctly
+    remembers its barber, because the server retains `barber_id` across a
+    close and the dropdown is populated from that.
+  - The two render-time heal functions from the earlier attempts
+    (`normalizeActiveSeatsForDuplicateBarbers`, `normalizeBarberAssignmentsForDuplicates`)
+    are removed as redundant -- there's nothing left to heal once the source of
+    the divergence is closed.
+- No new migration was needed -- both DB constraints the fix leans on already
+  existed from the "one seat per barber, active or not" work earlier in the
+  session; confirmed live via `pg_constraint`/`pg_indexes` queries before writing
+  the client fix.
+- Verified: `npm test` (23 domain fixtures, 20,000-comparison differential, all
+  passing), `tests/sql-consistency.mjs` clean, `node --check` on both inline
+  `<script>` blocks. Shipped directly to `main` at `fbbaa92`.
+
 ## Verification habits worth keeping
 
 - Check `get_advisors` after every DDL change, and verify actual ACLs with

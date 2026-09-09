@@ -42,7 +42,9 @@ did.
 - **Canonical source of truth for status:** `HANDOFF.md`.
 - **Secondary roadmap view:** `QUEUECUT_HANDOVER.md`.
 - **Session start command:** `git log --oneline -n 3 && git status --short --branch && printf "\n--- open/remaining status ---\n" && grep -nE "## Still open|## Done —|Status:" HANDOFF.md QUEUECUT_HANDOVER.md HERMES_AGENT_HANDOFF.md`
-- **Last handoff sync commit:** `32cc290` (optional pagi/petang/malam same-day booking session gate shipped -- see HANDOFF.md's matching entry).
+- **Last handoff sync commit:** `fbbaa92` (public.seats made the single source of
+  truth for seat/barber state, closing the duplicate-active-seat display bug -- see
+  HANDOFF.md's matching entry).
 - **Remaining unfinished work at a glance (as of this commit):**
   - `notificationOutbox` is write-only in `index.html` (phone collected, WhatsApp promise
     not yet wired).
@@ -56,10 +58,10 @@ did.
 
 ## Current state as of this handoff
 
-- `main` is at commit `4aa34a2`
-  (`fix: a barber can only be assigned to one seat, active or not`), 2026-09-08. Don't
-  trust this hash if it's been a while: run `git log --oneline -n 3` for the current
-  head.
+- `main` is at commit `fbbaa92`
+  (`fix: make public.seats the single source of truth for seat/barber state`),
+  2026-09-09. Don't trust this hash if it's been a while: run `git log --oneline -n 3`
+  for the current head.
 - Most recent migration: `supabase/migrations/20260908143140_one_seat_per_barber_global.sql`
   — replaces the earlier partial index (`seats_one_active_seat_per_barber_uidx`, scoped
   to `where active`) with `seats_one_seat_per_barber_uidx`, unique on
@@ -88,6 +90,24 @@ did.
      seat's barber dropdown now live-filters out any name already picked on a
      different seat (structural prevention, not after-the-fact validation), backed by
      the global DB unique index above. Shipped directly to `main` at `4aa34a2`.
+  6. Proactive admin warnings before the shop is left with zero active seats: a
+     confirm dialog before closing the last active seat, a persistent Panel Admin
+     banner, and a clearer customer-facing booking message. Shipped at `db13276`.
+  7. Barber name shown on each seat's toggle button in Panel Admin (not just the
+     barber-app view), hidden again once that seat is closed. Shipped at `8fe361a`
+     and `87a6622`.
+  8. Chased a duplicate-active-seat-with-same-barber display bug through two
+     render-time heal attempts (`a4f824d`, `5f6afe0`) before Fahru's Incognito test
+     proved it wasn't stale cache -- root cause was `toggleSeatStatus()`/
+     `saveBarberAssignments()` writing to `localStorage` first and pushing to
+     `public.seats` as a fire-and-forget side call that could silently fail.
+  9. Fixed it at the source: `public.seats` is now the single source of truth end to
+     end -- both admin actions `await` the server write and only commit locally on
+     success, and a new `reconcileLocalSeatStateFromServer()` keeps `localStorage` in
+     lockstep with the server on every boot, action, and realtime push. The two
+     render-time heals from #8 were removed as redundant. Shipped directly to `main`
+     at `fbbaa92`. Full detail in HANDOFF.md's matching "Done -- duplicate-active-seat"
+     entry.
 - What the previous agent built (4 commits, already live before this session's work):
   the Panel Admin left sidebar became a reorderable list (drag or up/down arrows); on
   mobile it's now a dropdown with its own card-list style (not a shrunk copy of the
