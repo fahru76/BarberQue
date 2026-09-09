@@ -2691,3 +2691,69 @@ build/legacy.cjs                                    regenerable reference impl
 - Run destructive-looking tests inside a `DO` block that raises at the end, so the
   transaction rolls back and leaves no rows behind.
 - Run `tests/sql-consistency.mjs` before applying any new migration.
+
+## Done — permanent staff removal, admin-count safety guard, barber-name report snapshot, monthly/yearly Excel export (2026-09-09)
+
+- Fahru asked for a way for admin to assign/remove admin role and to remove
+  a barber from the registered list. Assign/remove admin already existed
+  (`setStaffStatus({ role })` + the role dropdown on each staff row); what
+  was genuinely missing was removal -- `toggleStaffActive(id, false)`
+  ("NYAHAKTIF") only hides a staff member, it never frees their email or
+  deletes the Supabase Auth account.
+- **New `admin_remove_staff(uuid)` RPC + "BUANG" button** (hidden on your
+  own row). Runs `delete from auth.users`, which cascades to the `staff`
+  row (`staff.id references auth.users(id) on delete cascade`). No Edge
+  Function or `service_role` key needed -- confirmed live that the
+  migration owner (`postgres`) already has DELETE on `auth.users` in this
+  project, unlike `inviteBarber()` which genuinely needs the Auth Admin
+  API. Two server-side guards, independent of the UI: can never remove
+  your own account, and the last remaining *active* admin can never be
+  removed.
+- **Closed a related gap while here**: `enforce_staff_self_update_scope()`
+  now enforces the same "keep at least one active admin" rule on the
+  UPDATE path (role/active changes) -- previously an admin could demote or
+  deactivate their own account with zero protection (a gap this doc
+  already flagged), which would have made the new DELETE-path guard
+  pointless since the same zero-admin state was reachable via a plain
+  role-change instead of removal.
+- **`queues.barber_name` snapshot column**, populated by a new
+  `BEFORE INSERT OR UPDATE` trigger (`sync_queue_barber_name()`) the moment
+  `barber_id` is assigned, and backfilled for existing rows. Fahru's own
+  concern when this was scoped: deleting a barber's account would silently
+  null every past ticket's `barber_id` (`on delete set null`) and reports
+  would lose that barber's name from history. This makes the name durable
+  and DB-side instead of the client's existing localStorage-only snapshot
+  (`index.html`'s `queue.barberName`, set once at call-time, never synced
+  to the server). `queueRepository.js`'s `mapQueueRowFull()` now carries it
+  through as `barberName`.
+- **Admin sales report**: added a "Tahun Lepas" (yearly) mode alongside the
+  existing daily/monthly ones (same "previous full period, business-day
+  shifted" pattern as "Bulan Lepas"), and a "Muat Turun Excel (.xlsx)"
+  button that exports the currently-shown report (ticket list + per-barber
+  summary, two sheets) via SheetJS loaded from cdnjs -- this app's only
+  external script dependency, pinned to an exact version.
+- **Caught and fixed a grant bug of my own before it shipped**: the first
+  version of `admin_remove_staff()`'s `revoke all ... from public` did not
+  remove Supabase's separate DEFAULT PRIVILEGES grant to `anon` on new
+  functions -- same root cause `20260901000300_harden_function_grants.sql`
+  fixed for `barber_performance()`. `get_advisors` flagged it immediately
+  after applying; closed with an explicit `revoke ... from anon, public`
+  in a follow-up migration before any client code could reach it. The
+  function's own `is_admin()` check would have rejected an anon caller
+  anyway (`auth.uid()` is null for anon), so this was missing
+  defense-in-depth, not an open door -- but it's fixed properly per this
+  project's own established pattern for the exact class of bug.
+- Verified: `node --check` on both `index.html` script blocks and both
+  touched repository modules, `npm test` (23/23 unit + 20,000-comparison
+  differential, both clean), `tests/sql-consistency.mjs` clean (added
+  `admin_remove_staff`/`sync_queue_barber_name` to its allowlist),
+  `get_advisors` shows only the pre-existing documented warnings. Live,
+  rolled-back-transaction test covering: self-removal blocked,
+  nonexistent-target rejected, anon rejected outright (EXECUTE revoked),
+  last-admin blocked (exercised via the shared UPDATE-path invariant,
+  since only one real admin account exists in this environment), and a
+  legitimate self-rename still succeeding (no regression). `barber_name`
+  confirmed in sync with `staff.display_name` for existing rows.
+- Shipped directly to `main` at `f984dc0` (migrations
+  `20260909141426_staff_removal_and_barber_name_snapshot.sql` and
+  `20260909141439_revoke_anon_execute_on_admin_remove_staff.sql`).
