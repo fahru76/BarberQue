@@ -2971,3 +2971,73 @@ build/legacy.cjs                                    regenerable reference impl
   and cross-checked with a Playwright side-by-side render of the old
   vs. new color in both themes. No SQL/migration changes.
 - Shipped directly to `main`.
+
+## Done — three fixes from a `/frontend-component-build` audit of the live customer/booking components (2026-09-11)
+
+- Fahru ran `/frontend-component-build` against
+  `https://fahru76.github.io/BarberQue/`, producing a 6-dimension
+  component audit (saved to the Cowork project as
+  `component-audit-2026-09-11.md`) with 5 findings. He then said
+  "execute for the fix as listed" -- this entry covers the audit's
+  3 Priority Recommendations (findings #1-3). Findings #4 (migrate
+  the mode-toggle/weekly-hours-tab pattern to proper ARIA
+  `role="tablist"`/`tab`/`tabpanel`) and #5 (consolidate the app's
+  several one-off confirm/alert dialog implementations into one
+  shared component) were **left as documented, not implemented** --
+  lower priority, larger surface area, not requested.
+- **1. Seat-toggle buttons now announce their state.** The admin
+  seat-toggle buttons (`#btnToggleSeat{n}`, "Kerusi N : AKTIF/TUTUP")
+  are a real two-state toggle conveyed only through button text and
+  a CSS class -- no toggle-state semantics for screen readers. The
+  `updateUI()` render loop that sets `innerHTML`/`className` on each
+  button now also sets `aria-pressed` (`"true"`/`"false"`) from the
+  same `activeSeats[n]` boolean, every render, so it's correct from
+  first paint and stays correct on every subsequent toggle.
+- **2. Submit re-entrancy guard on ticket/appointment booking.**
+  `bookTicket()` and `submitAppointment()` each await a Supabase
+  network call with their submit button left clickable the whole
+  time -- a slow connection plus an impatient second tap could fire
+  two ticket-taking or booking requests. Both original function
+  bodies were renamed to `...Impl()` (unchanged) and given a thin
+  wrapper of the original name: an in-flight boolean flag blocks a
+  concurrent second call outright, the relevant submit button
+  (`#btnBookTicket` / `#btnSubmitApp`) is disabled for the duration,
+  and both flag and button are restored in a `finally` so it's
+  correct on every exit path (success, early-return, thrown error).
+  `submitAppointment()`'s wrapper doesn't unconditionally re-enable
+  the button afterward -- `cancelEditMode()` deliberately leaves it
+  disabled after a successful submit (form cleared, no date/slot
+  selected yet) -- so the `finally` instead re-runs the existing
+  `generateTimeSlots()` disabled-state logic when a date is still
+  selected, or disables the button itself when the date field is
+  empty. Confirmed via grep that both functions are only ever
+  invoked from their form's own `onsubmit` handler -- no other call
+  sites needed updating.
+- **3. Phone-validation errors are now visible and announced.**
+  `attachPhoneValidation()` previously only called
+  `input.setCustomValidity()`, which surfaces nothing on the page
+  until a submit attempt, with inconsistent browser/screen-reader
+  bubble behaviour. The two phone inputs (`#customerPhoneInput`/
+  `#bookPhoneInput`) already had `aria-describedby` pointing at a
+  paired `<p class="field-error" aria-live="polite">` element
+  (`#customerPhoneError`/`#bookPhoneError`) that nothing filled in.
+  `attachPhoneValidation()` now also writes the same validation
+  message into that paired element and sets `aria-invalid` on the
+  input, on `input`/`blur`/`invalid`, alongside the existing
+  `setCustomValidity()` call (kept so native constraint-validation
+  blocking on submit is unchanged). New `.field-error` CSS keeps it
+  visually unobtrusive (`:empty { display:none }`, no reserved
+  height) until there is an actual message.
+- Verified: `node --check` on both script blocks, `npm test` (23/23
+  fixtures + 20,000/20,000 differential + sql-consistency clean --
+  no domain/schema logic touched by these fixes). All 3 fixes
+  additionally verified behaviourally with Playwright, using the real
+  function bodies extracted verbatim from `index.html` (not
+  reimplemented): seat-loop `aria-pressed` toggling both directions;
+  `attachPhoneValidation()` wired to real inputs, checking error
+  text + `aria-invalid` for invalid/valid/empty phone values; the
+  `bookTicket()` wrapper bound to a synthetic delayed impl to isolate
+  the guard mechanics, confirming a simulated double-tap invokes the
+  impl only once, the button is disabled mid-flight, and re-enabled
+  after settling. 12/12 checks passed. No SQL/migration changes.
+
