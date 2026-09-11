@@ -2912,3 +2912,62 @@ build/legacy.cjs                                    regenerable reference impl
   Log Masuk); barber sees Pelanggan/Layar Kedai/Tukang Gunting; admin
   sees all four. No SQL/migration changes.
 - Shipped directly to `main` at `8c7c916`.
+
+## Done — three fixes from a `/design-critique` of the live customer page (2026-09-11)
+
+- Fahru ran `/design-critique https://fahru76.github.io/BarberQue/`, then
+  said "Execute as recommendations highlighted" -- this entry covers all
+  three Priority Recommendations from that critique.
+- **1. Solo "Pelanggan" nav pill.** With Tukang Gunting/Layar
+  Kedai/Admin all hidden from a signed-out visitor (previous three
+  entries), Pelanggan became the only nav button -- but it kept its
+  active-tab pill styling, reading as a broken toggle with nothing to
+  switch to. New `.app-nav .btn.nav-solo` CSS strips it to a plain
+  muted label in that state only; `updateStaffAuthUI()` (new
+  `#navCustomerBtn` id) toggles the class the same way it already
+  toggles the other three buttons' visibility -- solo when signed out,
+  restored to a real pill the moment any staff signs in and the other
+  buttons reappear.
+- **2. "KEDAI DITUTUP" banner gets a next-opening line.** The
+  closed-walkin banner was a dead end when today is closed on the
+  weekly schedule -- no hint of when to come back, despite
+  `shop_settings.weekly_op_hours` already having the answer. New
+  `getNextOpeningInfo()`/`formatNextOpeningText()` scan forward up to
+  14 days (skipping admin-declared `closedDates` too, not just the
+  weekly schedule) for the next actually-open day, rendered into a new
+  `#customerNextOpening` line ("Buka semula esok jam 10:00." /
+  "Buka semula Ahad, 13/09 jam 09:30."). Wired into both places that
+  render the banner (`setCustomerMode()` and `updateUI()`). Deliberately
+  **not** shown for a manual "emergency closure" (shop toggled closed
+  by staff, not by schedule) -- that has no predictable reopening, so
+  guessing one would be misleading; the line only appears when
+  `todayIsClosed` (the weekly-schedule closure) is true.
+- **3. Muted-text WCAG AA contrast fix, light theme.** Audited
+  `--text-muted` (live "QueueCut 8" style block, the one actually
+  shipping) against its common backgrounds in both themes: the base
+  variable itself was already AA-compliant everywhere (dark 6.6-7.7:1,
+  light 4.7-5.4:1). But two rules --
+  `#customer-header-text p` and `.input-group label, .input-row
+  label` -- used `color-mix(in srgb, var(--text-muted) 90%, white
+  10%)`, which lightens the muted color further. Harmless in dark
+  theme, but in light theme it lightens already mid-tone text on an
+  already-light background, dropping normal-text contrast to
+  3.79-4.38:1 -- below the 4.5:1 AA threshold. Fixed by mixing toward
+  `var(--text-main)` instead of literal `white`: in dark theme
+  `--text-main` is itself near-white, so the result is nearly
+  unchanged (8.46-7.30:1, still passes); in light theme `--text-main`
+  is near-black, so it now *darkens* the muted text instead, restoring
+  5.30-6.12:1.
+- Verified: `node --check` on both script blocks, `npm test` (23/23 +
+  20,000/20,000 + sql-consistency clean, no logic touched by the fixes
+  themselves). Fix 1 and fix 2 visually verified via Playwright using
+  the real function bodies extracted verbatim from `index.html` (not
+  reimplemented). Fix 2's date/schedule logic additionally covered by
+  a 4-scenario Node unit-test harness (skips a closed tomorrow; finds
+  the very next day when it's open; skips an explicitly closed-date
+  even when the weekly schedule says open; returns null/empty text for
+  a fully-closed 14-day window without looping). Fix 3's contrast
+  ratios computed with the standard WCAG relative-luminance formula
+  and cross-checked with a Playwright side-by-side render of the old
+  vs. new color in both themes. No SQL/migration changes.
+- Shipped directly to `main`.
