@@ -862,6 +862,26 @@
             .ticket-box { padding-inline: 20px; }
             #display-app > div { border-radius: 22px !important; }
         }
+
+        /* Solo-state Pelanggan pill: when no staff is signed in, Pelanggan is
+           the ONLY visible nav button (Layar Kedai/Tukang Gunting/Admin are
+           all hidden from a plain customer -- see updateStaffAuthUI()), so
+           the pill/tab styling reads as a broken toggle with nothing to
+           switch to (flagged in a design critique of the live site). This
+           strips the interactive-pill look down to a plain muted label in
+           that state only -- updateStaffAuthUI() toggles the class. Placed
+           last in this final stylesheet deliberately, so it reliably wins
+           over .app-nav .btn.active above (equal specificity -- same lesson
+           as the display:'' visibility bug fixed elsewhere in this file). */
+        .app-nav .btn.nav-solo {
+            cursor: default;
+            pointer-events: none;
+            background: transparent;
+            border-color: transparent;
+            color: var(--text-muted);
+            box-shadow: none;
+        }
+        .app-nav .btn.nav-solo:hover { background: transparent; color: var(--text-muted); }
     </style>
     <style>
         /* QueueCut 8 — Sleek-inspired visual phase (visual only) */
@@ -1006,7 +1026,15 @@
             letter-spacing: -.075em;
             line-height: .94;
         }
-        #customer-header-text p { max-width: 560px; color: color-mix(in srgb, var(--text-muted) 90%, white 10%); }
+        /* Design-critique fix: was mixing toward literal white, which softens
+           --text-muted further in dark theme (fine) but LIGHTENS it in light
+           theme too, dropping normal-text contrast to ~3.8-4.4:1 on the
+           light-theme surfaces -- below WCAG AA's 4.5:1. Mixing toward
+           var(--text-main) instead softens correctly per theme: it's still
+           near-white in dark theme (near-identical result, still ~7-8.5:1),
+           but near-black in light theme, which DARKENS the muted text there
+           and restores it to ~5.3-6.1:1. */
+        #customer-header-text p { max-width: 560px; color: color-mix(in srgb, var(--text-muted) 90%, var(--text-main) 10%); }
 
         #barber-app > .admin-panel > h2,
         #admin-app > .admin-panel > h2 {
@@ -1109,7 +1137,10 @@
             background: #ffffff;
             color: #1d1815;
         }
-        .input-group label, .input-row label { color: color-mix(in srgb, var(--text-muted) 90%, white 10%); }
+        /* Same WCAG AA contrast fix as #customer-header-text p above --
+           mix toward var(--text-main) instead of literal white so light
+           theme darkens (not lightens) instead of failing AA. */
+        .input-group label, .input-row label { color: color-mix(in srgb, var(--text-muted) 90%, var(--text-main) 10%); }
 
         .mode-toggle {
             padding: 5px;
@@ -1751,7 +1782,7 @@
             <span id="brandMonogram" class="brand-monogram" aria-hidden="true">QC</span>
             <span class="brand-copy"><strong id="navAppName">QueueCut</strong><span id="navShopName">Syam Barber Shop</span></span>
         </div>
-        <button class="btn active" data-view="customer-app" aria-pressed="true" onclick="switchView('customer-app', this)">Pelanggan</button>
+        <button class="btn active" id="navCustomerBtn" data-view="customer-app" aria-pressed="true" onclick="switchView('customer-app', this)">Pelanggan</button>
         <button class="btn" id="navDisplayBtn" data-view="display-app" aria-pressed="false" onclick="switchView('display-app', this)">Layar Kedai</button>
         <button class="btn" id="navBarberBtn" data-view="barber-app" aria-pressed="false" onclick="switchView('barber-app', this)">Tukang Gunting</button>
         <button class="btn" id="navAdminBtn" data-view="admin-app" aria-pressed="false" onclick="switchView('admin-app', this)">Admin</button>
@@ -1791,6 +1822,7 @@
             <div id="customer-closed-view">
                 <h2 id="customerClosedHeading">KEDAI DITUTUP</h2>
                 <p id="customerClosedMessage">Maaf, operasi walk-in kedai telah ditutup buat masa ini.</p>
+                <p id="customerNextOpening" class="text-muted mt-15 fs-90" style="display:none;"></p>
                 <p class="text-muted mt-15 fs-90">Tempahan Online untuk tarikh operasi akan datang masih tersedia.</p>
                 <div id="closedBookingReminder">
                     <p id="closedBookingReminderText"></p>
@@ -3192,6 +3224,7 @@
             const adminBtn = document.getElementById('navAdminBtn');
             const barberBtn = document.getElementById('navBarberBtn');
             const displayBtn = document.getElementById('navDisplayBtn');
+            const customerBtn = document.getElementById('navCustomerBtn');
             if (!statusEl || !loginBtn || !logoutBtn) return;
             if (staffSession && staffProfile) {
                 const roleLabel = staffProfile.role === 'admin' ? 'Admin' : 'Tukang Gunting';
@@ -3201,6 +3234,11 @@
                 if (displayBtn) displayBtn.style.display = 'inline-block';
                 if (barberBtn) barberBtn.style.display = 'inline-block';
                 if (adminBtn) adminBtn.style.display = staffProfile.role === 'admin' ? 'inline-block' : 'none';
+                // Other nav buttons are visible now, so Pelanggan is a real
+                // tab again (something to switch away from) -- restore its
+                // normal interactive-pill styling. See the .nav-solo CSS
+                // comment for why this exists at all.
+                if (customerBtn) customerBtn.classList.remove('nav-solo');
             } else {
                 statusEl.textContent = '';
                 loginBtn.style.display = 'inline-block';
@@ -3208,6 +3246,11 @@
                 if (displayBtn) displayBtn.style.display = 'none';
                 if (barberBtn) barberBtn.style.display = 'none';
                 if (adminBtn) adminBtn.style.display = 'none';
+                // Pelanggan is now the only visible nav button (design
+                // critique finding: it read as a broken toggle with nothing
+                // to switch to) -- drop the pill styling down to a plain
+                // label instead.
+                if (customerBtn) customerBtn.classList.add('nav-solo');
             }
         }
 
@@ -5247,6 +5290,36 @@
         }
         function getClosedDates() { const value = readJSON('closedDates', []); return Array.isArray(value) ? value : []; }
         function saveClosedDates(dates) { return safeSetItem('closedDates', dates); }
+
+        /**
+         * Design-critique fix: the "KEDAI DITUTUP" walk-in banner used to be
+         * a dead end when today is closed on the weekly schedule -- no hint
+         * of when to come back. Scans forward from tomorrow (skipping any
+         * admin-declared closedDates too, not just the weekly schedule) for
+         * the next day the shop is actually open, capped at 14 days out so a
+         * fully-closed weekly schedule can't loop forever or return nonsense
+         * -- callers just omit the extra line when this returns null.
+         */
+        function getNextOpeningInfo() {
+            const closedDates = getClosedDates();
+            for (let i = 1; i <= 14; i++) {
+                const dateStr = getLocalYMD(Date.now() + i * 86400000);
+                if (!dateStr || closedDates.includes(dateStr)) continue;
+                const ops = getOpHours(dateStr);
+                if (!ops.closed && ops.open) {
+                    return { dateStr, open: ops.open, dayIndex: getDayIndexFromDate(dateStr), daysAhead: i };
+                }
+            }
+            return null;
+        }
+
+        function formatNextOpeningText() {
+            const info = getNextOpeningInfo();
+            if (!info) return '';
+            const [, month, day] = info.dateStr.split('-');
+            const when = info.daysAhead === 1 ? 'esok' : `${OPERATION_DAY_LABELS[info.dayIndex]}, ${day}/${month}`;
+            return `Buka semula ${when} jam ${info.open}.`;
+        }
         function getBookingAdvanceDays() {
             const days = Number.parseInt(localStorage.getItem('bookingAdvanceDays'), 10);
             return Number.isInteger(days) && days >= 1 && days <= 365 ? days : 30;
@@ -5740,7 +5813,17 @@
             if (closedMessage) closedMessage.textContent = todayIsClosed
                 ? 'Maaf, kedai tidak beroperasi pada hari ini mengikut jadual mingguan.'
                 : 'Maaf, operasi walk-in kedai telah ditutup buat masa ini.';
-            
+            // Design-critique fix: only the weekly-schedule closure has a
+            // predictable reopening (an admin's manual emergency closure
+            // could lift any minute, so showing a "next opening" guess
+            // there would be misleading) -- see getNextOpeningInfo().
+            const nextOpeningEl = document.getElementById('customerNextOpening');
+            if (nextOpeningEl) {
+                const nextOpeningText = todayIsClosed ? formatNextOpeningText() : '';
+                nextOpeningEl.textContent = nextOpeningText;
+                nextOpeningEl.style.display = nextOpeningText ? '' : 'none';
+            }
+
             if(mode === 'booking') { cancelEditMode(); populateBookingServices(); renderVisualCalendar(calCurrentDate); } 
             else { populateWalkinServices(); }
         }
@@ -8412,6 +8495,16 @@
             if (closedMessage) closedMessage.textContent = todayIsClosed
                 ? 'Maaf, kedai tidak beroperasi pada hari ini mengikut jadual mingguan.'
                 : 'Maaf, operasi walk-in kedai telah ditutup buat masa ini.';
+            // Design-critique fix: only the weekly-schedule closure has a
+            // predictable reopening (an admin's manual emergency closure
+            // could lift any minute, so showing a "next opening" guess
+            // there would be misleading) -- see getNextOpeningInfo().
+            const nextOpeningEl = document.getElementById('customerNextOpening');
+            if (nextOpeningEl) {
+                const nextOpeningText = todayIsClosed ? formatNextOpeningText() : '';
+                nextOpeningEl.textContent = nextOpeningText;
+                nextOpeningEl.style.display = nextOpeningText ? '' : 'none';
+            }
             const closedBookingReminder = document.getElementById('closedBookingReminder');
             const closedBookingReminderText = document.getElementById('closedBookingReminderText');
             if (closedBookingReminder) closedBookingReminder.style.display = !walkinOperational && myAppointments.length ? 'block' : 'none';
