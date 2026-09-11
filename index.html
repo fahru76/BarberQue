@@ -1142,6 +1142,15 @@
            theme darkens (not lightens) instead of failing AA. */
         .input-group label, .input-row label { color: color-mix(in srgb, var(--text-muted) 90%, var(--text-main) 10%); }
 
+        /* Component-audit fix: paired with attachPhoneValidation() --
+           empty and unstyled (no min-height reserved) when there's no
+           error, so it takes no visible space until the field actually
+           fails validation, then appears as normal-weight red text
+           instead of relying solely on the invisible-until-submit native
+           validation bubble. */
+        .field-error { color: var(--danger); font-size: 0.85rem; margin: 6px 0 0; min-height: 0; }
+        .field-error:empty { display: none; }
+
         .mode-toggle {
             padding: 5px;
             border-radius: 17px;
@@ -1879,7 +1888,8 @@
                     </div>
                     <div class="input-group">
                         <label for="customerPhoneInput">Nombor WhatsApp:</label>
-                        <input type="tel" id="customerPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true">
+                        <input type="tel" id="customerPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true" aria-describedby="customerPhoneError">
+                        <p id="customerPhoneError" class="field-error" aria-live="polite"></p>
                     </div>
                     <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk menyertai giliran ini — digunakan semata-mata untuk memaklumkan status giliran anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Anggaran masa giliran mungkin berubah mengikut keadaan operasi semasa.</div>
                     
@@ -1943,7 +1953,8 @@
                     </div>
                     <div class="input-group">
                         <label for="bookPhoneInput">Nombor WhatsApp:</label>
-                        <input type="tel" id="bookPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true">
+                        <input type="tel" id="bookPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true" aria-describedby="bookPhoneError">
+                        <p id="bookPhoneError" class="field-error" aria-live="polite"></p>
                     </div>
                     <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk membuat tempahan ini — digunakan semata-mata untuk memaklumkan status tempahan anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Masa tempahan mungkin berubah mengikut keadaan operasi semasa.</div>
                     <div class="input-group">
@@ -4895,11 +4906,25 @@
         function attachPhoneValidation(inputId) {
             const input = document.getElementById(inputId);
             if (!input || input.dataset.validationAttached === 'true') return;
+            // Component-audit fix: setCustomValidity() alone only surfaces a
+            // browser-native validation bubble on submit attempt -- nothing
+            // visible on the page, no aria-invalid, no announced text until
+            // then, and bubble behavior/announcement is inconsistent across
+            // browsers and screen readers. The linked <p id="...Error"> (its
+            // id is this input's own aria-describedby, set in the markup)
+            // gets the same message as a persistent, associated, aria-live
+            // element as soon as the field is touched -- setCustomValidity()
+            // is kept too, so the native constraint-validation blocking on
+            // submit is unchanged.
+            const errorId = input.getAttribute('aria-describedby');
+            const errorEl = errorId ? document.getElementById(errorId) : null;
             const validate = () => {
-                if (!input.value.trim()) input.setCustomValidity('');
-                else input.setCustomValidity(normalizeWhatsAppNumber(input.value)
+                const message = !input.value.trim()
                     ? ''
-                    : 'Masukkan nombor WhatsApp Malaysia yang sah (contoh: 012-345 6789).');
+                    : (normalizeWhatsAppNumber(input.value) ? '' : 'Masukkan nombor WhatsApp Malaysia yang sah (contoh: 012-345 6789).');
+                input.setCustomValidity(message);
+                input.setAttribute('aria-invalid', message ? 'true' : 'false');
+                if (errorEl) errorEl.textContent = message;
             };
             ['input', 'blur', 'invalid'].forEach(eventName => input.addEventListener(eventName, validate));
             input.dataset.validationAttached = 'true';
@@ -7432,7 +7457,30 @@
             return true;
         }
 
+        // Component-audit fix: bookTicket() awaits a network call
+        // (window.QueueRepo.takeTicket()) with the submit button left
+        // clickable the whole time -- a slow connection plus an impatient
+        // second tap could fire two ticket-taking requests. This thin
+        // wrapper is a re-entrancy guard: disables the button (and blocks a
+        // second call outright, in case something other than this one form
+        // ever invokes it) for the duration of the real function, however
+        // it exits -- early-return, success, or thrown error all go through
+        // the same finally. The original body is unchanged, just renamed.
+        let bookTicketInFlight = false;
         async function bookTicket() {
+            if (bookTicketInFlight) return;
+            bookTicketInFlight = true;
+            const submitBtn = document.getElementById('btnBookTicket');
+            if (submitBtn) submitBtn.disabled = true;
+            try {
+                return await bookTicketImpl();
+            } finally {
+                bookTicketInFlight = false;
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        }
+
+        async function bookTicketImpl() {
             if(localStorage.getItem('shopStatus') === 'closed') return (await showAlertDialog("Kedai sedang ditutup."));
             let activeSeatsObj = getActiveSeats();
             let activeSCount = Object.values(activeSeatsObj).filter(Boolean).length;
@@ -7619,7 +7667,41 @@
             }
         }
 
+        // Component-audit fix: same re-entrancy guard as bookTicket() above --
+        // submitAppointment() awaits AppointmentRepo.bookAppointment()/
+        // rescheduleOwnAppointment() with btnSubmitApp left clickable the
+        // whole time. Original body renamed and unchanged, just wrapped.
+        let submitAppointmentInFlight = false;
         async function submitAppointment() {
+            if (submitAppointmentInFlight) return;
+            submitAppointmentInFlight = true;
+            const submitBtn = document.getElementById('btnSubmitApp');
+            if (submitBtn) submitBtn.disabled = true;
+            try {
+                return await submitAppointmentImpl();
+            } finally {
+                submitAppointmentInFlight = false;
+                // Unlike bookTicket(), unconditionally re-enabling here would
+                // be wrong: on a successful submit, cancelEditMode() clears
+                // the form and deliberately sets btnSubmitApp back to
+                // disabled (no date/slot selected yet for the next booking).
+                // Re-running generateTimeSlots() recomputes the correct
+                // disabled state from whatever's currently in the date/time
+                // inputs -- exactly what it already does on every date/time
+                // change -- instead of this guard guessing or duplicating
+                // that logic. With no date selected (the post-success/reset
+                // case), it disables the button itself; with one still
+                // selected (a validation-error early-return, form untouched),
+                // it re-enables when a valid slot exists.
+                if (document.getElementById('bookDateInput')?.value) {
+                    generateTimeSlots();
+                } else if (submitBtn) {
+                    submitBtn.disabled = true;
+                }
+            }
+        }
+
+        async function submitAppointmentImpl() {
             let name = document.getElementById('bookNameInput').value.trim();
             let date = document.getElementById('bookDateInput').value;
             let time = document.getElementById('bookTimeInput').value;
@@ -8479,6 +8561,12 @@
                     : '';
                 sBtn.innerHTML = `Kerusi ${n} : ${activeSeats[n] ? 'AKTIF' : 'TUTUP'}${barberLabel}`;
                 sBtn.className = activeSeats[n] ? "btn btn-action" : "btn btn-reset";
+                // Component-audit fix: this is a real two-state toggle (AKTIF/TUTUP)
+                // conveyed only through text + class before this -- screen reader
+                // users got no toggle-state announcement at all. aria-pressed is
+                // set here (not just once at creation) because this loop is what
+                // runs on every render, so it stays correct from first paint.
+                sBtn.setAttribute('aria-pressed', String(!!activeSeats[n]));
             });
 
             // --- P1 FIX: CUSTOMER VIEW TOGGLING ---
