@@ -55,3 +55,5 @@ jobs:
 
       - name: Verify migration history now matches local files
         run: supabase migration list
+
+# no-op: force GitHub to re-index this workflow_dispatch-only workflow (2026-09-15)
