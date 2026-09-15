@@ -114,21 +114,18 @@ function raiseOnError(error) {
  * step, not a hypothetical -- see HANDOFF.md's step 7 section.
  */
 export async function listQueues() {
-    // Malaysia midnight, expressed as the equivalent UTC instant -- matches
-    // the migrations' own `(now() at time zone 'Asia/Kuala_Lumpur')::date`.
-    // Shift by +8h first so reading the UTC Y/M/D fields gives MALAYSIA's
-    // current calendar date (handles the UTC-day-boundary case correctly,
-    // e.g. 20:00 UTC is already past midnight in Malaysia), then convert
-    // that date's 00:00 MYT back into its real UTC instant (-8h).
-    const myt = new Date(Date.now() + 8 * 3600 * 1000);
-    const startOfTodayMYT = new Date(Date.UTC(myt.getUTCFullYear(), myt.getUTCMonth(), myt.getUTCDate()) - 8 * 3600 * 1000);
-    const { data, error } = await supabase
-        .from('queues')
-        .select(QUEUE_COLUMNS)
-        .gte('created_at', startOfTodayMYT.toISOString())
-        .order('created_at', { ascending: true });
+    // Bug-hunt audit (2026-09-15): this used to compute a literal Malaysia
+    // calendar-midnight boundary client-side and filter created_at against
+    // it directly. That silently dropped an overnight shift's pre-midnight
+    // tickets from every fetch the instant the clock passed midnight (the
+    // shop's business day doesn't reset there, only the calendar date does
+    // -- see _current_business_date()/getCurrentBusinessDate()). Delegating
+    // to the list_today_queues() RPC gives this the same business-day-aware
+    // boundary the staff-side list_today_queues_full() RPC uses, computed
+    // once server-side instead of duplicated (and previously wrong) here.
+    const { data, error } = await supabase.rpc('list_today_queues');
     raiseOnError(error);
-    return data.map(mapQueueRow);
+    return (data ?? []).map(mapQueueRow);
 }
 
 /**

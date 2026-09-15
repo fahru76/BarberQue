@@ -58,7 +58,15 @@ export function onAuthStateChange(callback) {
  * know a DB column is snake_case.
  */
 export async function getMyStaffProfile() {
-    const { data: { user } } = await supabase.auth.getUser();
+    // Bug-hunt audit (2026-09-15): this used to discard getUser()'s error
+    // entirely, so a transient network failure or an expired/invalid token
+    // was indistinguishable from "genuinely signed out" -- both silently
+    // returned null. supabase-js also returns an error alongside a null
+    // user for the ordinary "no session yet" case, so throwing here would
+    // break normal signed-out UI; logging keeps that behaviour but makes an
+    // unexpected auth error diagnosable instead of silent.
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) console.warn('[authRepository] getUser() error (treated as signed out):', authError.message ?? authError);
     if (!user) return null;
     const { data, error } = await supabase
         .from('staff')

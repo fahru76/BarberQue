@@ -81,8 +81,17 @@ Deno.serve(async (req) => {
     data: { display_name: displayName },
   });
   if (error) {
+    // Bug-hunt audit (2026-09-15): this used to forward the Auth Admin
+    // API's raw error text straight to the caller, which would likely
+    // include "user already registered" style detail -- letting an
+    // already-authenticated admin caller enumerate registered vs.
+    // unregistered emails through this endpoint. Log the real message
+    // server-side (visible in the function's own logs) and return a
+    // generic one to the client instead. The status code itself isn't
+    // sensitive, so it's still passed through.
     const status = typeof error.status === "number" && error.status < 500 ? error.status : 502;
-    return json({ error: error.message }, status);
+    console.error("[invite-barber] inviteUserByEmail failed:", error.message ?? error);
+    return json({ error: "Could not send invite" }, status);
   }
 
   return json({ id: data.user?.id, email: data.user?.email });

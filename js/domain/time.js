@@ -55,9 +55,9 @@ export function timeToMinutes(timeString) {
     return (hours * 60) + minutes;
 }
 
-/** Minutes since midnight to "HH:MM". */
+/** Minutes since midnight to "HH:MM", wrapping a business-day-axis value (which can run past 1440 for an overnight-crossing day, see crossesMidnight()/businessMinutes() in scheduler.js) back onto a 0-23 clock -- mirrors index.html's own inline `% 1440` wrap (refreshBreakTimeOptions) for the same reason. */
 export function minutesToTime(minutes) {
-    const total = Math.max(0, Math.round(minutes));
+    const total = Math.max(0, Math.round(minutes)) % 1440;
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
