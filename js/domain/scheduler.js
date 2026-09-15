@@ -200,6 +200,14 @@ export function customersAheadCount(queues, ticketId) {
 /** Can a `duration`-minute appointment start at `time` on `date`? */
 export function isSlotAvailable({ time, duration, ops, activeSeats, appointments = [], queueIntervals = [], nowMinutes = null }) {
     if (!time || !Number.isFinite(duration) || duration <= 0) return false;
+    // Bug-hunt audit (2026-09-15): timeToMinutes() returns NaN for a
+    // malformed (non-empty) time string by its own documented contract --
+    // every comparison below against a NaN start/end is always false, so a
+    // malformed value used to skip every rejection check (including the
+    // per-minute concurrency loop, which would run zero iterations) and
+    // fall through to `return true`, reporting a bogus slot as available
+    // instead of rejecting it.
+    if (!Number.isFinite(timeToMinutes(time))) return false;
     const seats = Object.values(activeSeats || {}).filter(Boolean).length;
     if (seats === 0) return false;
     if (ops?.closed) return false;
