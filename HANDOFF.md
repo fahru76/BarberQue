@@ -3668,8 +3668,17 @@ locally and correctly shows the loading state first), and it does not mean
 "services >= 1 from the first sample" (the observer now legitimately catches the
 picker container before the boot sequence populates it).
 
-`index.html` 588,485 -> 588,896 bytes on the worktree; 125 insertions,
-3 deletions. Theme mechanism untouched; `npm test` green.
+`index.html` blob 578,754 -> 586,865 bytes (`git cat-file -s`, which is the
+only count that matters -- the worktree is CRLF and reads 596,086, higher than
+the blob by roughly one byte per line). 125 insertions, 3 deletions. Theme
+mechanism untouched; `npm test` green.
+
+CORRECTION, recorded because the first revision of this entry shipped the wrong
+numbers: it said "588,485 -> 588,896 bytes on the worktree". Both figures were
+derived from an assumption about the CRLF delta rather than measured, and both
+were wrong. Caught while verifying the PR body, which carried the same claim
+from the same source. The lesson is the one already in this file twice: read
+`git cat-file -s`, never infer a byte count.
 
 Branch `ui/loading-states`. Two commits — `index.html` and this log — so
 `git revert` of the first undoes only the code.
