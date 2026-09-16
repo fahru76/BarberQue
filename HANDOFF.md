@@ -3290,3 +3290,70 @@ build/legacy.cjs                                    regenerable reference impl
   recreated inside the migration's own transaction, so there is no window
   in which either is missing.
 
+## Done — live verification harness for the capability gate (2026-09-16)
+
+- After PR #12 merged the `service_ids <@ v_capability` fix, the one thing
+  still unproven was the behaviour itself. `tests/sql-consistency.mjs` and
+  `tests/sql-grant-consistency.mjs` parse migration TEXT — they check
+  structure, not predicate semantics. Neither could have caught the original
+  `&&`-versus-`<@` bug, and neither can confirm the fix. This adds the check
+  that actually executes the predicate.
+- New `supabase/verification/`. Deliberately invisible to `npm test`: both
+  linters read `supabase/migrations` only, and there is no `.sql` anywhere
+  under `tests/` (verified), so nothing here leaks into the fast suite.
+- `schema_shape.sql` — read-only. One `SELECT`, sent with `read_only: true`
+  so the server itself refuses anything else. Asserts the APPLIED schema, not
+  the source tree: the capability/specialty columns, the
+  `staff_specialty_subset_of_capability` constraint, `queues.service_ids`,
+  that the deployed `call_next_customer()` body contains `<@` and does NOT
+  contain `&&` (read through `pg_get_functiondef()`, so a migration that was
+  never applied fails it, and so does a later one that reverts the operator),
+  and that both list RPCs return an explicit `TABLE(...)` with no
+  `claim_token` while still naming every column the client mappers read
+  (`barber_name`, `appt_date`, `revoked_reason`).
+- `capability_gate.sql` — behavioural. One `do` block, four scenarios, ending
+  in `raise exception 'PASSED'`, so the request's own transaction aborts and
+  no fixture row is ever committed. A: barber `['skin-fade']` against a
+  waiting `['skin-fade','perm']` ticket must raise `P0002` — this is the
+  regression test for the actual bug, and it returns the ticket under the old
+  overlap predicate. B: a single-service ticket inside capability is served,
+  asserting id, status, seat_no and barber_id rather than just absence of
+  error. C: `service_ids IS NULL` is served, preserving the documented
+  "unknown, compatible" case so a fix cannot strand a legacy ticket. D:
+  capability `IS NULL` is served, so the unrestricted default still works.
+  B–D exist to fail an over-tightened fix.
+- `.github/workflows/verify-capability-gate.yml` — `workflow_dispatch` only,
+  never on push. `schema-shape` carries no approval gate: the SQL is a single
+  `SELECT` with `read_only: true`, which is a server-enforced guarantee, and
+  a human click on top of it would add friction without adding safety.
+  `capability-gate` requires `confirm=RUN` AND holds on
+  `environment: production`, because it is the one mode that writes. Both
+  modes read the project ref and token from the repo secrets that
+  `ci.yml`'s `db-plan` job already uses.
+- Mechanism, verified rather than assumed: `supabase`, `psql` and `docker`
+  are all absent locally and every Supabase env var is unset — the token
+  exists only as a GitHub secret, so a local script was never an option.
+  `curl https://api.supabase.com/v1/projects` answers 401 from this host,
+  which proves the Management API is reachable and unauthenticated, and that
+  a dispatched workflow is the only viable harness.
+- Two defects found in the harness itself while building it, both fixed. A
+  stray unused `procedure_note` declaration. And `'VERIFICATION FAILED -- %'`
+  — the `--` inside a string literal corrupted a naive comment-stripping
+  delimiter check, which reported unbalanced parens and an unterminated
+  string for perfectly valid SQL. The checker was wrong, not the SQL: the
+  same class of self-inflicted false positive as the `Terengganu'` phantom
+  column that `sql-consistency.mjs` shipped for months. Verified fixed with a
+  single-pass tokenizer that tracks comments and strings together.
+- Verified: `npm test` exit code 0 read WITHOUT a pipe — `npm test | tail`
+  reports `tail`'s status, a trap hit twice in this session before it was
+  caught. Both new SQL files balance under a quote-aware tokenizer
+  (parens 0 net, no unterminated string, `$verify$` paired). Workflow YAML is
+  197 lines with no tabs and `on:`/`jobs:`/`workflow_dispatch:` present.
+- NOT verified, and this is the point of the whole file: **nothing here has
+  run against the live database.** The workflow has never been dispatched.
+  `actionlint` and `db-plan` run on the PR; the behavioural check is a
+  deliberate manual step that needs the `production` approval. Until it runs,
+  the capability gate is still a static reading of SQL — a much better
+  evidenced one than before, but a static reading.
+- Branch `ci/capability-gate-verification`.
+
