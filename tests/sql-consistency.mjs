@@ -19,8 +19,24 @@ const tables = {};
 for (const m of clean.matchAll(/create table (?:if not exists )?public\.(\w+)\s*\(([\s\S]*?)\n\);/g)) {
     const [, name, body] = m;
     const cols = [];
-    let depth = 0, line = '';
-    for (const ch of body) {
+    // Paren depth alone is not enough: a column DEFAULT can be a string
+    // literal that itself contains a comma or a paren, and splitting on it
+    // manufactures a fake column. `shop_map_query text not null default
+    // 'FCQQ+X6 Kerteh, Terengganu'` produced a phantom column named
+    // "Terengganu'" and left the real column list one entry short -- this
+    // script's own table model was wrong while still reporting "no
+    // inconsistencies found". Track single-quoted literals (with '' as the
+    // escaped quote) and skip their contents entirely.
+    let depth = 0, line = '', inString = false;
+    for (let i = 0; i < body.length; i++) {
+        const ch = body[i];
+        if (ch === "'") {
+            if (inString && body[i + 1] === "'") { line += "''"; i++; continue; }
+            inString = !inString;
+            line += ch;
+            continue;
+        }
+        if (inString) { line += ch; continue; }
         if (ch === '(') depth++;
         if (ch === ')') depth--;
         if (ch === ',' && depth === 0) { cols.push(line); line = ''; } else line += ch;
