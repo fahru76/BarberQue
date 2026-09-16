@@ -265,21 +265,27 @@ export async function listActiveAppointments() {
 }
 
 /**
- * Step 7: same pattern as queueRepository.js's subscribeQueueChanges() --
- * a plain change signal, never the payload's row data (RLS gates which ROWS
- * a subscriber sees, not which COLUMNS, and this table's anon column grant is
- * far narrower than the full row this module reads elsewhere). Only ever
- * call this when a staff session exists; there is no anon use for it, since
- * a customer's own bookings are never re-read from the server (see the file
- * header).
+ * Step 7: same pattern as queueRepository.js's subscribeQueueChanges() -- a plain change
+ * signal, never the payload's row data.
+ *
+ * Uses Supabase's "Broadcast from Database" (private channel + `.on('broadcast', ...)`),
+ * NOT `postgres_changes`. Postgres Changes authorizes purely by row-level RLS, with no concept
+ * of column-level grants, so it would broadcast the *entire* WAL row (phone, price_sen and all)
+ * to any subscriber whose RLS policy allows the row, bypassing the far-narrower anon column
+ * grant this table otherwise has. See
+ * supabase/migrations/20260916060000_broadcast_queues_appointments_changes.sql: a trigger there
+ * sends a data-free `{op: TG_OP}` payload via `realtime.send()` on this same channel/topic, and
+ * an RLS policy on `realtime.messages` gates who can receive it. Only ever call this when a
+ * staff session exists; there is no anon use for it, since a customer's own bookings are never
+ * re-read from the server (see the file header).
  *
  * @param {() => void} onChange
  * @returns {() => void} call to unsubscribe.
  */
 export function subscribeAppointmentChanges(onChange) {
     const channel = supabase
-        .channel('appointments-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, onChange)
+        .channel('appointments-changes', { config: { private: true } })
+        .on('broadcast', { event: '*' }, onChange)
         .subscribe();
     return () => supabase.removeChannel(channel);
 }

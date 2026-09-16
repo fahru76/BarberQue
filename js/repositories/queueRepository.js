@@ -205,24 +205,26 @@ export async function listTodayQueuesFull() {
  * index.html never touches `supabase.channel()` directly, it just gets a
  * plain "something changed, go refetch" callback.
  *
- * Deliberately does NOT hand the payload's row data to the caller. Realtime's
- * postgres_changes broadcasts a row once RLS says the subscribing role may
- * see it, but that check is row-level, not the column-level grants
- * QUEUE_COLUMNS/mapQueueRowFull rely on elsewhere in this file -- reading the
- * payload directly could leak a staff-only column (e.g. phone) to an anon
- * subscriber. The callback is only ever a trigger to re-fetch through the
- * normal PostgREST-gated listQueues()/listTodayQueuesFull() path, which
- * enforces those grants correctly either way. Works for both anon and
- * authenticated callers -- Realtime's own RLS-based row filter still applies
- * per-connection regardless of who's subscribed.
+ * Uses Supabase's "Broadcast from Database" (private channel + `.on('broadcast', ...)`),
+ * NOT `postgres_changes`. Postgres Changes authorizes purely by row-level RLS -- it has no
+ * concept of column-level grants, so it broadcasts the *entire* WAL row (phone, price_sen and
+ * all) to every anon subscriber whose RLS policy allows the row, over the raw websocket
+ * protocol, completely bypassing the QUEUE_COLUMNS/mapQueueRowFull column-grant boundary this
+ * file otherwise enforces. See
+ * supabase/migrations/20260916060000_broadcast_queues_appointments_changes.sql: a trigger there
+ * sends a data-free `{op: TG_OP}` payload via `realtime.send()` on this same channel/topic, and
+ * an RLS policy on `realtime.messages` allows anon/authenticated to receive broadcasts on it --
+ * so nothing sensitive ever reaches the wire, and the callback here is still only ever a
+ * trigger to re-fetch through the normal PostgREST-gated listQueues()/listTodayQueuesFull()
+ * path, which enforces those grants correctly either way.
  *
  * @param {() => void} onChange
  * @returns {() => void} call to unsubscribe.
  */
 export function subscribeQueueChanges(onChange) {
     const channel = supabase
-        .channel('queues-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'queues' }, onChange)
+        .channel('queues-changes', { config: { private: true } })
+        .on('broadcast', { event: '*' }, onChange)
         .subscribe();
     return () => supabase.removeChannel(channel);
 }
