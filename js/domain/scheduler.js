@@ -9,7 +9,7 @@
  * differential test suite asserts that against randomised inputs.
  */
 
-import { timeToMinutes, shopMinutesOfDay, businessMinutes } from './time.js';
+import { timeToMinutes, shopMinutesOfDay, businessMinutes, resolveCloseMinutes } from './time.js';
 
 export const AVG_WAIT_MINUTES = 25;
 
@@ -214,7 +214,7 @@ export function isSlotAvailable({ time, duration, ops, activeSeats, appointments
 
     const start = businessMinutes(timeToMinutes(time), ops);
     const end = start + duration;
-    if (start < timeToMinutes(ops?.open) || end > businessMinutes(timeToMinutes(ops?.close), ops)) return false;
+    if (start < timeToMinutes(ops?.open) || end > resolveCloseMinutes(ops)) return false;
     if (intervalOverlapsBreak(start, end, ops)) return false;
     if (nowMinutes !== null && start <= businessMinutes(nowMinutes, ops)) return false;
 
