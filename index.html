@@ -1771,6 +1771,14 @@
         .specialty-star.active { color:#fff; background:#f39c12; border-color:#f39c12; }
         /* Higher specificity than the global `input[type="number"] { width:100%; height:48px; }` rule (an attribute selector beats a lone class), otherwise this box balloons to fill the row and crushes the service name column. */
         .staff-capability-panel input.capability-duration-input { width:52px; min-width:52px; max-width:52px; flex:0 0 auto; height:34px; padding:2px 4px; border:1px solid var(--border-color); border-radius:6px; font-size:0.8rem; text-align:center; }
+        /* Phase 2 (docs/DESIGN_BLUEPRINT.md): first-paint loading state.
+           Deliberately a plain text row, not a skeleton or a spinner.
+           A shimmer reads as "broken" on the TV and the seat tablets, and the
+           blanket `prefers-reduced-motion` rule at ~:826 sets
+           animation-duration: .01ms !important on `*`, which would turn any
+           spinner into a static blur anyway. Same box metrics as
+           .service-empty-state so swapping between the two never shifts layout. */
+        .catalog-loading-state { padding:15px; border:1px dashed var(--border-color); border-radius:8px; color:var(--text-muted); text-align:center; font-size:0.9rem; }
 </style>
 </head>
 <body>
@@ -2918,11 +2926,13 @@
 
         AuthRepo.onAuthStateChange((event) => {
             pushAuthState(event);
-            seedOrRefreshServices().catch(error => console.warn('Segerak katalog servis gagal.', error));
+            window.beginCatalogLoad?.();
+            seedOrRefreshServices().catch(error => console.warn('Segerak katalog servis gagal.', error)).finally(() => window.endCatalogLoad?.());
             seedOrRefreshShopSettings().catch(error => console.warn('Segerak tetapan kedai gagal.', error));
         });
         pushAuthState('INITIAL');
-        seedOrRefreshServices().catch(error => console.warn('Segerak katalog servis gagal.', error));
+        window.beginCatalogLoad?.();
+        seedOrRefreshServices().catch(error => console.warn('Segerak katalog servis gagal.', error)).finally(() => window.endCatalogLoad?.());
         seedOrRefreshShopSettings().catch(error => console.warn('Segerak tetapan kedai gagal.', error));
     </script>
 
@@ -2933,6 +2943,95 @@
         const DEFAULT_SHOP_NAME = 'Syam Barber Shop';
         const DEFAULT_SHOP_LOCATION = 'Kerteh';
         const DEFAULT_MAP_QUERY = 'FCQQ+X6 Kerteh, Terengganu';
+
+        // ============= FIRST-PAINT LOADING STATE (Phase 2) =============
+        // The problem this solves is a FALSE EMPTY STATE, not a missing spinner.
+        // renderCustomerServiceOptions() renders "Tiada servis ... yang aktif."
+        // whenever the active-service list is empty. That is the correct FINAL
+        // answer once the fetch has resolved -- the bug was showing it BEFORE.
+        //
+        // What actually reaches it early (read from the code, not assumed):
+        //
+        //   - An admin deletes or deactivates every service on this device, so
+        //     getServices() comes back empty (or all-inactive) on the next
+        //     load. initData()'s first-visit seed at :5637 is guarded by
+        //     `!localStorage.getItem('shopServices')` -- a PRESENCE check --
+        //     and '[]' is a present value, so the seed does not re-fire and the
+        //     empty list survives the reload.
+        //   - Any load where the local catalog is empty and
+        //     seedOrRefreshServices() has not answered yet.
+        //
+        // NOT a genuine first visit. initData() seeds one default service at
+        // :5637 and runs at :9171, BEFORE updateUI() (:9177) and
+        // populateWalkinServices() (:9178), so getServices() is not empty at
+        // that point. The window this closes is the empty-local-catalog case,
+        // which is narrower than "every new customer" -- noted because the
+        // first draft of this comment claimed the wider version and it was
+        // wrong.
+        //
+        // A COUNTER, not a boolean: seedOrRefreshServices() runs twice at boot
+        // (once directly, once via the INITIAL auth event) and again on every
+        // auth change, so a boolean would be cleared by whichever call finished
+        // first while the other was still in flight. It also has several early
+        // returns and no single exit, so the decrement lives in a .finally() at
+        // the call site rather than at the end of the function -- a decrement
+        // placed after an early return would leak and stick the UI on
+        // "Memuatkan..." forever.
+        //
+        // catalogHasResolvedOnce carries the OTHER half of the state, and it is
+        // not redundant. The classic script is not deferred; the <script
+        // type="module"> above IS. So this whole script -- including the boot
+        // sequence at the bottom that calls updateUI() and
+        // populateWalkinServices() -- executes during parse, BEFORE the module's
+        // beginCatalogLoad() ever runs. Relying on the counter alone therefore
+        // measured 0 at the exact moment that mattered, and the false empty
+        // state still rendered. "No fetch has resolved yet" has to be its own
+        // fact, true from the first paint.
+        //
+        // Declared here (classic script) but called from the module block above,
+        // so exported on window. Module scripts are always deferred and this
+        // classic script is not, so these are defined before any module code can
+        // call them; the call sites still use optional chaining so a different
+        // load order degrades to today's behaviour instead of throwing.
+        let catalogLoadsInFlight = 0;
+        let catalogHasResolvedOnce = false;
+        function beginCatalogLoad() { catalogLoadsInFlight += 1; }
+        function endCatalogLoad() {
+            catalogLoadsInFlight = Math.max(0, catalogLoadsInFlight - 1);
+            if (catalogLoadsInFlight > 0) return;
+            // Last one out. Re-render unconditionally rather than trusting the
+            // caller: seedOrRefreshServices() returns early on a fetch failure
+            // WITHOUT calling refreshServiceConfigurationUI(), so without this
+            // a Supabase outage would leave the picker on "Memuatkan..." for
+            // the life of the page. This also resolves the loading state on the
+            // failure path, where the honest answer is the local catalog.
+            catalogHasResolvedOnce = true;
+            if (window.refreshServiceConfigurationUI) window.refreshServiceConfigurationUI();
+        }
+        window.beginCatalogLoad = beginCatalogLoad;
+        window.endCatalogLoad = endCatalogLoad;
+
+        // Safety net for the case where the module block never runs at all.
+        // The fetch lives in the deferred module above; if that module fails to
+        // execute -- the import throws, js/repositories/*.js 404s, an extension
+        // blocks it -- then beginCatalogLoad() and endCatalogLoad() are never
+        // called, catalogHasResolvedOnce stays false for the life of the page,
+        // and an empty local catalog would sit on "Memuatkan..." forever. That
+        // is strictly WORSE than the empty state this change replaced, which
+        // was at least the honest final answer.
+        //
+        // The condition is exact, not a timeout guess: catalogHasResolvedOnce
+        // is false AND catalogLoadsInFlight is 0 means no beginCatalogLoad()
+        // was ever called, i.e. the fetch never started. If it had started, the
+        // counter would be >0 until its .finally() ran; if it had finished,
+        // catalogHasResolvedOnce would already be true. Both of those skip.
+        // Deliberately does not touch catalogLoadsInFlight, so it can never
+        // double-decrement a load that is genuinely still in flight.
+        window.addEventListener('load', () => {
+            if (catalogHasResolvedOnce || catalogLoadsInFlight > 0) return;
+            catalogHasResolvedOnce = true;
+            if (window.refreshServiceConfigurationUI) window.refreshServiceConfigurationUI();
+        });
 
         // ============= NOTIFICATION DIALOGS (replaces native alert()/confirm()) =============
         // Every alert()/confirm() in this file was replaced with these two functions so
@@ -3367,6 +3466,15 @@
         async function refreshStaffList() {
             const container = document.getElementById('staffListContainer');
             if (!container) return;
+            // First paint only. This function is re-called after every rename,
+            // role change and removal -- blanking a roster that is already on
+            // screen to "Memuatkan..." on each of those would be a visible
+            // regression, not a loading state. An empty container is the one
+            // case where there is genuinely nothing to show yet.
+            if (!container.childElementCount) {
+                container.innerHTML = '<div class="catalog-loading-state">Memuatkan senarai kakitangan…</div>';
+                container.setAttribute('aria-busy', 'true');
+            }
             try {
                 const [staff, seats] = await Promise.all([
                     window.AuthRepo.listStaff(),
@@ -3405,6 +3513,10 @@
             } catch (error) {
                 container.innerHTML = '<div class="text-muted">Gagal memuatkan senarai kakitangan.</div>';
                 console.warn('Memuatkan senarai kakitangan gagal.', error);
+            } finally {
+                // Both paths write real content, and finally runs on both, so
+                // this cannot leave aria-busy stuck on.
+                container.removeAttribute('aria-busy');
             }
         }
 
@@ -6983,6 +7095,14 @@
             const services = getServices().filter(service => service.active);
             const container = document.getElementById(containerId);
             if (!container) return;
+            // "We have not heard from the server yet" is not the same claim as
+            // "the shop sells no services of this kind". Only the second one is
+            // something the customer should be told -- see the
+            // catalogLoadsInFlight comment above for how the two are told apart.
+            // Only consulted when `services` is empty -- if the local catalog has
+            // anything in it, that renders and neither of these is reached.
+            const isLoadingServices = catalogLoadsInFlight > 0 || !catalogHasResolvedOnce;
+            container.setAttribute('aria-busy', String(isLoadingServices));
             const selectedServiceIds = new Set(Array.from(container.querySelectorAll(`input[name="${inputName}"]:checked`)).map(input => input.dataset.serviceId || input.value));
 
             container.innerHTML = ['asas', 'fashion'].map(category => {
@@ -7004,7 +7124,9 @@
                         ? `<img class="service-thumb" src="${escapeHTML(service.imageUrlFront)}" alt="" loading="lazy" onclick="event.preventDefault(); event.stopPropagation(); openStylePhotoPreview('${escapeHTML(service.id)}');">`
                         : '';
                     return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}">${thumbHTML}<div class="service-info"><div class="service-name-line"><strong>${escapeHTML(service.name)}</strong>${noteHTML}</div><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
-                }).join('') : `<div class="service-empty-state">Tiada servis ${category === 'fashion' ? 'Gaya Potongan' : 'Asas'} yang aktif.</div>`;
+                }).join('') : (isLoadingServices
+                    ? '<div class="catalog-loading-state">Memuatkan senarai servis…</div>'
+                    : `<div class="service-empty-state">Tiada servis ${category === 'fashion' ? 'Gaya Potongan' : 'Asas'} yang aktif.</div>`);
                 return `<div class="service-category-panel" data-category="${category}">${serviceHTML}</div>`;
             }).join('');
 
