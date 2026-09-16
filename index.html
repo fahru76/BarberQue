@@ -819,9 +819,12 @@
             --surface-elevated: #ffffff;
             --primary-color: #8b642f;
             --primary-strong: #6f4b1f;
-            --sleek-accent: #e95414;
+            /* #e95414 put the gradient across the WCAG dead-zone band, where
+               neither white nor dark text reaches 4.5:1 at both stops. #bf3f0b
+               keeps the same hue and puts both stops on the white-text side. */
+            --sleek-accent: #bf3f0b;
             --sleek-accent-strong: #c9430c;
-            --sleek-accent-soft: rgba(233, 84, 20, .10);
+            --sleek-accent-soft: rgba(191, 63, 11, .10);
             --text-main: #1d1815;
             --text-muted: #726862;
             --input-bg: #fffdfa;
@@ -902,7 +905,7 @@
         .brand-monogram {
             border-color: rgba(255,103,29,.45);
             border-radius: 13px;
-            color: #fff4ec;
+            color: var(--on-primary);
             background: linear-gradient(145deg, var(--sleek-accent-strong), var(--sleek-accent));
             box-shadow: 0 8px 24px rgba(255,103,29,.20);
             font-family: 'Manrope', sans-serif;
@@ -980,12 +983,15 @@
         .btn-action {
             border-color: var(--sleek-accent);
             background: linear-gradient(135deg, var(--sleek-accent-strong), var(--sleek-accent));
-            color: #fff8f2;
+            color: var(--on-primary);
             box-shadow: 0 12px 30px rgba(255,103,29,.20);
         }
         .btn-action:hover {
             border-color: var(--sleek-accent-strong);
-            background: linear-gradient(135deg, #ff9952, var(--sleek-accent));
+            /* Was a #ff9952 first stop -- too bright for white text in light
+               theme and unpassable at any foreground. The growing box-shadow
+               below already carries the hover affordance. */
+            background: linear-gradient(135deg, var(--sleek-accent-strong), var(--sleek-accent));
             box-shadow: 0 16px 38px rgba(255,103,29,.28);
         }
         #btnBookTicket, #btnSubmitApp {
@@ -1686,7 +1692,9 @@
         .capability-row:last-of-type { border-bottom:none; }
         .capability-row-name { flex:1; }
         .specialty-star { background:none; border:1px solid var(--border-color); border-radius:6px; width:32px; height:32px; font-size:1rem; line-height:1; cursor:pointer; color:var(--border-color); }
-        .specialty-star.active { color:#fff; background:#f39c12; border-color:#f39c12; }
+        /* #f39c12 amber is bright in both themes, so white fails at 2.19:1;
+           a near-black foreground reaches 7.78:1 and needs no per-theme token. */
+        .specialty-star.active { color:#11130f; background:#f39c12; border-color:#f39c12; }
         /* Higher specificity than the global `input[type="number"] { width:100%; height:48px; }` rule (an attribute selector beats a lone class), otherwise this box balloons to fill the row and crushes the service name column. */
         .staff-capability-panel input.capability-duration-input { width:52px; min-width:52px; max-width:52px; flex:0 0 auto; height:34px; padding:2px 4px; border:1px solid var(--border-color); border-radius:6px; font-size:0.8rem; text-align:center; }
         /* Phase 2 (docs/DESIGN_BLUEPRINT.md): first-paint loading state.
