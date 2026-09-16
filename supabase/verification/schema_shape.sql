@@ -167,7 +167,13 @@ with problems as (
      )
 
 )
+-- The problems array must be aggregated FROM the CTE. Without the `from
+-- problems p` this scalar subquery has no row source, so `problem` is
+-- unresolvable and Postgres rejects the whole statement with 42703. That is
+-- exactly what the first live dispatch of this file returned -- caught only by
+-- running it, since no static check in this repo executes SQL.
 select
-    (select count(*) from problems) = 0                            as ok,
-    (select count(*) from problems)                                as problem_count,
-    (select coalesce(json_agg(problem order by problem), '[]'::json)) as problems;
+    (select count(*) from problems) = 0                                as ok,
+    (select count(*) from problems)                                    as problem_count,
+    (select coalesce(json_agg(p.problem order by p.problem), '[]'::json)
+       from problems p)                                                as problems;
