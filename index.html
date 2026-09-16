@@ -63,10 +63,10 @@
         .view-section.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .panel-box { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .panel-box { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; margin-bottom: 25px; }
         input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea { width: 100%; padding: 12px 15px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); font-size: 1rem; outline: none; height: 48px; box-sizing: border-box;}
         textarea { height: auto; min-height: 100px; resize: vertical; }
-        input:focus, select:focus { border-color: var(--primary-color); box-shadow: 0 0 5px rgba(212, 175, 55, 0.5); }
+        input:focus, select:focus { border-color: var(--primary-color); }
         input[readonly] { cursor: not-allowed; opacity: 0.8; }
         ::placeholder { color: var(--text-muted); }
 
@@ -106,7 +106,7 @@
         .image-control-field label { margin:0; font-size:.72rem; color:var(--text-muted); }
         .image-control-field input { height:40px; padding:8px 10px; }
         .admin-panel { max-width: 700px; margin: 0 auto; }
-        .app-dialog { width: min(92vw, 480px); padding: 0; border: 1px solid var(--border-color); border-radius: 12px; background: var(--surface-color); color: var(--text-main); box-shadow: 0 24px 80px rgba(0,0,0,0.45); }
+        .app-dialog { width: min(92vw, 480px); padding: 0; border: 1px solid var(--border-color); border-radius: 12px; background: var(--surface-color); color: var(--text-main); }
         .app-dialog::backdrop { background: rgba(0,0,0,0.65); }
         .app-dialog-content { padding: 24px; }
         /* Item 3: style photo lightbox -- same .app-dialog shell as the
@@ -134,7 +134,7 @@
         .wait-item { background: var(--border-light); padding: 8px 15px; border-radius: 6px; font-size: 1.1rem; border-left: 3px solid var(--primary-color); display: flex; flex-direction: column; align-items: flex-start; }
         .wait-item-name { font-family: 'Manrope', sans-serif; font-size: 0.8rem; color: var(--text-muted); text-transform: none; }
 
-        .ticket-box { background: var(--ticket-gradient); border: 2px solid var(--primary-color); padding: 40px; border-radius: 12px; text-align: center; margin-top: 20px; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1); }
+        .ticket-box { background: var(--ticket-gradient); border: 2px solid var(--primary-color); padding: 40px; border-radius: 12px; text-align: center; margin-top: 20px; }
         .ticket-number { font-size: clamp(3rem, 10vw, 4.5rem); color: var(--primary-color); margin: 10px 0; line-height: 1; overflow-wrap:anywhere; }
         .ticket-name { font-size: 1.5rem; margin-bottom: 5px; font-weight: 600; text-transform: capitalize; }
 
@@ -275,7 +275,6 @@
             border: 1px solid var(--nav-border);
             border-radius: 18px;
             background: color-mix(in srgb, var(--surface-color) 88%, transparent);
-            box-shadow: var(--shadow-sm);
             backdrop-filter: blur(20px) saturate(130%);
         }
         .app-brand {
@@ -320,7 +319,6 @@
             border-color: rgba(199,166,106,.24);
             background: var(--card-hover);
             color: var(--primary-strong);
-            box-shadow: inset 0 0 0 1px rgba(199,166,106,.03);
         }
         .app-nav .btn-reset { color: var(--danger); }
         #themeSelector {
@@ -381,7 +379,6 @@
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
             background: linear-gradient(145deg, color-mix(in srgb, var(--surface-color) 96%, white 4%), var(--surface-color));
-            box-shadow: var(--shadow-sm);
         }
         #admin-app .admin-setting-title {
             color: var(--primary-color);
@@ -428,9 +425,8 @@
             border-color: var(--primary-color);
             background: var(--primary-color);
             color: #11130f;
-            box-shadow: 0 10px 24px rgba(199,166,106,.16);
         }
-        .btn-action:hover { background: var(--primary-strong); box-shadow: 0 14px 30px rgba(199,166,106,.22); }
+        .btn-action:hover { background: var(--primary-strong); }
         .btn-reset { border-color: rgba(199,110,104,.42); color: var(--danger); }
         .btn-reset:hover { background: rgba(199,110,104,.1); color: var(--danger); }
         .btn-info { border-color: rgba(119,165,173,.45); color: var(--info); }
@@ -455,7 +451,6 @@
         input:focus, select:focus, textarea:focus {
             border-color: var(--primary-color);
             background: color-mix(in srgb, var(--input-bg) 94%, var(--primary-color) 6%);
-            box-shadow: 0 0 0 4px rgba(199,166,106,.1);
         }
         .input-group { gap: 7px; margin-top: 18px; }
         .input-group label, .input-row label {
@@ -493,11 +488,10 @@
         .mode-toggle .mode-btn.active {
             background: var(--surface-elevated);
             color: var(--primary-strong);
-            box-shadow: 0 6px 18px rgba(0,0,0,.14), inset 0 0 0 1px rgba(199,166,106,.16);
         }
         .service-category-tabs { gap: 4px; padding: 4px; border-radius: 12px; background: var(--border-light); }
         .service-category-tab { border-radius: 9px; font-family: 'Manrope', sans-serif; font-size: .74rem; font-weight: 700; }
-        .service-category-tab.active { background: var(--surface-elevated); color: var(--primary-strong); box-shadow: inset 0 0 0 1px rgba(199,166,106,.2); }
+        .service-category-tab.active { background: var(--surface-elevated); color: var(--primary-strong); }
 
         .input-group .service-checkbox-label {
             gap: 14px;
@@ -600,7 +594,6 @@
             border: 1px solid rgba(199,166,106,.5);
             border-radius: 26px;
             background: var(--ticket-gradient);
-            box-shadow: var(--shadow-lg);
         }
         .ticket-box::before, .ticket-box::after {
             content: '';
