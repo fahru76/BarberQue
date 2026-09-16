@@ -93,6 +93,26 @@ begin
     on conflict (seat_no) do update
         set active = excluded.active, barber_id = excluded.barber_id;
 
+    -- Park every pre-existing row that could be selected instead of a fixture.
+    --
+    -- call_next_customer() reads ALL waiting rows, not just this
+    -- transaction's, and it also refuses a seat that is already serving. A
+    -- real waiting ticket (or a serving one at one of these seats) would
+    -- therefore be picked ahead of the fixture and every assertion below
+    -- would report a false failure -- a test that is only correct on an empty
+    -- queue is not a test. Parking them here is a visibility change inside a
+    -- transaction that always rolls back; the workflow's closing
+    -- read-only count of 'VR-%' rows proves nothing persisted.
+    update public.queues
+       set status = 'done', completed_at = now()
+     where status = 'waiting'
+       and id not like 'VR-%';
+
+    update public.queues
+       set status = 'done', completed_at = now()
+     where status = 'serving'
+       and seat_no in (1, 2, 3, 4);
+
     -- Sanity: if auth.uid() does not resolve, every scenario below would fail
     -- with 42501 and the real reason would be buried. Check it explicitly.
     perform set_config('request.jwt.claims',

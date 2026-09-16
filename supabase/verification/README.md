@@ -93,6 +93,15 @@ The workflow then issues a second, read-only query counting rows with an `id`
 like `VR-%` and fails if it is not zero, so "rollback-safe" is verified rather
 than asserted.
 
+### Live rows are parked, not ignored
+
+`call_next_customer()` selects from all waiting rows and refuses a seat that is
+already serving, so a real ticket would be picked ahead of a fixture and every
+assertion would read as a false failure. The block therefore parks any
+pre-existing `waiting` row, and any `serving` row at seats 1–4, inside its own
+transaction before the scenarios run. All of that rolls back with everything
+else — the closing read-only `count(*)` of `VR-%` rows is what confirms it.
+
 ### The one fragile part
 
 The fixture inserts into `auth.users`, because `public.staff.id` has a foreign
