@@ -3686,3 +3686,72 @@ spans more than one commit — revert its commits together to drop it. Do not re
 the log's first commit (`0f766e8`) alone: the later correction rewrote the lines it
 added, so a lone revert conflicts.
 
+
+## Done — design execution: Phase 0 token collapse, Phase 1.1 radius, Phase 1.2 dead shadows (2026-09-17)
+
+Ran the first three phases of the blueprint execution plan
+(`docs/DESIGN_EXECUTION_TRACKER.md`, the runnable companion to
+`docs/DESIGN_BLUEPRINT.md`), each as its own revertible commit, with a
+rendered-DOM fingerprint gate as the verifier for every "no visual change" claim.
+
+**Phase 0 - token-block consolidation (`3a6d80e`).** `index.html` carried three
+stacked `:root` / `[data-theme="light"]` pairs (blocks at :39/:57, :257/:284,
+:880/:903). All equal specificity, so source order silently decided every
+winner. Collapsed to one pair: block 1 was 100% shadowed and deleted; block 2's
+7 unshadowed dark + 4 light tokens folded into block 3. 9222 -> 9150 lines,
+blob 586865 -> 584113. The `--warning` landmine (`#c99a4b`, declared only in
+block 2, never light-overridden) is preserved by construction.
+
+**Phase 1.1 - `--radius-sm` wired (`a607da9`).** Declared at 10px with zero
+consumers. Nine literal `border-radius: 10px` sites now use `var(--radius-sm)`:
+`.customer-announcement img`, `#adminGoogleMapFrame`, `.map-picker-guide`,
+`.app-nav .btn`, `.mode-toggle .mode-btn`, `.service-sort-handle`, `.cal-btn`,
+`.admin-nav-row`, `.admin-nav-item`. Same declared value, so a provable no-op.
+
+**Phase 1.2 - dead box-shadow removal (`f3d3b7e`).** A brace-depth cascade walk
+over the three style blocks flagged 13 `box-shadow` declarations superseded by a
+later rule on the same selector (e.g. `.panel-box` :66 loses to :374's
+`var(--shadow-sm)`; `.app-dialog` :109 loses to :738; `.ticket-box` :135 loses
+to :1451). The walker is a heuristic -- it models neither specificity nor
+`@media` -- so the fingerprint gate was the real verifier: identical hashes mean
+the 13 were genuinely dead. They were. `box-shadow` occurrences 49 -> 36, and
+`index.html` blob 584221 -> 583557.
+
+**The gate (`tests/dom/fingerprint.mjs`, added in `c6252b3`).** Hashes the
+computed custom-property map plus per-element computed styles across 2 themes x
+3 viewports (1440 / 820 / 390), 1468 elements each, 0 page errors. Its first
+version was **theme-blind**: it set `data-theme` after load and `applyTheme()`
+(:4909) silently re-resolved it, so dark and light hashed identically. A gate
+that cannot tell dark from light returns PASS while measuring nothing. Fixed by
+setting the attribute and reading computed styles inside ONE synchronous
+`evaluate`, pinning the context `colorScheme`, and exiting 2 if dark == light.
+Every "no visual change" claim above rests on the fixed harness.
+
+All three phases: fingerprint 6/6 byte-identical before <-> after, `npm test`
+exit 0. CI run `35126653208` green on `da7e703`. `index.html` blob at `da7e703`
+is 583557 bytes / 9143 lines, read with `git cat-file -s` and
+`git show HEAD:index.html | wc -l` -- the worktree is CRLF and reads higher, so
+never compare `wc -c`.
+
+**Deliberately NOT done - two open visual decisions, not tasks:**
+
+1. The radius mass is 6px (x17) / 8px (x27) / 12px (x15) -- all BELOW
+   `--radius-sm`'s 10px. Collapsing them onto the declared 10/18/28 scale
+   changes rendering and needs a human eye, not a script. Phase 1.1 stays WIP.
+2. Of the 22 remaining LIVE raw `box-shadow` declarations, only about 8 are true
+   drop shadows. The rest are focus rings, `inset` hairlines, drag indicators,
+   `none` resets and the autofill-backdrop hack -- not elevation, not token
+   candidates. The ~8 real ones are mostly branded orange glows
+   (`0 8px 24px rgba(255,103,29,.20)`) with no token to map onto. Adding an
+   accent-shadow token is a visual decision. Phase 1.2 stays WIP.
+
+Branch `ui/loading-states`, PR #15. Each phase's `index.html` change is its own
+commit (`3a6d80e`, `a607da9`, `f3d3b7e`), so `git revert <sha>` undoes only that
+phase's code. The tracker and this log are separate commits.
+
+Two process notes worth carrying. (a) The strip script's own post-check printed
+`45 (was 45)` because it re-parsed the structure captured BEFORE the edit -- an
+internal post-check that reads stale state is not verification; use git or a
+fresh read. (b) A heuristic that proposes deletions is only safe when paired
+with a cheap independent verifier, which is what the fingerprint gate is: the
+tool proposes, the gate disposes.
