@@ -3680,6 +3680,9 @@ were wrong. Caught while verifying the PR body, which carried the same claim
 from the same source. The lesson is the one already in this file twice: read
 `git cat-file -s`, never infer a byte count.
 
-Branch `ui/loading-states`. Two commits — `index.html` and this log — so
-`git revert` of the first undoes only the code.
+Branch `ui/loading-states`. The `index.html` change is its own commit (`241bc77`),
+so `git revert 241bc77` undoes only the code. The `HANDOFF.md` log is separate and
+spans more than one commit — revert its commits together to drop it. Do not revert
+the log's first commit (`0f766e8`) alone: the later correction rewrote the lines it
+added, so a lone revert conflicts.
 
