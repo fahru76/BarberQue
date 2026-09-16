@@ -3566,7 +3566,8 @@ nothing was ever reaching those declarations.
 
 ### Cost
 
-`index.html` worktree 588,485 → 587,853 bytes; blob 579,384 → 578,752.
+`index.html` worktree 588,485 → 587,853 bytes; blob 579,384 → 578,754
+(measured with `git cat-file -s`, not derived from the worktree delta).
 10 `'Oswald'` and 2 `'Inter'` string references gone. `Oswald` and `Inter` no
 longer appear anywhere in the file.
 
