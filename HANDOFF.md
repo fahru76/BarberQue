@@ -3579,3 +3579,98 @@ theme functions and every `color-scheme` declaration are intact.
 Branch `ui/dead-font-cleanup` off `main` (`3cf1e7c`). Single commit. `git revert`
 of that commit restores the previous file exactly.
 
+## Done — first-paint loading state on the customer service picker (2026-09-16)
+
+Scope B of `docs/DESIGN_BLUEPRINT.md` Phase 2. The first change in this
+modernisation that a customer can actually see.
+
+### The bug, stated correctly
+
+`renderCustomerServiceOptions()` renders "Tiada servis ... yang aktif." when
+the active-service list is empty. That is the correct FINAL answer once the
+fetch has resolved — the defect was showing it BEFORE.
+
+The first draft of the code comment claimed a first-time customer was told the
+shop sells nothing. **That was wrong, and checking it is what shaped the fix.**
+`initData()` seeds one default service (`Gunting Biasa`) at `:5637` and runs at
+`:9171`, BEFORE `updateUI()` (`:9177`) and `populateWalkinServices()` (`:9178`),
+so `getServices()` is not empty on a genuine first visit. The comment was
+corrected in place rather than shipped.
+
+What actually reaches the empty branch early:
+
+- An admin deletes or deactivates every service on a device, so `getServices()`
+  comes back empty (or all-inactive) on the next load. The first-visit seed is
+  guarded by `!localStorage.getItem('shopServices')` — a PRESENCE check — and
+  `'[]'` is a present value, so it does not re-fire and the empty list survives
+  the reload.
+- Any load where the local catalog is empty and `seedOrRefreshServices()` has
+  not answered yet.
+
+### The change
+
+- `.catalog-loading-state` — a plain dashed text row, same box metrics as the
+  existing `.service-empty-state` so swapping between the two never shifts
+  layout. Deliberately NOT a skeleton or spinner: a shimmer reads as "broken" on
+  the TV and the seat tablets, and the blanket `prefers-reduced-motion` rule at
+  `:826` sets `animation-duration: .01ms !important` on `*`, which would turn a
+  spinner into a static blur anyway.
+- `catalogLoadsInFlight` (counter) + `catalogHasResolvedOnce` (flag), declared
+  in the classic script and exported on `window` for the deferred module above.
+  A counter because `seedOrRefreshServices()` runs twice at boot and again on
+  every auth change; a flag because the classic script is not deferred while the
+  module is, so the counter alone measures 0 at the exact moment that matters.
+- `aria-busy` set on the picker container, cleared when the state resolves.
+- `refreshStaffList()` gets the same treatment, but only on first paint — that
+  function is re-called after every rename, role change and removal, and blanking
+  an already-rendered roster to "Memuatkan..." on each of those would be a
+  regression, not a loading state.
+- **A `load`-event safety net.** If the module never executes (import throws,
+  `js/repositories/*.js` 404s, an extension blocks it) then `endCatalogLoad()`
+  is never called, `catalogHasResolvedOnce` stays false, and an empty catalog
+  would sit on "Memuatkan..." for the life of the page — strictly worse than the
+  empty state it replaced. The condition is exact, not a timeout: resolved is
+  false AND in-flight is 0 means the fetch never started. It deliberately does
+  not touch the counter, so it cannot double-decrement a genuine in-flight load.
+
+### Verification — three scenarios, DOM state recorded with a MutationObserver
+
+`probe-loading.cjs` (outside the repo). `npm test` exit 0, read without a pipe.
+
+| Scenario | Module | Result |
+|---|---|---|
+| A — empty catalog | loads | loading appears; resolves via `endCatalogLoad()`; ends on the honest empty state; `aria-busy` ends `false` |
+| B — empty catalog | BLOCKED | loading appears; resolves via the `load` safety net; ends on the honest empty state |
+| C — default seed | loads | the seeded service renders and never disappears; never stuck loading |
+
+All 15 checks pass, zero page errors in every scenario.
+
+### Three harness defects this run exposed — all in the probe, not the app
+
+1. **The module never loaded in ANY scenario, including the control.** The first
+   run reported `ServiceRepo: undefined` for scenario A too. Cause:
+   `js/supabaseClient.js:14` imports `https://esm.sh/@supabase/supabase-js@2`, and
+   the harness aborts non-local requests — so the module graph never evaluated
+   and every scenario silently exercised the safety net instead of the primary
+   path. Fixed by stubbing that import, and by asserting module state in the
+   verdict rather than only logging it. Without the control assertion, a harness
+   whose module never runs looks identical to one that runs fine.
+2. **The stub had no latency**, so the loading state rendered and resolved inside
+   one microtask — before `DOMContentLoaded` — and scenario A honestly reported
+   `sawLoading: false`. A 400ms stub restores the timing that is the thing under
+   test.
+3. **The observer attached on `DOMContentLoaded`**, after the transition had
+   already happened. Moved to `document` at t=0 with `subtree: true`.
+
+Two assertions were also wrong and were corrected rather than worked around: C
+does not mean "no loading ever" (the fashion category is legitimately empty
+locally and correctly shows the loading state first), and it does not mean
+"services >= 1 from the first sample" (the observer now legitimately catches the
+picker container before the boot sequence populates it).
+
+`index.html` 588,485 -> 588,896 bytes on the worktree; 125 insertions,
+3 deletions. Theme mechanism untouched; `npm test` green.
+
+Branch `ui/loading-states`. Two commits — `index.html` and this log — so
+`git revert` of the first undoes only the code.
+
