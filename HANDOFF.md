@@ -3170,3 +3170,123 @@ build/legacy.cjs                                    regenerable reference impl
   and there is no overflow at either width.
 - Commit `5fd3e7b` (index.html only; 12 insertions, 24 deletions).
   Branch `ui/customer-surface-polish`, NOT pushed.
+## Done — bug hunt (2026-09-16): capability hard-gate was overlap not subset, + 3 smaller fixes
+
+- Fahru asked for a proactive bug hunt across the whole application
+  (the same standing request as the 2026-09-09 and 2026-09-15 audits).
+  Four static passes: a structural analyzer over `index.html` (duplicate
+  ids, orphaned `getElementById`/`querySelector` targets, duplicate
+  function declarations, un-awaited dialog calls), a client-to-server
+  contract check (every `.rpc()` name and `.from()` table resolved
+  against the migration set), a privilege check over every
+  `security definer` function, and a manual read of the 5 newest
+  migrations plus the prior audit entries so nothing already-closed was
+  re-reported.
+- **MEDIUM, fixed — the capability "hard gate" was an overlap check, not
+  a subset check.** `call_next_customer()`'s tier-2 predicate read
+  `service_ids && v_capability`. `&&` is array OVERLAP ("at least one of
+  the ticket's services is in this barber's capability set"), but
+  `staff.capability_service_ids` is documented as a hard gate — "never
+  called for it, no fallback". The two are equivalent for a
+  single-service ticket and wrong for every multi-service one, and
+  multi-service is the normal UI path: `index.html` renders each service
+  as its own checkbox and collects them with
+  `Array.from(cb).map(c => c.dataset.serviceId)`. A ticket for
+  [Skin Fade, Perm] therefore called a barber who could only do Skin
+  Fade. Fixed to `service_ids <@ v_capability` — the same operator the
+  adjacent `staff_specialty_subset_of_capability` constraint already uses
+  for exactly this invariant.
+- Tier 1 (specialty) had the same hole and was fixed the same way:
+  `service_ids && v_specialty` stays an overlap on purpose (specialty is
+  the documented soft-priority signal, not a gate), but is now
+  ADDITIONALLY gated on the same capability subset check, so a specialty
+  match can never pull in a ticket the barber isn't capable of doing in
+  full. `specialty_service_ids <@ capability_service_ids` guarantees a
+  specialty is never wider than its capability, but overlapping a
+  ticket's services never implied the ticket was within capability.
+- NULL semantics deliberately unchanged, matching the column's own
+  documented default: `v_capability is null` = unrestricted;
+  `service_ids is null` = unknown service (legacy row, or a creation path
+  that predates the snapshot), treated as compatible rather than
+  excluded — refusing an unknown-service ticket would strand a real
+  customer over a data gap, not a genuine mismatch.
+- **LOW, fixed — `list_today_queues_full()` and
+  `list_active_appointments()` returned `setof public.<table>`, i.e.
+  every column including `claim_token`** (the credential that authorises
+  cancelling that booking as that customer). Both are
+  `is_active_staff()`-gated and revoked from anon, so this was never a
+  public leak, and the client deliberately never maps `claim_token` into
+  its returned object — but the value still crossed the wire and sat in
+  the JS heap. Same "payload carries more than the consumer needs" shape
+  as the Realtime exposure closed in `08876dc`. Narrowed both to an
+  explicit column list, dropped and recreated because a return type
+  change is not something `create or replace` can do; grants restated
+  because dropping a function discards its ACL. Verified first that
+  nothing reads `claim_token` off a server-merged row: `index.html` takes
+  its walk-in token from `localStorage['activeTicketClaimToken']` and its
+  appointment tokens from a separate per-appointment map, and
+  `mergeServerRows()` spreads `{ ...item, ...freshRow }` so a row that
+  simply lacks the key leaves any locally-held value untouched.
+- **LOW, fixed — `tests/sql-consistency.mjs` was fabricating columns.**
+  Its `create table` tokenizer split on commas at paren-depth 0 without
+  tracking string literals, so the comma inside
+  `default 'FCQQ+X6 Kerteh, Terengganu'` (three such defaults in
+  `20260901000600_shop_settings.sql`) was read as a column separator. It
+  reported `shop_settings` as 20 columns with a phantom `Terengganu'`
+  entry; the real count is 18 (it appeared twice — from both
+  `shop_map_query` and `shop_map_address`). The script's whole job is
+  catching a column named somewhere that doesn't exist, and its own table
+  model was wrong while still printing "no inconsistencies found" — a
+  false-pass generator is worse than a missing check because it reads as
+  evidence. Fixed by tracking single-quoted literals (with `''` as the
+  escaped quote) and skipping their contents.
+- **NEW — `tests/sql-grant-consistency.mjs`, wired into `npm test`.** The
+  one defect class this project has actually shipped three separate times
+  (20260901000300, 20260901000800, 20260909141439) had no automated
+  guard: a new `security definer` function that never gets an explicit
+  `revoke ... from anon`, relying on Supabase's DEFAULT PRIVILEGES
+  granting EXECUTE to anon by name (and `revoke ... from public` not
+  removing it, since `public` is a different grantee). The new check
+  asserts every non-trigger `security definer` function is either
+  explicitly revoked from anon OR on a short allowlist of
+  intentionally-public customer entry points, that every definer function
+  pins `search_path`, and — so the allowlist can't silently drift — that
+  each allowlisted name still exists and is still explicitly granted to
+  anon.
+- Clean from this pass, recorded so the next one doesn't redo it: the
+  dialog refactor is intact (192 `show(Alert|Confirm)Dialog` references,
+  zero un-awaited call sites — the "21 functions became async" risk is
+  fully discharged); no duplicate ids, no orphaned
+  `getElementById`/`querySelector('#id')` targets, no duplicate function
+  declarations in 9,113 lines of `index.html`; all 16 client `.rpc()`
+  names and all 7 `.from()` tables resolve; and the `anon`-grant class is
+  now consistently handled (23 definer functions, 16 explicitly revoked,
+  7 intentionally anon-callable, 23/23 `search_path` pinned).
+- One hypothesis raised and REFUTED, recorded so nobody re-chases it:
+  `sync_queue_barber_name()` is a `BEFORE INSERT OR UPDATE` trigger, and
+  `admin_remove_staff` nulls `barber_id` via `ON DELETE SET NULL` — which
+  is an UPDATE, so the trigger fires. It does not wipe the snapshot:
+  the body guards on `new.barber_id is not null` (line 57 of
+  `20260909141426_...sql`), so the nulling update skips the branch and
+  `barber_name` survives. The snapshot design is correct as written.
+- Verified: `npm test` — 23/23 domain fixtures, 20,000/20,000
+  differential comparisons (0 mismatches), `sql-consistency.mjs` clean
+  with balanced delimiters (770/770 parens, 49 `$$` pairs) and
+  `shop_settings` now reporting 18 columns with no phantom entry,
+  `sql-grant-consistency.mjs` clean (23 definer functions, 16 revoked,
+  7 allowlisted, 23/23 pinned). `node --check` on both `.mjs` files.
+- **NOT verified — this is the important caveat.** Nothing in this pass
+  touched a live database. The `call_next_customer()` fix in particular
+  is a static SQL reading; it has NOT been exercised against a real
+  Supabase instance, and the `sql-consistency.mjs` suite cannot catch a
+  predicate-logic bug like this one (it checks structure, not semantics).
+  The right next step before trusting it is a rolled-back-transaction
+  test with a two-service ticket against a barber restricted to one of
+  those two services. Migrations here deploy via the
+  branch -> PR -> CI `db-plan` dry-run -> merge pipeline, so CI's dry-run
+  is the first live parse of the new migration.
+- Migration: `supabase/migrations/20260916070000_capability_subset_gate_and_narrow_list_rpcs.sql`.
+  Additive only (no destructive DDL); the two list RPCs are dropped and
+  recreated inside the migration's own transaction, so there is no window
+  in which either is missing.
+
