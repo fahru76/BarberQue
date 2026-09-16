@@ -3494,3 +3494,87 @@ declarations (`#fff` x11 on primary-filled buttons).
 State: blueprint committed on `main`; `index.html` byte-identical to
 `c898bf8`.
 
+## Done — dead-font cleanup on index.html (2026-09-16)
+
+Scope A of the modernisation plan: remove CSS and JS that can never execute.
+No visual change was intended, and none occurred — proven by measurement, not
+assertion (see Verification below).
+
+### What was removed
+
+12 dead `font-family` declarations, all in style block 1, all referencing
+families the page never loads:
+
+- `'Oswald'` — 10 refs (`:74`, `:80`, `:83`, `:162`, `:167`, `:171`, `:175`,
+  `:180`, `:224`, `:244`)
+- `'Inter'` — 2 refs (`:73` on `body`, `:100` on form controls)
+
+Only ONE `<link>` to Google Fonts exists (`:19`) and it loads Cormorant
+Garamond + Manrope only. There are zero `@font-face` blocks. Every one of
+these 12 declarations was already being overridden by a later block-2 rule at
+equal specificity — `:337` (`h1,h2,h3,h4`), `:311` (`body`), `:530` (inputs),
+`:495`/`:570`/`:581`/`:649`/`:674`/`:699`/`:719`/`:794`. They were unreachable,
+not merely unused.
+
+2 dead JavaScript lines in the classic script:
+
+- `:4270` `const customerHeaderEyebrow = document.getElementById(...)`
+- `:4281` `if (customerHeaderEyebrow) customerHeaderEyebrow.textContent = ...`
+
+The element was removed by PR #11; the guard at `:4281` meant it never threw.
+Both lines go together — deleting only the declaration would have turned
+`:4281` into a `ReferenceError`.
+
+NOT touched, deliberately: `--radius-sm` (`:278`) is declared and never used,
+but removing a token is a different class of change. Left alone.
+
+### Verification — the reason this is safe to land
+
+A DOM probe (`probe-fonts.cjs`, outside the repo) captured a **document-wide
+style fingerprint** — every element's tag, id, class and 13 computed
+properties — across 6 runs: dark and light × 1440 / 820 / 390.
+
+| Check | Before | After |
+|---|---|---|
+| Element count | 1458 | 1458 |
+| Document style hash, dark-desktop | `9d8a4260…` | `9d8a4260…` |
+| dark-tablet | `cf83e0c9…` | `cf83e0c9…` |
+| dark-mobile | `a528ad40…` | `a528ad40…` |
+| light-desktop | `4807f9ec…` | `4807f9ec…` |
+| light-tablet | `83a18a3b…` | `83a18a3b…` |
+| light-mobile | `7ad86c98…` | `7ad86c98…` |
+| 20 selectors × 6 runs | — | all identical |
+| Page errors | 0 | 0 |
+
+All 20 sampled selectors already computed to Manrope before the change —
+including `body`, headings, buttons, inputs, `.q-num`, `.ticket-number`,
+`.wait-item`, `.report-card h4` and `.cal-header`. Nothing moved, because
+nothing was ever reaching those declarations.
+
+`npm test` exit code 0, read WITHOUT a pipe (30 migrations, `shop_settings`
+18 cols, 770/770 parens, 49 `$$` pairs, 23/23 `search_path` pinned).
+
+### Two things the measurement settled that source reading could not
+
+- `locationName` appears 10× before and 9× after, because one occurrence was
+  inside the deleted `:4281` template literal. Checked explicitly rather than
+  assumed: it is still declared at `:3800`, `:4208`, `:4261` and still used at
+  `:3801`, `:4209`, `:4211`, `:4219`, `:4225`, `:4304`. No `ReferenceError`.
+- `git diff` reports 12 insertions / 14 deletions against a 9102 → 9100 line
+  change. That is correct: 12 one-line declarations were *edited*, and 2 whole
+  lines were *deleted*.
+
+### Cost
+
+`index.html` worktree 588,485 → 587,853 bytes; blob 579,384 → 578,752.
+10 `'Oswald'` and 2 `'Inter'` string references gone. `Oswald` and `Inter` no
+longer appear anywhere in the file.
+
+Nothing else changed: 119 `onclick`, 18 `switchView`, 14 `data-view`, both
+theme functions and every `color-scheme` declaration are intact.
+
+### Branch / revert
+
+Branch `ui/dead-font-cleanup` off `main` (`3cf1e7c`). Single commit. `git revert`
+of that commit restores the previous file exactly.
+
