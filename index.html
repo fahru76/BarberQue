@@ -4387,6 +4387,18 @@
             return crossesMidnight(ops) && minutes < timeToMinutes(ops?.open) ? minutes + 1440 : minutes;
         }
 
+        // Bug-hunt audit (2026-09-15, item 4): businessMinutes() alone can't
+        // resolve a 24-hour day (open === close, e.g. both "00:00") -- see
+        // resolveCloseMinutes()'s doc in js/domain/time.js (this is the same
+        // fix, duplicated here because this file still runs its own inline
+        // copy of these helpers rather than importing the shared module).
+        function resolveCloseMinutes(ops) {
+            const open = timeToMinutes(ops?.open);
+            const close = timeToMinutes(ops?.close);
+            if (open >= 0 && close >= 0 && close === open) return open + 1440;
+            return businessMinutes(close, ops);
+        }
+
         function formatOperationalTimeLabel(timeValue) {
             const [hourText, minuteText] = String(timeValue).split(':');
             const hour = Number.parseInt(hourText, 10);
@@ -7331,7 +7343,7 @@
             if (closingSoonAlert) {
                 const ops = getOpHours();
                 const isClosingSoon = !isQueueFull && !ops.closed && Number.isFinite(projectedWait) &&
-                    (businessMinutes(getMalaysiaCurrentMinutes(), ops) + projectedWait + previewRecord.duration) > businessMinutes(timeToMinutes(ops.close), ops);
+                    (businessMinutes(getMalaysiaCurrentMinutes(), ops) + projectedWait + previewRecord.duration) > resolveCloseMinutes(ops);
                 closingSoonAlert.style.display = isClosingSoon ? 'block' : 'none';
             }
         }
@@ -7488,7 +7500,7 @@
             if (ops.closed) return false;
             const start = businessMinutes(timeToMinutes(time), ops);
             const end = start + duration;
-            const closeMinutes = businessMinutes(timeToMinutes(ops.close), ops);
+            const closeMinutes = resolveCloseMinutes(ops);
             if (start < timeToMinutes(ops.open) || end > closeMinutes || intervalOverlapsBreak(start, end, ops)) return false;
             if (date === getCurrentBusinessDate()) {
                 const nowBusinessMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
@@ -7586,7 +7598,7 @@
             const ops = getOpHours();
             if (ops.closed) return (await showAlertDialog("Kedai tidak beroperasi pada hari ini."));
             const currentMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
-            const closeMinutes = businessMinutes(timeToMinutes(ops.close), ops);
+            const closeMinutes = resolveCloseMinutes(ops);
             if (getClosedDates().includes(getCurrentBusinessDate())) return (await showAlertDialog("Kedai ditutup pada hari ini."));
             if (currentMinutes < timeToMinutes(ops.open) || currentMinutes >= closeMinutes) {
                 return (await showAlertDialog("Walk-in tidak dibuka pada waktu ini."));
@@ -7700,7 +7712,7 @@
             
             // end runs past 1439 for an overnight day (e.g. 18:00-01:00) so this
             // loop still finds its post-midnight slots -- see businessMinutes doc.
-            let start = timeToMinutes(ops.open); let end = businessMinutes(timeToMinutes(ops.close), ops);
+            let start = timeToMinutes(ops.open); let end = resolveCloseMinutes(ops);
             let available = 0;
             const excludedAppointmentId = bookingChangeMode?.type === 'reschedule' ? bookingChangeMode.appointmentId : '';
             const contextAppointments = getAppointments().filter(appointment => appointment.date === d && appointment.status === 'upcoming' && appointment.id !== excludedAppointmentId);
@@ -8081,7 +8093,7 @@
             const parsedDuration = Number(app.duration);
             const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : AVG_WAIT_MINUTES;
             const end = start + duration;
-            const outsideOperatingHours = ops.closed || !Number.isFinite(start) || start < timeToMinutes(ops.open) || end > businessMinutes(timeToMinutes(ops.close), ops) || intervalOverlapsBreak(start, end, ops);
+            const outsideOperatingHours = ops.closed || !Number.isFinite(start) || start < timeToMinutes(ops.open) || end > resolveCloseMinutes(ops) || intervalOverlapsBreak(start, end, ops);
             if (outsideOperatingHours && !(await showConfirmDialog(`Tempahan ${app.time} berada di luar waktu operasi atau bertindih waktu rehat hari ini. Daftarkan tiba juga?`))) return;
             const queues = getQueues();
             if (queues.some(q => q.id === appId && ['waiting','serving'].includes(q.status))) return (await showAlertDialog("Tempahan ini sudah berada dalam giliran."));

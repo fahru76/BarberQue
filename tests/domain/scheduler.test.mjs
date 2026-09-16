@@ -95,3 +95,20 @@ console.log('\nOvernight schedule crossing midnight  (round 20, midnight-crossin
 
 console.log(`\n${passed} passed, ${failed.length} failed`);
 if (failed.length) process.exit(1);
+
+console.log('\n24-hour shop config (round 21, bug-hunt audit item 4)');
+{
+    // open === close (both "00:00") is meant as "open all day, closes 24h
+    // later at the same clock time" -- see resolveCloseMinutes()'s doc in
+    // js/domain/time.js. Before the fix, every slot on a day configured this
+    // way was silently rejected (end > close always failed, since close
+    // never got shifted onto minute 1440).
+    const ALL_DAY_OPS = { open: '00:00', close: '00:00', break1Start: '', break1End: '', break2Start: '', break2End: '' };
+
+    eq('morning slot on a 24-hour day is accepted', S.isSlotAvailable({ time: '08:00', duration: 30, ops: ALL_DAY_OPS, activeSeats: { 1: true }, nowMinutes: at(0) }), true);
+    eq('evening slot on a 24-hour day is accepted', S.isSlotAvailable({ time: '22:00', duration: 30, ops: ALL_DAY_OPS, activeSeats: { 1: true }, nowMinutes: at(0) }), true);
+    eq('slot ending exactly at the 24h mark is accepted', S.isSlotAvailable({ time: '23:30', duration: 30, ops: ALL_DAY_OPS, activeSeats: { 1: true }, nowMinutes: at(0) }), true);
+    eq('slot running past the 24h mark is rejected', S.isSlotAvailable({ time: '23:45', duration: 30, ops: ALL_DAY_OPS, activeSeats: { 1: true }, nowMinutes: at(0) }), false);
+    // A normal (non-24-hour, non-overnight) day must be unaffected by this fix.
+    eq('ordinary same-day config is unaffected', S.isSlotAvailable({ time: '15:00', duration: 30, ops: OPS, activeSeats: { 1: true }, nowMinutes: at(9) }), true);
+}

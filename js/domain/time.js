@@ -103,3 +103,34 @@ export function businessMinutes(minutes, ops) {
     if (!Number.isFinite(minutes) || minutes < 0) return minutes;
     return crossesMidnight(ops) && minutes < timeToMinutes(ops?.open) ? minutes + 1440 : minutes;
 }
+
+/**
+ * Resolves the day's CLOSE time onto the continuous business-day axis (see
+ * businessMinutes() above). businessMinutes() alone can't do this correctly
+ * for a 24-hour day: it only shifts a raw clock value forward by 1440 when
+ * that value is strictly EARLIER than `open`, which is right for a normal
+ * overnight day (e.g. open 18:00, close 01:00 -- 01:00 < 18:00, so close
+ * resolves to minute 1500) but wrong when `open === close` (e.g. both
+ * "00:00", meaning "open all day"): there, `close` isn't earlier than
+ * `open`, it's numerically IDENTICAL to it, so businessMinutes() left it
+ * unshifted at minute 0 -- indistinguishable from the day having just
+ * opened, rather than closing a full 24h later. That made `end > close`
+ * fail for every slot, silently rejecting the entire day (bug-hunt audit,
+ * 2026-09-15, item 4).
+ *
+ * Only a caller resolving CLOSE specifically can disambiguate this -- the
+ * raw clock value alone can't, since open === close is genuinely ambiguous
+ * between "the day just opened" and "the day closes exactly 24h later"
+ * without knowing which boundary is being asked about. A same-value
+ * open/close pair is otherwise meaningless as a schedule (a true "never
+ * open" day is expressed with `ops.closed`, not by setting open === close),
+ * so treating it as the 24-hour case is the only useful interpretation.
+ * Every other (non-24-hour) config resolves identically to plain
+ * businessMinutes(close, ops).
+ */
+export function resolveCloseMinutes(ops) {
+    const open = timeToMinutes(ops?.open);
+    const close = timeToMinutes(ops?.close);
+    if (open >= 0 && close >= 0 && close === open) return open + 1440;
+    return businessMinutes(close, ops);
+}
