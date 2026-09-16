@@ -1,0 +1,197 @@
+name: Verify capability gate (live)
+
+# Two checks that must run against the real project -- see
+# supabase/verification/README.md for why neither can live in `npm test`.
+#
+#   schema-shape     read-only. Sent with read_only:true, so the server refuses
+#                    anything that is not a SELECT. Asserts the APPLIED function
+#                    bodies and return types. No approval gate: a server-enforced
+#                    read-only guarantee is stronger than a human click, and
+#                    there is nothing here a human would catch that the database
+#                    will not.
+#
+#   capability-gate  writes fixtures, inside one transaction, always rolled
+#                    back. Gated on the `production` environment because it is
+#                    the one mode that can write to the live database.
+#
+# Neither mode runs automatically on push. Both are workflow_dispatch only --
+# they hit production and there is no staging.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Which check to run'
+        required: true
+        type: choice
+        options:
+          - schema-shape
+          - capability-gate
+      confirm:
+        description: "Type RUN to confirm (required for mode=capability-gate)"
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+
+  schema-shape:
+    name: Applied schema shape (read-only)
+    if: github.event.inputs.mode == 'schema-shape'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assert the applied schema (read-only)
+        run: |
+          set -euo pipefail
+
+          jq -n --rawfile q supabase/verification/schema_shape.sql \
+            '{query: $q, read_only: true}' > "$RUNNER_TEMP/body.json"
+
+          RESP=$(curl -sS -w '\n%{http_code}' \
+            -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_ID}/database/query" \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data @"$RUNNER_TEMP/body.json")
+
+          CODE=$(printf '%s' "$RESP" | tail -n 1)
+          BODY=$(printf '%s' "$RESP" | sed '$d')
+
+          echo "HTTP $CODE"
+          echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+
+          if [ "$CODE" != "200" ] && [ "$CODE" != "201" ]; then
+            echo "::error::Management API query failed (HTTP $CODE)"
+            exit 1
+          fi
+
+          OK=$(printf '%s' "$BODY" | jq -r '.[0].ok')
+          COUNT=$(printf '%s' "$BODY" | jq -r '.[0].problem_count')
+
+          if [ "$OK" != "true" ]; then
+            echo "::error::${COUNT} applied-schema check(s) failed"
+            printf '%s' "$BODY" | jq -r '.[0].problems[]' | sed 's/^/  - /'
+            exit 1
+          fi
+
+          echo "All applied-schema checks passed."
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Applied schema shape"
+            echo ""
+            echo "mode: \`schema-shape\` (read-only)"
+            echo "project: \`${SUPABASE_PROJECT_ID}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  capability-gate:
+    name: Capability gate behaviour (writes, rolls back)
+    if: >-
+      github.event.inputs.mode == 'capability-gate' &&
+      github.event.inputs.confirm == 'RUN'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Drive call_next_customer() through four scenarios
+        run: |
+          set -euo pipefail
+
+          jq -n --rawfile q supabase/verification/capability_gate.sql \
+            '{query: $q, read_only: false}' > "$RUNNER_TEMP/body.json"
+
+          RESP=$(curl -sS -w '\n%{http_code}' \
+            -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_ID}/database/query" \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data @"$RUNNER_TEMP/body.json")
+
+          CODE=$(printf '%s' "$RESP" | tail -n 1)
+          BODY=$(printf '%s' "$RESP" | sed '$d')
+
+          echo "HTTP $CODE"
+          echo "$BODY"
+
+          MSG=$(printf '%s' "$BODY" | jq -r '.message // empty' 2>/dev/null || true)
+
+          # Deliberate abort: every assertion held and the transaction rolled back.
+          if printf '%s' "$MSG" | grep -q 'PASSED'; then
+            echo "::notice::$MSG"
+            exit 0
+          fi
+
+          # HTTP 2xx means the block never reached its `raise` -- that is a failure,
+          # not a pass, because it means the verdict logic was skipped entirely.
+          if [ "$CODE" = "200" ] || [ "$CODE" = "201" ]; then
+            echo "::error::query succeeded instead of aborting; the verification block did not reach its raise"
+            exit 1
+          fi
+
+          echo "::error::capability gate verification failed"
+          echo "$MSG"
+          exit 1
+
+      - name: Prove the transaction rolled back (read-only)
+        if: always()
+        run: |
+          set -euo pipefail
+
+          jq -n --arg q "select count(*)::int as leftover from public.queues where id like 'VR-%'" \
+            '{query: $q, read_only: true}' > "$RUNNER_TEMP/rb.json"
+
+          RESP=$(curl -sS -w '\n%{http_code}' \
+            -X POST "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_ID}/database/query" \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data @"$RUNNER_TEMP/rb.json")
+
+          CODE=$(printf '%s' "$RESP" | tail -n 1)
+          BODY=$(printf '%s' "$RESP" | sed '$d')
+
+          echo "HTTP $CODE"
+          echo "$BODY"
+
+          if [ "$CODE" != "200" ] && [ "$CODE" != "201" ]; then
+            echo "::error::rollback proof query failed (HTTP $CODE)"
+            exit 1
+          fi
+
+          LEFTOVER=$(printf '%s' "$BODY" | jq -r '.[0].leftover')
+          echo "leftover VR-% rows: ${LEFTOVER}"
+
+          if [ "$LEFTOVER" != "0" ]; then
+            echo "::error::${LEFTOVER} fixture row(s) persisted -- the verification transaction did not roll back"
+            exit 1
+          fi
+
+          echo "Rollback confirmed: no fixture rows persisted."
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Capability gate behaviour"
+            echo ""
+            echo "mode: \`capability-gate\` (writes fixtures, transaction rolled back)"
+            echo "project: \`${SUPABASE_PROJECT_ID}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
