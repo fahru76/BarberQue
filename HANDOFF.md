@@ -3357,3 +3357,75 @@ build/legacy.cjs                                    regenerable reference impl
   evidenced one than before, but a static reading.
 - Branch `ci/capability-gate-verification`.
 
+## Done — capability gate verified against the live database (2026-09-16)
+
+The entry above ends with "NOT verified ... the workflow has never been
+dispatched." That is now closed. The harness ran, it failed twice on its own
+defects, and the third run passed against the live project.
+
+Final evidence — run `35112190118`, head `ad29b7a`, workflow job
+"Capability gate behaviour (writes, rolls back)" = `completed/success`:
+
+    HTTP 400
+    P0001: PASSED: capability gate holds. A (multi-service outside capability)
+    raised P0002; B (single-service inside capability) served with the correct
+    id/status/seat/barber; C (NULL service_ids, source=booking) served as
+    compatible; D (unrestricted barber) served. Transaction rolled back, no
+    fixture committed.
+    leftover VR-% rows: 0
+    Rollback confirmed: no fixture rows persisted.
+
+Scenario A is the regression test the whole exercise existed for: a barber
+whose capability is `[fade]` against a waiting ticket needing fade+perm.
+Under the old `&&` overlap predicate that ticket was returned and marked
+serving. Under the subset gate it raises P0002. `npm test` cannot express
+that statement — it parses migration text, it does not execute predicates.
+
+The read-only shape check passed live first (run `35111520367`, HTTP 201,
+`ok: true`, `problem_count: 0`): the deployed `call_next_customer()` body
+contains `service_ids <@ v_capability` and no `&&`; both narrowed list RPCs
+return explicit `TABLE(...)` with no `claim_token`; every column the client
+mappers read is still present.
+
+Three defects in the harness itself, all found only by dispatching it — none
+visible to `npm test`, `actionlint` or `db-plan`, because none of them
+execute SQL:
+
+1. `schema_shape.sql` — the final scalar subquery aggregated the `problems`
+   CTE with no `FROM`, so `problem` was unresolvable. Live: `42703: column
+   "problem" does not exist`. Fixed by aggregating `from problems p`.
+   (commit `5b61459`)
+2. `capability_gate.sql` — the fixture invented service ids (`'skin-fade'`,
+   `'perm'`). A BEFORE INSERT trigger,
+   `recompute_walkin_price_from_services()`, recomputes walk-in price from
+   `public.services` and rejects any `service_ids` that do not resolve to at
+   least one ACTIVE row. Live: `23514: Servis yang dipilih tidak sah atau
+   tidak aktif.` Fixed by creating real per-run catalog rows. (commit
+   `ad29b7a`)
+3. Same trigger requires a non-null `service_ids` for `source='walkin'`, so
+   scenario C (NULL service_ids) could not be fabricated as a walk-in at all
+   — it raised before `call_next_customer()` was reached. Rebuilt as
+   `source='booking'`, the path `checkin_appointment()` takes, which
+   legitimately yields a NULL `service_ids` row for an appointment that
+   predates the snapshot column. (commit `ad29b7a`)
+
+A fourth, pre-emptive fix before any dispatch: `call_next_customer()` reads
+ALL waiting rows and refuses a seat already serving, so a real ticket would
+have been selected ahead of the fixture and every assertion would have read
+as a false failure. The block now parks pre-existing `waiting` rows, and
+`serving` rows at seats 1-4, inside its own transaction. (commit `3ebadc7`)
+
+Run history, so the failures are not mistaken for a flaky harness:
+`35111606071` cancelled (pre-parking SQL, superseded), `35111782418` failure
+(defect 2), `35112190118` success. The failure run failed CLOSED — a
+non-`PASSED` error and an HTTP 2xx both report failure — and its
+`leftover: 0` read-back proved the transaction rolled back on the failure
+run too, not only on the pass.
+
+Skill `supabase-migration-hardening` updated: `references/
+management-api-dispatch.md` (new) now carries the three fixture constraints
+above alongside the dispatch mechanics.
+
+State: `main` = `ad29b7a`, clean, == `origin/main`. `index.html` untouched by
+every commit in this sequence.
+
