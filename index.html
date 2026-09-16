@@ -165,7 +165,7 @@
         .waiting-list-container h3 { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; }
         .waiting-grid { display: flex; flex-wrap: wrap; gap: 10px; }
         .wait-item { background: var(--border-light); padding: 8px 15px; border-radius: 6px; font-family: 'Oswald', sans-serif; font-size: 1.1rem; border-left: 3px solid var(--primary-color); display: flex; flex-direction: column; align-items: flex-start; }
-        .wait-item-name { font-family: 'Inter', sans-serif; font-size: 0.8rem; color: var(--text-muted); text-transform: none; }
+        .wait-item-name { font-family: 'Manrope', sans-serif; font-size: 0.8rem; color: var(--text-muted); text-transform: none; }
 
         .ticket-box { background: var(--ticket-gradient); border: 2px solid var(--primary-color); padding: 40px; border-radius: 12px; text-align: center; margin-top: 20px; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1); }
         .ticket-number { font-size: clamp(3rem, 10vw, 4.5rem); color: var(--primary-color); font-family: 'Oswald', sans-serif; margin: 10px 0; line-height: 1; overflow-wrap:anywhere; }
@@ -240,7 +240,7 @@
         /* Report Styles */
         .report-summary-box { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;}
         .report-card { flex: 1; background: var(--border-light); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; min-width: 120px;}
-        .report-card h4 { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px; font-family: 'Inter', sans-serif; text-transform: none;}
+        .report-card h4 { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px; font-family: 'Manrope', sans-serif; text-transform: none;}
         .report-card .report-val { font-size: 1.8rem; color: var(--primary-color); font-family: 'Oswald', sans-serif; font-weight: bold;}
 
         @media (max-width: 768px) {
@@ -426,14 +426,6 @@
             position: relative;
             margin: 10px 0 34px !important;
             padding: 28px 20px 18px;
-        }
-        #customerHeaderEyebrow {
-            display: block;
-            margin-bottom: 12px;
-            color: var(--primary-color);
-            font-size: .66rem;
-            font-weight: 700;
-            letter-spacing: .22em;
         }
         #customer-header-text h2 {
             color: var(--text-main) !important;
@@ -654,7 +646,7 @@
         .serving-seat.active { border-color: rgba(199,166,106,.45); background: var(--ticket-gradient); }
         .serving-seat.closed { opacity: .38; filter: grayscale(1); }
         .serving-seat h4 { font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; }
-        .serving-seat .q-num { margin: 5px 0; color: var(--primary-strong); font: 600 2.1rem/1 'Manrope', sans-serif; letter-spacing: -.06em; }
+        .serving-seat .q-num { margin: 5px 0; color: var(--primary-strong); font: 600 2.1rem/1 'Manrope', sans-serif; letter-spacing: -.035em; }
         .cust-name-label { font-size: .76rem; color: var(--text-muted); }
         #tvServingGrid .cust-name-label {
             display: block;
@@ -704,7 +696,7 @@
         }
         .ticket-box::before { left: -20px; }
         .ticket-box::after { right: -20px; }
-        .ticket-number { color: var(--primary-strong); font-family: 'Manrope', sans-serif; font-size: clamp(3rem, 12vw, 5.2rem); font-weight: 500; letter-spacing: -.07em; }
+        .ticket-number { color: var(--primary-strong); font-family: 'Manrope', sans-serif; font-size: clamp(3rem, 12vw, 5.2rem); font-weight: 500; letter-spacing: -.04em; }
         .ticket-name { font-size: 1.2rem; }
 
         .admin-list-item, .booking-list-item {
@@ -724,7 +716,7 @@
             text-align: left;
         }
         .report-card h4 { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-        .report-card .report-val { color: var(--primary-strong); font-family: 'Manrope', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -.055em; }
+        .report-card .report-val { color: var(--primary-strong); font-family: 'Manrope', sans-serif; font-size: 2rem; font-weight: 600; letter-spacing: -.03em; }
         .barber-performance-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1013,18 +1005,15 @@
             margin-bottom: 38px !important;
             padding-top: 34px;
         }
-        #customerHeaderEyebrow {
-            color: var(--sleek-accent-strong);
-            letter-spacing: .18em;
-        }
         #customer-header-text h2 {
-            max-width: 680px;
+            max-width: 760px;
             margin-inline: auto;
             font-family: 'Manrope', system-ui, sans-serif;
             font-size: clamp(2.85rem, 10vw, 5.6rem) !important;
             font-weight: 700;
-            letter-spacing: -.075em;
+            letter-spacing: -.03em;
             line-height: .94;
+            text-wrap: balance;
         }
         /* Design-critique fix: was mixing toward literal white, which softens
            --text-muted further in dark theme (fine) but LIGHTENS it in light
@@ -1040,7 +1029,7 @@
         #admin-app > .admin-panel > h2 {
             font-family: 'Manrope', system-ui, sans-serif;
             font-weight: 700;
-            letter-spacing: -.065em;
+            letter-spacing: -.03em;
         }
         #barber-app > .admin-panel > h2::before,
         #admin-app > .admin-panel > h2::before { color: var(--sleek-accent-strong); }
@@ -1544,7 +1533,7 @@
         #display-app h2 {
             font-family: 'Manrope', system-ui, sans-serif;
             font-weight: 700;
-            letter-spacing: -.075em;
+            letter-spacing: -.03em;
         }
 
         .view-section.active { animation-duration: .26s; }
@@ -1817,7 +1806,6 @@
         <div class="customer-container">
             <!-- Header Teks Customer -->
             <div id="customer-header-text">
-                <span id="customerHeaderEyebrow">QUEUECUT · KERTEH</span>
                 <h2 id="customerShopName">SYAM BARBER SHOP</h2>
                 <p class="text-muted" id="customerTagline">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai—jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
             </div>
@@ -1896,7 +1884,7 @@
                         <input type="tel" id="customerPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true" aria-describedby="customerPhoneError">
                         <p id="customerPhoneError" class="field-error" aria-live="polite"></p>
                     </div>
-                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk menyertai giliran ini — digunakan semata-mata untuk memaklumkan status giliran anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Anggaran masa giliran mungkin berubah mengikut keadaan operasi semasa.</div>
+                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk memaklumkan status giliran dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Anggaran masa boleh berubah mengikut operasi semasa.</div>
                     
                     <div class="input-group">
                         <label id="walkinServicesLabel">Pilih Servis:</label>
@@ -1961,7 +1949,7 @@
                         <input type="tel" id="bookPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true" aria-describedby="bookPhoneError">
                         <p id="bookPhoneError" class="field-error" aria-live="polite"></p>
                     </div>
-                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk membuat tempahan ini — digunakan semata-mata untuk memaklumkan status tempahan anda dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Masa tempahan mungkin berubah mengikut keadaan operasi semasa.</div>
+                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk memaklumkan status tempahan dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Masa tempahan boleh berubah mengikut operasi semasa.</div>
                     <div class="input-group">
                         <label id="bookingServicesLabel">Pilih Servis:</label>
                         <div class="service-category-tabs">
