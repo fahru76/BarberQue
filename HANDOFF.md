@@ -3429,3 +3429,68 @@ above alongside the dispatch mechanics.
 State: `main` = `ad29b7a`, clean, == `origin/main`. `index.html` untouched by
 every commit in this sequence.
 
+## Done — design blueprint + second bug hunt (2026-09-16)
+
+Requested as a creative-direction + front-end-architecture pass over the live
+app, delivered as a document (no markup, no CSS, no JS changed).
+
+- `docs/DESIGN_BLUEPRINT.md` (new, ~15.5 KB) — business analysis, per-surface
+  audience + wanted action, named design direction, target token system,
+  per-page action map, five independently-revertible phases, and the frozen
+  guardrail list.
+- Central finding, and the reason the blueprint recommends consolidation
+  rather than a new look: `index.html` carries THREE stacked design systems.
+  Block 1 (`:20-254`) is the original palette, block 2 (`:255-877`) is
+  labelled "QueueCut 7 — Quiet Precision", block 3 (`:878-1774`) is labelled
+  "QueueCut 8 — Sleek-inspired". Each declares its own `:root` and
+  `[data-theme="light"]` at `:39/:57`, `:257/:284`, `:880/:903`. Eleven core
+  tokens are declared in all three. `--danger`, `--ease`, `--info`,
+  `--nav-border`, `--radius-sm`, `--success`, `--warning` are declared ONLY in
+  block 2, so block 2's values are what the live page actually uses for those.
+  `--sleek-accent*` exists only in block 3. Any "token cleanup" that rewrites
+  block 2 re-points the announcement panel, weekly-closed calendar day, hours
+  notice and admin announcement border, because they read `--warning`
+  (`:113`, `:114`, `:233`, `:1619`, `:1677`, `:1687`).
+
+Second bug hunt (static, over the real file):
+
+- `npm test` REAL exit code 0, read WITHOUT a pipe.
+- 287 distinct element ids, zero duplicates.
+- 307 top-level functions, zero duplicate declarations.
+- 123 `<button>` elements; 47 have no `type=`, but a form-scoped check found
+  **0** type-less buttons inside a `<form>` — the default-to-submit risk does
+  not exist here. The 47 are all outside forms.
+- 4 real `<img>` tags, all 4 carrying `alt=`. The earlier "2 missing alt" hit
+  was this checker matching `/<img/` inside JS regex literals, not markup.
+- `aria-controls`/`aria-labelledby`/`aria-describedby`/`for` references that
+  point at a non-existent id: **0**.
+- Inline handlers calling an undeclared function: **0**. The two reported
+  "ghosts" (`getElementById`, `preventDefault`) are DOM/native calls, not app
+  functions — checker artefact.
+- `var()` used but never declared: **0**. Declared but never used:
+  `--radius-sm` only (`:278`).
+- The one genuine dangling reference: `customerHeaderEyebrow` at `:4270`
+  fetches an element that no longer exists. It is null-guarded at `:4281`
+  (`if (customerHeaderEyebrow)`), and the id is gone from both markup and CSS,
+  so it is a harmless leftover `const`, not a throw. Left alone — deleting it
+  is a code change, not a design change.
+
+Two font facts, now settled by reading the cascade rather than assuming:
+
+- `'Oswald'` is referenced 10x and never loaded. The heading rule at `:74`
+  that requests it is overridden by `:337` (`h1,h2,h3,h4 { font-family:
+  'Manrope' … }`) — same specificity, later wins. Headings render Manrope.
+  Dead reference, not a rendering bug.
+- `'Inter'` is referenced 2x and never loaded. `body` at `:73` is overridden
+  by `:311`. The input rule at `:100` is overridden by `:530` (Manrope). Both
+  unreachable. Only one `<link>` to Google Fonts exists (`:19`), zero
+  `@font-face`.
+
+Still open, unchanged by this work: no `aria-busy`, no loading/skeleton state
+anywhere in the codebase; 51 `console.*` calls; 42 `!important`; 9 remaining
+inline `style=` attributes; 30 distinct hardcoded hex values outside token
+declarations (`#fff` x11 on primary-filled buttons).
+
+State: blueprint committed on `main`; `index.html` byte-identical to
+`c898bf8`.
+
