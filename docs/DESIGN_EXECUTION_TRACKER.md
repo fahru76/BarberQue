@@ -42,7 +42,7 @@ Fill radius / elevation / motion / spacing and replace ad-hoc values.
 
 | # | Item | Owner | Status | Notes |
 |---|---|---|---|---|
-| 1.1 | Radius: standardise on `--radius-sm/md/lg` | Fahru | TODO | `--radius-sm` (`:278`) declared, zero consumers — wire it or drop it deliberately |
+| 1.1 | Radius: standardise on `--radius-sm/md/lg` | Fahru | WIP | **`--radius-sm` DONE (`a607da9`): 9 literal `10px` sites wired to `var(--radius-sm)` — provable no-op, fingerprint 6/6 identical, npm test exit 0.** Remaining: 6px(×17)/8px(×27)/12px(×15) magic numbers sit BELOW `--radius-sm` (10px). Collapsing them to the 10/18/28 scale is a VISUAL change — needs a decision, not a script. `--radius-md` ×1, `--radius-lg` ×6 still under-used |
 | 1.2 | Elevation: `--shadow-sm` / `--shadow-lg` only | Fahru | TODO | Two levels; no third unless a real case appears |
 | 1.3 | Motion: 150ms state / 250–350ms entrance, `--ease` | Fahru | TODO | Extend the existing `prefers-reduced-motion` rules (`:826`, `:1553`) |
 | 1.4 | Spacing: 4·8·12·16·24·32·48 | Fahru | TODO | Per-surface, one surface per commit |
