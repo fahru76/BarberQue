@@ -25,11 +25,11 @@ of every token. Remove `'Oswald'` / `'Inter'` references. No consumer changes.
 | # | Item | Owner | Status | Notes |
 |---|---|---|---|---|
 | 0.1 | In-repo DOM fingerprint harness | Fahru | DONE | `tests/dom/fingerprint.mjs` — 6 runs (2 themes × 3 viewports), SHA-256 of a document-wide computed-style snapshot, hash computed in Node |
-| 0.2 | Capture baseline hash (before) | Fahru | TODO | `node tests/dom/fingerprint.mjs --out .fingerprint-before.json` |
-| 0.3 | Enumerate token winners + consumers | Fahru | TODO | Per `frontend-static-audit/references/design-token-ownership.md`. `--warning` is the documented landmine (`:268`, consumed at `:113`,`:114`,`:233`,`:1619`,`:1677`,`:1687`) |
-| 0.4 | Collapse to one `:root` + one `[data-theme="light"]` | Fahru | TODO | Values only move; no value is re-pointed |
+| 0.2 | Capture baseline hash (before) | Fahru | DONE | `.fingerprint-before.json` sha256 `522e48ba…35c246`; 6/6 written, dark≠light holds |
+| 0.3 | Enumerate token winners + consumers | Fahru | DONE | 27 tokens. Block 1 100% shadowed (dead). Dark winners: 20 from block 3, 7 from block 2 (`--danger`/`--success`/`--info`/`--warning`/`--nav-border`/`--radius-sm`/`--ease`). Light: 4 from block 2. `--warning` confirmed declared ONLY at `:268`, never overridden in light |
+| 0.4 | Collapse to one `:root` + one `[data-theme="light"]` | Fahru | DONE | Atomic line-based script (not hand patches): deleted block 1 (fully shadowed) + block 2 pair, folded block 2's unshadowed tokens into block 3. CRLF preserved. 9222→9151 lines, diff 11+/82- |
 | 0.5 | Remove unloaded `'Oswald'` / `'Inter'` refs | Fahru | DONE | Landed in `5346c23` before this tracker |
-| 0.6 | Re-capture hash (after) and diff | Fahru | TODO | All 6 hashes must be identical to 0.2 |
+| 0.6 | Re-capture hash (after) and diff | Fahru | DONE | **GATE PASS 6/6 identical** — tokenHash + styleHash + elements all match before↔after |
 
 **Gate:** 6/6 hashes identical before↔after, `npm test` exit 0 read without a pipe.
 **Revert:** single commit; `git revert <sha>`.
