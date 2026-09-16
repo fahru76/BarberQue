@@ -3117,3 +3117,56 @@ build/legacy.cjs                                    regenerable reference impl
   addressed (3 priority fixes in the previous entry, these final 2
   here).
 
+
+## Done — customer-surface UI polish: dead eyebrow, display tracking, unloaded fonts (2026-09-16)
+
+- Fahru asked for a "better modern trending interface without
+  jeopardizing the function that are existing/configured". The design
+  toolchain (the `impeccable` skill's engine) could not run -- no
+  network and no write access to `~/.impeccable/bin`, so `concept-seed`
+  and `comp-diff` were unavailable. Built a standalone proposal
+  artifact instead and got Fahru's sign-off on scope before touching
+  the live file.
+- **Scope agreed: CSS-only safe subset + two approved copy changes.**
+  No markup structure, no JS, no `applyTheme()`, and no `color-scheme`
+  declaration touched (the frozen light-theme surface). Branch
+  `ui/customer-surface-polish` was cut from `origin/main` after
+  verifying `index.html` byte-identical, so the unpushed
+  realtime-fix commits stay isolated.
+- **Removed the redundant eyebrow.** `#customerHeaderEyebrow` read
+  "QUEUECUT · KERTEH" while the nav and the `h2` already carried the
+  shop name -- three repeats of the same identity. Deleted the element
+  and both now-dead CSS blocks (block 2's was already overridden by
+  block 3's). The JS writer at ~:4281 is null-guarded
+  (`if (customerHeaderEyebrow)`), so removing the node does not throw.
+- **Display tracking was past the collision floor.** Several headings
+  sat at -.075em/-.065em, below the ~-.04em point where adjacent
+  letters start touching. Relaxed `#customer-header-text h2`
+  (-.075 -> -.03em), the barber/admin `h2` (-.065 -> -.03em),
+  `#display-app h2` (-.075 -> -.03em), `.ticket-number`
+  (-.07 -> -.04em), `.serving-seat .q-num` (-.06 -> -.035em) and
+  `.report-card .report-val` (-.055 -> -.03em).
+- **The customer h1 was orphaning "Shop".** `max-width: 680px` forced
+  the break so only "Shop" landed on line 2. Widened to 760px and
+  added `text-wrap: balance`. Verified by render: now "Syam" /
+  "Barber Shop".
+- **Two elements still requested a font the page never loads.**
+  `.report-card h4` and `.wait-item-name` both declared
+  `font-family: 'Inter'`, but the only `<link>` loads Cormorant
+  Garamond + Manrope. Both now use Manrope. (`.cal-header` and
+  `.wait-item` also name 'Oswald', but both are already overridden to
+  Manrope by later blocks, so they were left alone.)
+- **Two WhatsApp disclaimers shortened** (walk-in + booking); copy was
+  approved by Fahru in the scope question.
+- Deliberately NOT changed: `#ffc107` and friends were left hardcoded.
+  `--warning` already resolves to a muted amber and is used by six
+  other elements, so swapping in either direction would repaint
+  something Fahru did not ask to repaint. That is a separate, explicit
+  decision.
+- Verified: `npm test` PASS (23 domain fixtures, 20000-comparison
+  differential with 0 mismatches, sql-consistency clean). Rendered at
+  1440px dark and 390px dark via Playwright and confirmed the eyebrow
+  is gone, the heading is two balanced lines with no letter collision,
+  and there is no overflow at either width.
+- Commit `5fd3e7b` (index.html only; 12 insertions, 24 deletions).
+  Branch `ui/customer-surface-polish`, NOT pushed.
