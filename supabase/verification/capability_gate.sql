@@ -28,6 +28,20 @@
 -- failure and names the scenario that broke. An HTTP 2xx response is also a
 -- failure: it means the block never reached its raise.
 --
+-- TWO CONSTRAINTS THE FIRST LIVE RUN TAUGHT THIS FILE (both invisible to every
+-- static check, because none of them execute SQL):
+--
+--   1. A BEFORE INSERT trigger on public.queues,
+--      recompute_walkin_price_from_services(), rejects any source='walkin' row
+--      whose service_ids do not resolve to at least one ACTIVE
+--      public.services row. Invented ids therefore cannot be used -- the
+--      fixture creates its own catalog entries.
+--   2. That same trigger requires service_ids to be non-null for a walkin
+--      insert, so scenario C (NULL service_ids) CANNOT be fabricated as a
+--      walk-in at all. It is built as source='booking' instead -- the path
+--      checkin_appointment() takes, which legitimately produces a NULL
+--      service_ids row when the appointment predates the snapshot column.
+--
 -- The fixture inserts into auth.users because public.staff.id has a foreign key
 -- to it. That is the only part of this file coupled to Supabase's own auth
 -- schema -- see README.md.
@@ -38,9 +52,9 @@ declare
     -- re-run must never trip over a leftover from a previous attempt.
     v_run  text := substr(replace(gen_random_uuid()::text, '-', ''), 1, 10);
 
-    v_barber_a uuid := gen_random_uuid();   -- capability ['skin-fade']
-    v_barber_b uuid := gen_random_uuid();   -- capability ['skin-fade']
-    v_barber_c uuid := gen_random_uuid();   -- capability ['perm']
+    v_barber_a uuid := gen_random_uuid();   -- capability [fade]
+    v_barber_b uuid := gen_random_uuid();   -- capability [fade]
+    v_barber_c uuid := gen_random_uuid();   -- capability [perm]
     v_barber_d uuid := gen_random_uuid();   -- capability NULL (unrestricted)
 
     v_t_a  text := 'VR-' || v_run || '-A';
@@ -48,14 +62,28 @@ declare
     v_t_c  text := 'VR-' || v_run || '-C';
     v_t_d  text := 'VR-' || v_run || '-D';
 
+    -- Real service ids. See constraint 1 in the header: the walk-in trigger
+    -- rejects service_ids that do not resolve to an ACTIVE public.services row,
+    -- so these must exist before any ticket is inserted.
+    v_svc_fade text := 'VR-' || v_run || '-SVC-FADE';
+    v_svc_perm text := 'VR-' || v_run || '-SVC-PERM';
+
     v_row      public.queues;
     v_uid      uuid;
     v_failures text := '';
 begin
 
     ------------------------------------------------------------------
-    -- Fixtures: four staff rows, four open seats.
+    -- Fixtures: a services catalog, four staff rows, four open seats.
     ------------------------------------------------------------------
+
+    -- The shop's own catalog, which the walk-in trigger reads. `name_key` is
+    -- generated and unique, so the per-run suffix keeps re-runs from colliding.
+    insert into public.services
+        (id, name, price_sen, duration_minutes, active, category, target, type, sort_order)
+    values
+        (v_svc_fade, 'VR Fade ' || v_run, 2500, 20, true, 'asas',    'semua', 'gunting', 0),
+        (v_svc_perm, 'VR Perm ' || v_run, 5000, 40, true, 'fashion', 'semua', 'lain',    0);
 
     -- Inserting into auth.users fires public.handle_new_staff_user(), which
     -- creates the public.staff row with active = false. That is the real
@@ -75,9 +103,9 @@ begin
     update public.staff
        set active = true,
            capability_service_ids = case id
-                                        when v_barber_a then array['skin-fade']
-                                        when v_barber_b then array['skin-fade']
-                                        when v_barber_c then array['perm']
+                                        when v_barber_a then array[v_svc_fade]
+                                        when v_barber_b then array[v_svc_fade]
+                                        when v_barber_c then array[v_svc_perm]
                                         else null
                                     end,
            specialty_service_ids  = null
@@ -127,15 +155,15 @@ begin
     ------------------------------------------------------------------
     -- Scenario A -- THE REGRESSION TEST.
     --
-    -- Barber A may perform skin-fade only. The single waiting ticket needs
-    -- skin-fade AND perm. Under the old overlap predicate this returns the
+    -- Barber A may perform fade only. The single waiting ticket needs
+    -- fade AND perm. Under the old overlap predicate this returns the
     -- ticket and marks it serving; under the subset gate it must raise P0002.
     ------------------------------------------------------------------
 
     insert into public.queues (id, ticket_no, name, claim_token, service,
                                duration_minutes, price_sen, source, service_ids)
-    values (v_t_a, v_t_a, 'Verify A', gen_random_uuid(), 'Skin Fade + Perm',
-            40, 5000, 'walkin', array['skin-fade', 'perm']);
+    values (v_t_a, v_t_a, 'Verify A', gen_random_uuid(), 'VR Fade + Perm',
+            1, 1, 'walkin', array[v_svc_fade, v_svc_perm]);
 
     perform set_config('request.jwt.claims',
                        json_build_object('sub', v_barber_a::text)::text, true);
@@ -165,8 +193,8 @@ begin
 
     insert into public.queues (id, ticket_no, name, claim_token, service,
                                duration_minutes, price_sen, source, service_ids)
-    values (v_t_b, v_t_b, 'Verify B', gen_random_uuid(), 'Skin Fade',
-            20, 2500, 'walkin', array['skin-fade']);
+    values (v_t_b, v_t_b, 'Verify B', gen_random_uuid(), 'VR Fade',
+            1, 1, 'walkin', array[v_svc_fade]);
 
     perform set_config('request.jwt.claims',
                        json_build_object('sub', v_barber_b::text)::text, true);
@@ -208,12 +236,18 @@ begin
     -- snapshot column existed, or by a path that predates it, must not be
     -- stranded just because its service set is unknown. A fix that tightened
     -- this to "exclude NULL" would fail here.
+    --
+    -- Built as source='booking', NOT 'walkin'. The walk-in trigger requires a
+    -- non-null service_ids and rejects this row outright -- see constraint 2 in
+    -- the header. source='booking' is the path checkin_appointment() uses, and
+    -- it legitimately yields a NULL service_ids row for an appointment that
+    -- predates the snapshot column.
     ------------------------------------------------------------------
 
     insert into public.queues (id, ticket_no, name, claim_token, service,
                                duration_minutes, price_sen, source, service_ids)
     values (v_t_c, v_t_c, 'Verify C', gen_random_uuid(), 'Unknown Service',
-            25, 3000, 'walkin', null);
+            25, 3000, 'booking', null);
 
     perform set_config('request.jwt.claims',
                        json_build_object('sub', v_barber_c::text)::text, true);
@@ -242,8 +276,8 @@ begin
 
     insert into public.queues (id, ticket_no, name, claim_token, service,
                                duration_minutes, price_sen, source, service_ids)
-    values (v_t_d, v_t_d, 'Verify D', gen_random_uuid(), 'Skin Fade + Perm',
-            40, 5000, 'walkin', array['skin-fade', 'perm']);
+    values (v_t_d, v_t_d, 'Verify D', gen_random_uuid(), 'VR Fade + Perm',
+            1, 1, 'walkin', array[v_svc_fade, v_svc_perm]);
 
     perform set_config('request.jwt.claims',
                        json_build_object('sub', v_barber_d::text)::text, true);
@@ -270,7 +304,7 @@ begin
         raise exception 'VERIFICATION FAILED: %', v_failures;
     end if;
 
-    raise exception 'PASSED: capability gate holds. A (multi-service outside capability) raised P0002; B (single-service inside capability) served; C (NULL service_ids) served as compatible; D (unrestricted barber) served. Transaction rolled back, no fixture committed.'
+    raise exception 'PASSED: capability gate holds. A (multi-service outside capability) raised P0002; B (single-service inside capability) served with the correct id/status/seat/barber; C (NULL service_ids, source=booking) served as compatible; D (unrestricted barber) served. Transaction rolled back, no fixture committed.'
         using errcode = 'P0001';
 end
 $verify$;
