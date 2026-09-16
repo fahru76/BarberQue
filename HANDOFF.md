@@ -3755,3 +3755,66 @@ internal post-check that reads stale state is not verification; use git or a
 fresh read. (b) A heuristic that proposes deletions is only safe when paired
 with a cheap independent verifier, which is what the fingerprint gate is: the
 tool proposes, the gate disposes.
+
+## Done — design execution: dead-radius cleanup + contrast (Phase 4.2) (2026-09-17)
+
+Continuation of the blueprint execution on `ui/loading-states` / PR #15. Three
+`index.html` commits, each independently revertible. The tracker (`7fb0968`) and
+this log are separate from the code.
+
+**Dead `border-radius` cleanup (`1da39df`).** Same disease as Phase 1.2: three
+stacked design passes re-declared the same selectors. A cascade walk (same
+selector, same `@media`, importance ≥ mine) flagged 31 superseded
+`border-radius` declarations. Deleted; fresh re-parse showed 0 dead remaining
+(`130 → 99`). Fingerprint 6/6 identical, `npm test` exit 0. Blob `583557 →
+582742`, lines `9143 → 9132`. Three of the 31 were `var(--radius-sm)` sites
+wired in `a607da9` that later rules already overrode — the token never reached
+computed style. Phase 1.1's "9 sites wired" is accurate as a source edit and
+overstated as an outcome: 6 of those 9 are live. Corrected here rather than
+left in the earlier entry.
+
+**`--on-primary` (`dbf69cf`).** Dark `--primary-color #d8b06b` with white text
+is 2.03:1; light `#8b642f` with `#11130f` is 3.53:1. Mirror failures. Added
+`--on-primary` (`#11130f` dark / `#fff` light) and pointed the live
+primary-fill text sites at it: `.map-picker-step`, `.style-photo-toggle
+button.active`, `.cal-btn:hover`, `.cal-day.selected`, `.service-tab-badge`,
+`.badge-primary`. Runtime probe: the token resolves and those elements compute
+`rgb(17,19,15)` / `rgb(255,255,255)`. Five residual `#fff`/`#fff`-family
+primary-fill rules remain (`:48`, `:51`, `:143`, `:148`, `:201`) and are all
+DEAD. Fingerprint 6/6 moved (token count 27 → 28). `npm test` exit 0. Blob
+`582742 → 583283`, lines `9132 → 9139`.
+
+The first attempt aborted without writing: a 2-line badge anchor matched both
+the live badge and the dead `.btn-action` pair. Guard did its job. A
+hex-only auditor also missed `.map-picker-step { color: white }` — keyword
+colours are the same class of bug.
+
+**Primary CTA / monogram / specialty-star (`94b6ce2`).** Tracker 4.2: "Contrast
+audit on `--sleek-accent` orange on warm black — Measure, don't eyeball."
+`.btn-action` is 12.48px / 700 / uppercase — **not** WCAG large text, so the
+threshold is 4.5:1. Measured in the browser against both gradient stops:
+
+| theme | before (worst) | after (worst) |
+|---|---|---|
+| dark | `#fff8f2` on `#ff8a3d` **2.23:1** FAIL both | `--on-primary` **6.42:1** PASS |
+| light | `#fff8f2` on `#e95414` **3.48:1** FAIL AA | white on `#c9430c`/`#bf3f0b` **4.89:1** PASS |
+
+Light's two stops sat on opposite sides of the WCAG dead-zone band
+(luminance 0.18333–0.20287), so **no foreground** reached 4.5:1. Confirmed by
+scoring six candidates. Fix was therefore a token change, not a text-colour
+change: light `--sleek-accent #e95414 → #bf3f0b` (and `--sleek-accent-soft`
+kept in lockstep). Dark gradient unchanged. Also: dropped the unpassable
+`#ff9952` hover stop (shadow already carries hover); `.brand-monogram`
+`#fff4ec → var(--on-primary)`; `.specialty-star.active` `#fff → #11130f`
+(2.19 → 7.78, amber is bright in both themes so no per-theme token). Blast
+radius checked first: ~35 `--sleek-accent` consumers, only 3 put text on a
+fill. Fingerprint: dark `tok SAME` / light `tok DIFF` — correct, only light
+tokens moved. `npm test` exit 0. Blob `583283 → 583942`, lines `9139 → 9147`.
+
+**Not done, still visual calls:** the 6/8/12px radius mass below `--radius-sm`;
+the ~8 live branded orange glows with no shadow token. `--warning` `#c99a4b`
+is still dark-only (no light override). Auditor `[A]` alpha-background rows
+are unverified.
+
+PR #15 body was rewritten against measured blob sizes (`main` 578,754 →
+branch 583,942). CI run `35128502724` green on `7fb0968`.
