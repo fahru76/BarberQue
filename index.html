@@ -1658,6 +1658,10 @@
         #barberPerformanceHeading { margin: var(--space-4) 0 var(--space-2); font-size:0.9rem; color:var(--text-muted); }
         #adminFastPassPanel { border-color:#ffc107; }
         #btnApproveFastPass { width:100%; background:#b57900; border-color:#b57900; }
+        /* Final bug hunt (#3): white on #b57900 = 3.68 in light (fails 4.5).
+           Darkened to #9a6a00 in light only — white = 4.73. Dark keeps
+           #b57900 (on-primary #11130f there = 5.07). */
+        [data-theme="light"] #btnApproveFastPass { background:#9a6a00; border-color:#9a6a00; }
         #adminUnservableBookingNote { font-size:0.84rem; margin-bottom:12px; }
         #adminClosedDateGuide { background:rgba(220,53,69,0.08); border:1px dashed var(--danger); border-radius: var(--radius-sm); padding:12px; margin-bottom: var(--space-3); }
         #adminClosedDateActions { display:flex; justify-content:flex-end; margin-bottom: var(--space-2); }
@@ -1727,15 +1731,21 @@
            are ever relaxed. */
         .upcoming-item-accent { background:var(--border-light); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-weight:bold; font-size:1.2rem; border-left:3px solid var(--primary-color); }
         /* Badge component: small colored pill used for service target/
-           category/profile/status labels. */
+           category/profile/status labels.
+           Final bug hunt (#3, live contrast battery): white text failed AA on
+           the bright fills in dark theme (info 2.70, success 2.84, orange
+           2.19, pink 3.82 vs 4.5 for 12px bold). #241a06 passes on all four
+           (6.34/6.04/7.81/4.61) and stays under 4.5 only on fashion/neutral,
+           which keep white (6.51/8.18). Light theme: white already passes
+           info/success (4.68/4.93) and danger (5.61) there — those keep #fff. */
         .badge { color:#fff; padding:2px 8px; border-radius: var(--radius-md); font-size:0.75rem; font-weight:bold; }
-        .badge-orange { background:#f39c12; }
-        .badge-pink { background:#e83e8c; }
-        .badge-info { background:var(--info); }
+        .badge-orange { background:#f39c12; color:#241a06; }
+        .badge-pink { background:#e83e8c; color:#1d1815; }
+        [data-theme="dark"] .badge-info { color:#241a06; }
         .badge-fashion { background:#6f42c1; }
         .badge-primary { background:var(--primary-color); color:var(--on-primary); }
         .badge-neutral { background:#495057; }
-        .badge-success { background:var(--success); }
+        [data-theme="dark"] .badge-success { color:#241a06; }
         .badge-danger { background:var(--danger); }
         /* Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md): per-staff
            capability/specialty checklist inside the admin staff card. */
