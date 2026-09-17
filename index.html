@@ -827,6 +827,12 @@
                5.30:1 while #11130f measures only 3.53:1. The correct value is
                therefore theme-dependent -- hence a token, not a literal. */
             --on-primary: #11130f;
+            /* Foreground placed on a --success fill (bug hunt #2): on dark
+               green #68a77a white measures 2.84:1 while #11130f measures
+               6.58:1; on light green #3f7d51 white measures 4.93:1 while
+               #11130f measures only 3.79:1. Theme-dependent -- same pattern
+               as --on-primary. */
+            --on-success: #11130f;
         }
 
         [data-theme="light"] {
@@ -863,6 +869,7 @@
             --info: #477c85;
             --nav-border: rgba(23,26,24,.1);
             --on-primary: #fff;
+            --on-success: #fff;
         }
 
         body {
@@ -1606,6 +1613,7 @@
         #customerTagline { font-size: 0.95rem; margin-top: var(--space-1); }
         #customerClosedHeading { color: var(--danger); font-size: 2.5rem; margin-bottom: var(--space-3); }
         #customerBreakHeading { color: #ffc107; margin-bottom: var(--space-2); }
+        [data-theme="light"] #customerBreakHeading { color: #7a5f12; }
         #queueFullAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom: var(--space-2); }
         #closingSoonAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom: var(--space-2); }
         #btnBackToMenu { margin-top: 12px; width: 100%; }
@@ -1667,7 +1675,7 @@
         .fs-180 { font-size:1.8rem; }
         .text-main { color:var(--text-main); }
         .text-success { color:var(--success); }
-        .text-white { color:#fff; }
+        .text-white { color:var(--on-success); }
         .bg-success { background:var(--success); }
         .border-success { border-color:var(--success); }
         .border-left-danger { border-left-color:var(--danger); }
