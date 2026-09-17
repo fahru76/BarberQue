@@ -3056,6 +3056,8 @@
         // specifically so it exists before that deferred module ever runs — see the
         // bridge script's comment for why the dependency has to point this direction.
         let staffSession = null;
+    let queuesHaveResolvedOnce = false;
+    let appointmentsHaveResolvedOnce = false;
         let staffProfile = null;
         // Populated by refreshStaffList(); renderBarberAssignments() reads this
         // to build the "assign a registered staff member to this seat" <select>
@@ -8865,11 +8867,11 @@
                 <div class="booking-list-item">
                     <div><strong class="text-primary">${escapeHTML(a.time)} GMT+8</strong><br>${escapeHTML(a.name)} <small>(${escapeHTML(getDisplayTicketId(a))})</small><br><span class="text-muted">${escapeHTML(a.service)}</span></div>
                     <button class="btn btn-sm btn-info" onclick="markAppointmentArrived(${toInlineJSString(a.id)})">Hadir</button>
-                </div>`).join('') || '<div class="text-muted">Tiada tempahan hari ini.</div>';
+                </div>`).join('') || (appointmentsHaveResolvedOnce ? '<div class="text-muted">Tiada tempahan hari ini.</div>' : '');
 
             document.getElementById('barberWaitingList').innerHTML = waitingList.map((q, index) => `
                 <div class="admin-list-item"><strong>${index + 1}. ${escapeHTML(getDisplayTicketId(q))} - ${escapeHTML(q.name)}</strong><span class="text-muted">${escapeHTML(q.service)} &bull; Anggaran <span data-wait-record-id="${escapeHTML(q.id)}">${formatWaitMinutes(waitByRecordId.get(q.id))}</span></span></div>`
-            ).join('') || '<div class="text-muted">Tiada pelanggan menunggu.</div>';
+            ).join('') || (queuesHaveResolvedOnce ? '<div class="text-muted">Tiada pelanggan menunggu.</div>' : '');
 
             document.getElementById('customer-my-appointments').style.display = myAppointments.length ? 'block' : 'none';
             document.getElementById('myBookingListContainer').innerHTML = myAppointments.map(a => `
@@ -8896,14 +8898,14 @@
                 <div class="admin-list-item flex-row justify-between gap-10 items-center">
                     <div><strong>${escapeHTML(queue.id)} - ${escapeHTML(queue.name)}</strong><br><span class="text-muted">${escapeHTML(queue.service)} &bull; ${queue.queueSource === 'booking' || queue.isVip ? 'Tempahan sudah hadir' : 'Walk-in'}</span></div>
                     <button class="btn btn-sm btn-reset" onclick="adminCancelRecord('queue',${toInlineJSString(queue.id)})">Batal</button>
-                </div>`).join('') || '<div class="text-muted">Tiada giliran menunggu yang boleh dibatalkan.</div>';
+                </div>`).join('') || (queuesHaveResolvedOnce ? '<div class="text-muted">Tiada giliran menunggu yang boleh dibatalkan.</div>' : '');
 
             const cancelableAppointments = appointments.filter(appointment => appointment.status === 'upcoming').sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
             document.getElementById('adminCancelableBookingList').innerHTML = cancelableAppointments.map(appointment => `
                 <div class="admin-list-item flex-row justify-between gap-10 items-center">
                     <div><strong>${escapeHTML(appointment.id)} - ${escapeHTML(appointment.name)}</strong><br><span class="text-muted">${escapeHTML(appointment.date)} ${escapeHTML(appointment.time)} GMT+8 &bull; ${escapeHTML(appointment.service)}</span></div>
                     <button class="btn btn-sm btn-reset" onclick="adminCancelRecord('appointment',${toInlineJSString(appointment.id)})">Batal</button>
-                </div>`).join('') || '<div class="text-muted">Tiada tempahan akan datang yang boleh dibatalkan.</div>';
+                </div>`).join('') || (appointmentsHaveResolvedOnce ? '<div class="text-muted">Tiada tempahan akan datang yang boleh dibatalkan.</div>' : '');
 
             const activeFastPasses = [
                 ...waitingList.filter(queue => getQueuePriority(queue) === 0).map(record => ({ source: 'queue', record })),
@@ -9107,7 +9109,8 @@
                     ? await window.QueueRepo.listTodayQueuesFull()
                     : await window.QueueRepo.listQueues();
                 if (!saveQueues(mergeServerRows(getQueues(), freshRows))) return;
-                updateUI();
+                                queuesHaveResolvedOnce = true;
+                                updateUI();
             } catch (error) {
                 // Never surface this to the customer/TV screen -- a missed live
                 // refresh just means the next one (or the existing 15s/30s
@@ -9123,7 +9126,8 @@
             try {
                 const freshRows = await window.AppointmentRepo.listActiveAppointments();
                 if (!saveAppointments(mergeServerRows(getAppointments(), freshRows))) return;
-                updateUI();
+                                appointmentsHaveResolvedOnce = true;
+                                updateUI();
             } catch (error) {
                 console.warn('Realtime appointment refresh failed.', error);
             }
