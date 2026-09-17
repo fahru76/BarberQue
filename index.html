@@ -37,13 +37,13 @@
         :root { color-scheme: only dark; }
         [data-theme="light"] { color-scheme: only light; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: var(--space-4); }
         h1, h2, h3, h4 { text-transform: uppercase; letter-spacing: 1px;}
         .text-primary { color: var(--primary-color); }
         .text-center { text-align: center; }
         .text-muted { color: var(--text-muted); }
 
-        .app-nav { display: flex; gap: 15px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--nav-border); flex-wrap: wrap; align-items: center;}
+        .app-nav { display: flex; gap: var(--space-3); margin-bottom: var(--space-6); padding-bottom: var(--space-4); border-bottom: 1px solid var(--nav-border); flex-wrap: wrap; align-items: center;}
         .app-nav .btn { padding: 12px 24px; background: transparent; color: var(--text-main); border: 1px solid var(--primary-color); cursor: pointer; transition: transform .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease), color .15s var(--ease), box-shadow .15s var(--ease); font-size: 1rem; letter-spacing: 1px; }
         .app-nav .btn.active, .app-nav .btn:hover { background: var(--primary-color); color: #fff; }
         
@@ -52,7 +52,7 @@
         .btn-action:disabled { background: #555; border-color: #555; color: #aaa; cursor: not-allowed; }
         .btn-reset { border-color: var(--danger); color: var(--danger); }
         .btn-reset:hover { background: var(--danger); color: white; }
-        .btn-sm { padding: 6px 10px; font-size: 0.8rem; }
+        .btn-sm { padding: 6px var(--space-2); font-size: 0.8rem; }
         .btn-outline { background: transparent; border-color: var(--border-color); color: var(--text-main); }
         .btn-outline:hover { background: var(--border-light); border-color: var(--primary-color); color: var(--primary-color); }
         .btn { text-decoration: none; }
@@ -63,21 +63,21 @@
         .view-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .panel-box { background: var(--surface-color); border: 1px solid var(--border-color); padding: 25px; margin-bottom: 25px; }
-        input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea { width: 100%; padding: 12px 15px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); font-size: 1rem; outline: none; height: 48px; box-sizing: border-box;}
+        .panel-box { background: var(--surface-color); border: 1px solid var(--border-color); padding: var(--space-5); margin-bottom: var(--space-5); }
+        input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea { width: 100%; padding: 12px var(--space-3); border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main); font-size: 1rem; outline: none; height: 48px; box-sizing: border-box;}
         textarea { height: auto; min-height: 100px; resize: vertical; }
         input:focus, select:focus { border-color: var(--primary-color); }
         input[readonly] { cursor: not-allowed; opacity: 0.8; }
         ::placeholder { color: var(--text-muted); }
 
-        .input-group { margin-top: 15px; text-align: left; display: flex; flex-direction: column;}
+        .input-group { margin-top: var(--space-3); text-align: left; display: flex; flex-direction: column;}
         .input-group label { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;}
-        .input-row { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; width: 100%; }
+        .input-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); width: 100%; }
         .input-row > div { flex: 1; min-width: 150px; display: flex; flex-direction: column; justify-content: flex-end; }
         .input-row label { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; }
 
         .customer-container { max-width: 500px; margin: 0 auto; }
-        .customer-announcement { display: none; margin: 0 0 22px; padding: 18px 20px; border: 1px solid color-mix(in srgb, var(--warning) 70%, var(--border-color)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--warning) 12%, var(--surface-color)); }
+        .customer-announcement { display: none; margin: 0 0 22px; padding: 18px var(--space-4); border: 1px solid color-mix(in srgb, var(--warning) 70%, var(--border-color)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--warning) 12%, var(--surface-color)); }
         .customer-announcement h3 { margin: 0 0 7px; color: var(--warning); font-size: 0.95rem; letter-spacing: .04em; text-transform: uppercase; }
         .customer-announcement p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
         .customer-announcement .announcement-content { line-height: 1.65; overflow-wrap: anywhere; }
@@ -93,18 +93,18 @@
         .rich-editor-surface img { max-width:100%; height:auto; border-radius: var(--radius-sm); cursor:pointer; }
         .rich-editor-surface img.editor-image-selected { outline:3px solid var(--primary-color); outline-offset:3px; }
         #adminGoogleMapFrame { width:100%; height:360px; border:1px solid var(--border-color); border-radius:var(--radius-sm); margin-top:14px; }
-        .map-search-results { display:grid; gap:8px; margin-top:10px; }
-        .map-search-result { width:100%; text-align:left; padding:10px 12px; border:1px solid var(--border-color); border-radius: var(--radius-sm); background:var(--card-bg); color:var(--text-main); cursor:pointer; }
+        .map-search-results { display:grid; gap:8px; margin-top: var(--space-2); }
+        .map-search-result { width:100%; text-align:left; padding: var(--space-2) 12px; border:1px solid var(--border-color); border-radius: var(--radius-sm); background:var(--card-bg); color:var(--text-main); cursor:pointer; }
         .map-search-result:hover { border-color:var(--primary-color); }
         .map-search-result strong { display:block; color:var(--primary-color); margin-bottom:4px; }
         .map-picker-guide { display:flex; gap:12px; align-items:flex-start; padding:14px; margin-top:14px; border-radius:var(--radius-sm); background:color-mix(in srgb, var(--primary-color) 9%, var(--surface-color)); border:1px solid color-mix(in srgb, var(--primary-color) 28%, var(--border-color)); }
         .map-picker-step { display:grid; place-items:center; flex:0 0 30px; width:30px; height:30px; border-radius:50%; background:var(--primary-color); color:var(--on-primary); font-weight:800; }
-        .image-editor-controls { display:none; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-top:12px; padding:12px; border:1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color)); border-radius: var(--radius-sm); background:var(--border-light); }
+        .image-editor-controls { display:none; flex-wrap:wrap; align-items:flex-end; gap: var(--space-2); margin-top:12px; padding:12px; border:1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color)); border-radius: var(--radius-sm); background:var(--border-light); }
         .image-editor-controls.active { display:flex; }
         .image-editor-controls .btn { width:auto; height:40px; padding:8px 11px; }
-        .image-control-field { display:flex; flex-direction:column; gap:5px; min-width:110px; }
+        .image-control-field { display:flex; flex-direction:column; gap: var(--space-1); min-width:110px; }
         .image-control-field label { margin:0; font-size:.72rem; color:var(--text-muted); }
-        .image-control-field input { height:40px; padding:8px 10px; }
+        .image-control-field input { height:40px; padding: 8px var(--space-2); }
         .admin-panel { max-width: 700px; margin: 0 auto; }
         .app-dialog { width: min(92vw, 480px); padding: 0; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-main); }
         .app-dialog::backdrop { background: rgba(0,0,0,0.65); }
@@ -117,37 +117,37 @@
         .style-photo-toggle button { flex: 1; }
         .style-photo-toggle button.active { background: var(--primary-color); color: var(--on-primary); border-color: var(--primary-color); }
 
-        .reminder-box { background: rgba(220, 53, 69, 0.05); border-left: 4px solid var(--danger); padding: 15px; margin-top: 20px; border-radius: var(--radius-sm); }
+        .reminder-box { background: rgba(220, 53, 69, 0.05); border-left: 4px solid var(--danger); padding: var(--space-3); margin-top: var(--space-4); border-radius: var(--radius-sm); }
         .reminder-box h4 { color: var(--danger); font-size: 0.9rem; margin-bottom: 8px; font-weight: bold; }
         .reminder-box p { font-size: 0.85rem; line-height: 1.4; margin: 0; }
 
-        .serving-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin: 15px 0 25px 0; }
-        .serving-seat { background: var(--border-light); border: 1px solid var(--border-color); padding: 15px 10px; text-align: center; transition: border-color .15s var(--ease), background .15s var(--ease), opacity .15s var(--ease), filter .15s var(--ease); }
+        .serving-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin: var(--space-3) 0 var(--space-5) 0; }
+        .serving-seat { background: var(--border-light); border: 1px solid var(--border-color); padding: var(--space-3) var(--space-2); text-align: center; transition: border-color .15s var(--ease), background .15s var(--ease), opacity .15s var(--ease), filter .15s var(--ease); }
         .serving-seat.active { border-color: var(--primary-color); background: var(--card-hover); }
         .serving-seat.closed { opacity: 0.4; border-color: var(--border-light); background: transparent; cursor: not-allowed; }
-        .serving-seat h4 { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 5px; }
+        .serving-seat h4 { color: var(--text-muted); font-size: 0.9rem; margin-bottom: var(--space-1); }
         .serving-seat .q-num { font-size: 1.8rem; color: var(--primary-color); font-weight: bold; }
-        .cust-name-label { font-size: 0.9rem; display: block; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .cust-name-label { font-size: 0.9rem; display: block; margin-top: var(--space-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 
-        .waiting-list-container h3 { border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; }
-        .waiting-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-        .wait-item { background: var(--border-light); padding: 8px 15px; font-size: 1.1rem; border-left: 3px solid var(--primary-color); display: flex; flex-direction: column; align-items: flex-start; }
+        .waiting-list-container h3 { border-bottom: 1px solid var(--border-color); padding-bottom: var(--space-2); margin-bottom: var(--space-3); display: flex; justify-content: space-between; }
+        .waiting-grid { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+        .wait-item { background: var(--border-light); padding: 8px var(--space-3); font-size: 1.1rem; border-left: 3px solid var(--primary-color); display: flex; flex-direction: column; align-items: flex-start; }
         .wait-item-name { font-family: 'Manrope', sans-serif; font-size: 0.8rem; color: var(--text-muted); text-transform: none; }
 
-        .ticket-box { background: var(--ticket-gradient); border: 2px solid var(--primary-color); padding: 40px; text-align: center; margin-top: 20px; }
-        .ticket-number { font-size: clamp(3rem, 10vw, 4.5rem); color: var(--primary-color); margin: 10px 0; line-height: 1; overflow-wrap:anywhere; }
-        .ticket-name { font-size: 1.5rem; margin-bottom: 5px; font-weight: 600; text-transform: capitalize; }
+        .ticket-box { background: var(--ticket-gradient); border: 2px solid var(--primary-color); padding: 40px; text-align: center; margin-top: var(--space-4); }
+        .ticket-number { font-size: clamp(3rem, 10vw, 4.5rem); color: var(--primary-color); margin: var(--space-2) 0; line-height: 1; overflow-wrap:anywhere; }
+        .ticket-name { font-size: 1.5rem; margin-bottom: var(--space-1); font-weight: 600; text-transform: capitalize; }
 
-        .mode-toggle { display: flex; border: 1px solid var(--primary-color); overflow: hidden; margin-bottom: 20px;}
+        .mode-toggle { display: flex; border: 1px solid var(--primary-color); overflow: hidden; margin-bottom: var(--space-4);}
         .mode-toggle .mode-btn { flex: 1; padding: 12px; text-align: center; cursor: pointer; background: transparent; color: var(--text-main); border: none; font-size: 1.1rem; transition: background .15s var(--ease), color .15s var(--ease), box-shadow .15s var(--ease);}
         .mode-toggle .mode-btn.active { background: var(--primary-color); color: #fff; font-weight: bold; }
 
-        .service-checkbox-container { display:flex; flex-direction:column; gap:10px; padding-top: 5px; }
-        .service-category-tabs { display:flex; gap:8px; margin:8px 0 10px; padding:4px; background:var(--border-light); }
+        .service-checkbox-container { display:flex; flex-direction:column; gap: var(--space-2); padding-top: var(--space-1); }
+        .service-category-tabs { display:flex; gap:8px; margin: 8px 0 var(--space-2); padding:4px; background:var(--border-light); }
         .service-category-tab { flex:1; padding:9px 12px; border:1px solid transparent; background:transparent; color:var(--text-main); font-size:0.95rem; cursor:pointer; }
         .service-category-tab.active { background:var(--primary-color); color:#fff; font-weight:bold; }
-        .service-category-panel { display:flex; flex-direction:column; gap:10px; }
-        .service-empty-state { padding:15px; border:1px dashed var(--border-color); border-radius: var(--radius-sm); color:var(--text-muted); text-align:center; font-size:0.9rem; }
+        .service-category-panel { display:flex; flex-direction:column; gap: var(--space-2); }
+        .service-empty-state { padding: var(--space-3); border:1px dashed var(--border-color); border-radius: var(--radius-sm); color:var(--text-muted); text-align:center; font-size:0.9rem; }
         /* Each service option is itself a <label>, nested inside the
            surrounding .input-group -- without this override it inherits the
            .input-group label all-caps rule (line ~523), which is fine for a
@@ -156,7 +156,7 @@
            (customer-facing service picker, Item 2/notes) -- higher
            specificity than that rule (two classes vs. class+type), so this
            wins regardless of source order. */
-        .input-group .service-checkbox-label { display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); cursor: pointer; margin-bottom: 0; text-transform: none; }
+        .input-group .service-checkbox-label { display: flex; align-items: center; gap: var(--space-3); background: var(--card-bg); padding: var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--border-color); cursor: pointer; margin-bottom: 0; text-transform: none; }
         .input-group .service-checkbox-label:hover { background: var(--card-hover); border-color: var(--primary-color); }
         .input-group .service-checkbox-label.disabled-box { opacity: 0.4; cursor: not-allowed; background: var(--border-light); border-color: transparent; pointer-events: none; }
         .input-group .service-checkbox-label input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary-color); cursor: pointer; flex-shrink: 0; margin: 0; }
@@ -183,40 +183,40 @@
         .service-name-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
         .service-style-note { font-style: italic; }
 
-        .admin-list-item { display: flex; flex-direction: column; background: var(--border-light); padding: 15px; margin-bottom: 10px; border-left: 3px solid var(--primary-color); }
-        .booking-list-item { background: var(--border-light); border-left: 4px solid var(--primary-color); padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .admin-list-item { display: flex; flex-direction: column; background: var(--border-light); padding: var(--space-3); margin-bottom: var(--space-2); border-left: 3px solid var(--primary-color); }
+        .booking-list-item { background: var(--border-light); border-left: 4px solid var(--primary-color); padding: var(--space-3); margin-bottom: var(--space-2); display: flex; justify-content: space-between; align-items: center;}
 
         /* Kalendar Visual */
-        .custom-calendar { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 15px; margin-bottom: 20px; width: 100%; box-sizing: border-box;}
-        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 1.2rem; }
+        .custom-calendar { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4); width: 100%; box-sizing: border-box;}
+        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); font-size: 1.2rem; }
         .cal-btn { background: transparent; border: 1px solid var(--primary-color); color: var(--text-main); padding: 4px 12px; cursor: pointer; font-weight: bold; }
         .cal-btn:hover { background: var(--primary-color); color: var(--on-primary); }
-        .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px; }
-        .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-        .cal-day { padding: 10px 0; text-align: center; font-size: 0.95rem; cursor: pointer; border: 1px solid transparent; background: var(--border-light); }
+        .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-2); }
+        .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-1); }
+        .cal-day { padding: var(--space-2) 0; text-align: center; font-size: 0.95rem; cursor: pointer; border: 1px solid transparent; background: var(--border-light); }
         .cal-day:hover:not(.disabled) { border-color: var(--primary-color); }
         .cal-day.disabled { opacity: 0.2; cursor: not-allowed; background: transparent; }
         .cal-day.closed { background: rgba(220, 53, 69, 0.15); color: var(--danger); border: 1px solid rgba(220, 53, 69, 0.3); opacity: 1; cursor: not-allowed; }
         .cal-day.weekly-closed { background: rgba(201, 154, 75, 0.12); color: var(--warning); border: 1px dashed rgba(201, 154, 75, 0.5); opacity: 1; cursor: not-allowed; }
         .cal-day.selected { background: var(--primary-color); color: #fff; font-weight: bold; border-color: var(--primary-color); }
         .cal-day.in-range { background: rgba(212, 175, 55, 0.15); color: var(--primary-color); border: 1px dashed var(--primary-color); }
-        .cal-legend { margin-top: 15px; font-size: 0.8rem; display: flex; gap: 15px; justify-content: center; color: var(--text-muted); flex-wrap: wrap;}
-        .cal-legend span { display: flex; align-items: center; gap: 5px; }
+        .cal-legend { margin-top: var(--space-3); font-size: 0.8rem; display: flex; gap: var(--space-3); justify-content: center; color: var(--text-muted); flex-wrap: wrap;}
+        .cal-legend span { display: flex; align-items: center; gap: var(--space-1); }
         .legend-box { width: 12px; height: 12px; border-radius: 3px; }
 
         /* Report Styles */
-        .report-summary-box { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;}
-        .report-card { flex: 1; background: var(--border-light); border: 1px solid var(--border-color); padding: 20px; text-align: center; min-width: 120px;}
-        .report-card h4 { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px; font-family: 'Manrope', sans-serif; text-transform: none;}
+        .report-summary-box { display: flex; gap: var(--space-3); margin-bottom: var(--space-4); flex-wrap: wrap;}
+        .report-card { flex: 1; background: var(--border-light); border: 1px solid var(--border-color); padding: var(--space-4); text-align: center; min-width: 120px;}
+        .report-card h4 { font-size: 0.9rem; color: var(--text-muted); margin-bottom: var(--space-1); font-family: 'Manrope', sans-serif; text-transform: none;}
         .report-card .report-val { font-size: 1.8rem; color: var(--primary-color); font-weight: bold;}
 
         @media (max-width: 768px) {
-            body { padding: 10px; }
+            body { padding: var(--space-2); }
             .app-nav { flex-direction: column; align-items: stretch;}
             .serving-grid { grid-template-columns: 1fr !important; }
             .input-row { flex-direction: column; }
             .admin-list-item.flex-row { flex-direction: column !important; align-items: flex-start !important; }
-            .booking-list-item { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .booking-list-item { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
         }
     </style>
     <style>
@@ -270,7 +270,7 @@
             z-index: 50;
             max-width: 1180px;
             margin: 14px auto 44px;
-            padding: 10px;
+            padding: var(--space-2);
             gap: 6px;
             border: 1px solid var(--nav-border);
             background: color-mix(in srgb, var(--surface-color) 88%, transparent);
@@ -281,7 +281,7 @@
             align-items: center;
             gap: 11px;
             min-width: 190px;
-            padding: 4px 12px 4px 5px;
+            padding: 4px 12px 4px var(--space-1);
         }
         .brand-monogram {
             display: grid;
@@ -296,7 +296,7 @@
         }
         .brand-copy { display: flex; flex-direction: column; line-height: 1.05; }
         .brand-copy strong { font-size: .84rem; letter-spacing: .13em; text-transform: uppercase; }
-        .brand-copy span { margin-top: 5px; color: var(--text-muted); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; }
+        .brand-copy span { margin-top: var(--space-1); color: var(--text-muted); font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; }
         .nav-spacer { flex: 1; }
         .nav-tools { display: flex; align-items: center; gap: 7px; }
         .app-nav .btn {
@@ -321,7 +321,7 @@
         #themeSelector {
             min-width: 92px;
             height: 38px !important;
-            padding: 8px 30px 8px 11px !important;
+            padding: 8px var(--space-6) 8px 11px !important;
             border-color: transparent;
             background-color: var(--border-light);
             font-size: .75rem;
@@ -337,8 +337,8 @@
 
         #customer-header-text {
             position: relative;
-            margin: 10px 0 34px !important;
-            padding: 28px 20px 18px;
+            margin: var(--space-2) 0 34px !important;
+            padding: 28px var(--space-4) 18px;
         }
         #customer-header-text h2 {
             color: var(--text-main) !important;
@@ -431,7 +431,7 @@
 
         input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea {
             min-height: 50px;
-            padding: 13px 15px;
+            padding: 13px var(--space-3);
             border: 1px solid var(--border-color);
             background: var(--input-bg);
             color: var(--text-main);
@@ -470,7 +470,7 @@
         }
         .mode-toggle .mode-btn {
             min-height: 44px;
-            padding: 10px 14px;
+            padding: var(--space-2) 14px;
             color: var(--text-muted);
             font-family: 'Manrope', sans-serif;
             font-size: .78rem;
@@ -497,7 +497,7 @@
         .input-group .service-checkbox-label:has(input:checked) { border-color: rgba(199,166,106,.55); background: rgba(199,166,106,.09); }
         .service-info strong { font-size: .9rem; }
         .service-info span { font-size: .75rem; }
-        .service-sort-hint { margin: 10px 0 6px; color: var(--text-muted); font-size: .78rem; }
+        .service-sort-hint { margin: var(--space-2) 0 6px; color: var(--text-muted); font-size: .78rem; }
         .service-order-notice { min-height: 20px; margin-bottom: 6px; color: var(--success); font-size: .75rem; font-weight: 700; }
         .service-sort-item { cursor: grab; transition: opacity .16s var(--ease), transform .16s var(--ease), border-color .16s var(--ease), background .16s var(--ease); }
         .service-sort-item:active { cursor: grabbing; }
@@ -530,7 +530,7 @@
             user-select: none;
             touch-action: none;
         }
-        .service-priority-actions { display: flex; gap: 5px; }
+        .service-priority-actions { display: flex; gap: var(--space-1); }
         .service-priority-actions .btn { min-width: 34px; padding-inline: 8px; }
 
         .serving-grid { gap: 12px; margin: 18px 0 28px; }
@@ -548,7 +548,7 @@
         .serving-seat.active { border-color: rgba(199,166,106,.45); background: var(--ticket-gradient); }
         .serving-seat.closed { opacity: .38; filter: grayscale(1); }
         .serving-seat h4 { font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; }
-        .serving-seat .q-num { margin: 5px 0; color: var(--primary-strong); font: 600 2.1rem/1 'Manrope', sans-serif; letter-spacing: -.035em; }
+        .serving-seat .q-num { margin: var(--space-1) 0; color: var(--primary-strong); font: 600 2.1rem/1 'Manrope', sans-serif; letter-spacing: -.035em; }
         .cust-name-label { font-size: .76rem; color: var(--text-muted); }
         #tvServingGrid .cust-name-label {
             display: block;
@@ -568,7 +568,7 @@
         .waiting-list-container h3 { padding-bottom: 13px; border-bottom: 1px solid var(--border-color); }
         .waiting-grid { gap: 8px; }
         .wait-item, .upcoming-item {
-            padding: 10px 13px !important;
+            padding: var(--space-2) 13px !important;
             border: 1px solid var(--border-color) !important;
             border-left: 1px solid var(--border-color) !important;
             border-radius: var(--radius-md) !important;
@@ -600,14 +600,14 @@
         .ticket-name { font-size: 1.2rem; }
 
         .admin-list-item, .booking-list-item {
-            padding: 15px 17px;
+            padding: var(--space-3) 17px;
             margin-bottom: 8px;
             border: 1px solid var(--border-color);
             border-left: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             background: var(--card-bg);
         }
-        .report-summary-box { gap: 10px; }
+        .report-summary-box { gap: var(--space-2); }
         .report-card {
             padding: 22px;
             border: 1px solid var(--border-color);
@@ -620,7 +620,7 @@
         .barber-performance-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            gap: 10px;
+            gap: var(--space-2);
             margin-bottom: 22px;
         }
         .barber-performance-card {
@@ -629,7 +629,7 @@
             border-radius: var(--radius-md);
             background: var(--card-bg);
         }
-        .barber-performance-card strong { display: block; margin-bottom: 10px; font-size: .9rem; }
+        .barber-performance-card strong { display: block; margin-bottom: var(--space-2); font-size: .9rem; }
         .barber-performance-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .barber-performance-metrics span { color: var(--text-muted); font-size: .67rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
         .barber-performance-metrics b { display: block; margin-top: 2px; color: var(--primary-strong); font-size: 1rem; letter-spacing: -.03em; }
@@ -644,7 +644,7 @@
         .report-export-btn { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
         .report-summary-box { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
         .kpi-card { position: relative; text-align: left; }
-        .kpi-card-icon { display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: 10px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--primary-color) 16%, transparent); color: var(--primary-strong); }
+        .kpi-card-icon { display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--primary-color) 16%, transparent); color: var(--primary-strong); }
         .kpi-card-highlight { border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color)); background: linear-gradient(160deg, color-mix(in srgb, var(--primary-color) 10%, var(--card-bg)), var(--card-bg)); }
         .report-val-name { font-size: 1.25rem !important; line-height: 1.25; }
         .kpi-sub { margin-top: 4px; font-size: .72rem; color: var(--text-muted); }
@@ -652,7 +652,7 @@
         .report-section-heading h4 { margin-bottom: 2px; }
 
         .barber-performance-grid { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
-        .barber-performance-card { display: flex; flex-direction: column; gap: 10px; padding: 18px; transition: transform .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease); }
+        .barber-performance-card { display: flex; flex-direction: column; gap: var(--space-2); padding: 18px; transition: transform .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease); }
         .barber-performance-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary-color) 35%, var(--border-color)); box-shadow: var(--shadow-sm); }
         .barber-performance-card.rank-1 { border-color: color-mix(in srgb, #e0bd7a 55%, var(--border-color)); background: linear-gradient(160deg, color-mix(in srgb, var(--primary-color) 12%, var(--card-bg)), var(--card-bg)); }
         .barber-performance-card.rank-2 { border-color: color-mix(in srgb, #c7c7c7 45%, var(--border-color)); }
@@ -671,14 +671,14 @@
         .barber-compare-fill { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--primary-color), var(--primary-strong)); transition: width .3s var(--ease); }
         .barber-performance-metrics-row { display: flex; gap: 16px; }
 
-        .dashboard-empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 36px 20px; border: 1px dashed var(--border-color); border-radius: var(--radius-md); color: var(--text-muted); grid-column: 1 / -1; }
+        .dashboard-empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2); padding: 36px var(--space-4); border: 1px dashed var(--border-color); border-radius: var(--radius-md); color: var(--text-muted); grid-column: 1 / -1; }
         .dashboard-empty-state svg { opacity: .55; }
         .dashboard-empty-state strong { color: var(--text-main); font-size: .95rem; }
         .dashboard-empty-state span { font-size: .8rem; max-width: 34ch; }
         .barber-assignment-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: 10px;
+            gap: var(--space-2);
         }
         .barber-assignment-card {
             padding: 14px;
@@ -687,13 +687,13 @@
             background: var(--card-bg);
         }
         .barber-assignment-card label { display: block; margin-bottom: 7px; color: var(--text-muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-        .barber-duty-name { min-height: 18px; margin-top: 5px; color: var(--text-muted); font-size: .72rem; font-weight: 600; }
+        .barber-duty-name { min-height: 18px; margin-top: var(--space-1); color: var(--text-muted); font-size: .72rem; font-weight: 600; }
         .admin-seat-toggle-barber { display:block; font-size: .68rem; font-weight: 500; opacity: .8; margin: 3px 0; letter-spacing: normal; }
 
         .custom-calendar { padding: 16px; border-radius: var(--radius-md); background: var(--card-bg); }
         .cal-header { font-family: 'Manrope', sans-serif; font-size: .9rem; font-weight: 700; }
         .cal-btn { min-width: 34px; min-height: 34px; border-radius: var(--radius-sm); border-color: var(--border-color); }
-        .cal-day { padding: 10px 0; border-radius: var(--radius-sm); font-size: .78rem; transition: background .14s var(--ease), transform .14s var(--ease); }
+        .cal-day { padding: var(--space-2) 0; border-radius: var(--radius-sm); font-size: .78rem; transition: background .14s var(--ease), transform .14s var(--ease); }
         .cal-day:hover:not(.disabled) { transform: translateY(-1px); background: var(--card-hover); }
         .cal-day.selected { background: var(--primary-color); color: var(--on-primary); }
 
@@ -736,8 +736,8 @@
             .app-nav .btn { flex: 1 1 auto; }
         }
         @media (max-width: 680px) {
-            body { padding: 0 10px 34px; }
-            .app-nav { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin-bottom: 28px; padding: 7px; }
+            body { padding: 0 var(--space-2) 34px; }
+            .app-nav { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-1); margin-bottom: 28px; padding: 7px; }
             .app-brand { grid-column: 1 / -1; padding: 4px; }
             .brand-monogram { width: 34px; height: 34px; }
             .brand-copy span { display: block; }
@@ -746,12 +746,12 @@
             #themeSelector { flex: 1; width: 100% !important; }
             .nav-tools .btn { width: auto; flex: 0 0 auto; }
             #customer-header-text { padding-inline: 8px; }
-            .panel-box { padding: 20px 16px; }
+            .panel-box { padding: var(--space-4) 16px; }
             .mode-toggle .mode-btn { padding-inline: 8px; font-size: .7rem; }
             .serving-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important; }
-            .input-row { gap: 10px; }
+            .input-row { gap: var(--space-2); }
             .input-row > div { min-width: 100%; }
-            .ticket-box { padding-inline: 20px; }
+            .ticket-box { padding-inline: var(--space-4); }
             #display-app > div { border-radius: var(--radius-lg) !important; }
         }
 
@@ -806,6 +806,15 @@
             --radius-md: 14px;
             --radius-lg: 22px;
             --radius-sm: 8px;
+            /* Spacing: 5px-base ramp matching the file's actual system.
+               The blueprint's 4.8.12.16.24.32.48 grid covers only 27.6%
+               of declarations; the dominant clustering is 5/10/15/20/25/30. */
+            --space-1: 5px;
+            --space-2: 10px;
+            --space-3: 15px;
+            --space-4: 20px;
+            --space-5: 25px;
+            --space-6: 30px;
             --ease: cubic-bezier(.2,.8,.2,1);
             --warning: #c99a4b;
             --danger: #c76e68;
@@ -1079,7 +1088,7 @@
         .field-error:empty { display: none; }
 
         .mode-toggle {
-            padding: 5px;
+            padding: var(--space-1);
             border-radius: var(--radius-md);
             background: color-mix(in srgb, var(--surface-color) 90%, black 10%);
         }
@@ -1089,7 +1098,7 @@
             color: var(--text-main);
             box-shadow: 0 8px 24px rgba(0,0,0,.22), inset 0 0 0 1px var(--glow-accent-20);
         }
-        .service-category-tabs { padding: 5px; border-radius: var(--radius-md); }
+        .service-category-tabs { padding: var(--space-1); border-radius: var(--radius-md); }
         .service-category-tab { min-height: 42px; border-radius: var(--radius-md); }
         .service-category-tab.active {
             background: var(--sleek-accent-soft);
@@ -1101,7 +1110,7 @@
             display: grid;
             grid-template-columns: repeat(7, minmax(78px, 1fr));
             gap: 6px;
-            margin: 18px 0 10px;
+            margin: 18px 0 var(--space-2);
             padding: 6px;
             overflow-x: auto;
             border: 1px solid var(--border-color);
@@ -1110,7 +1119,7 @@
         }
         .weekly-hours-tab {
             min-height: 42px;
-            padding: 8px 10px;
+            padding: 8px var(--space-2);
             border: 1px solid transparent;
             border-radius: var(--radius-md);
             background: transparent;
@@ -1132,7 +1141,7 @@
             justify-content: space-between;
             gap: 12px;
             margin: 0 0 18px;
-            padding: 10px 12px;
+            padding: var(--space-2) 12px;
             border-bottom: 1px solid var(--border-color);
         }
         .weekly-hours-toolbar span {
@@ -1202,7 +1211,7 @@
             font-size: .82rem;
             line-height: 1.5;
         }
-        .service-combo-hint .btn { margin-top: 10px; }
+        .service-combo-hint .btn { margin-top: var(--space-2); }
         .input-group .service-checkbox-label.disabled-box { opacity: .65; pointer-events: auto; }
         .service-info .service-lock-reason {
             display: none;
@@ -1215,12 +1224,12 @@
         .customer-queue-progress {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-            margin-top: 20px;
+            gap: var(--space-2);
+            margin-top: var(--space-4);
         }
         .customer-queue-metric {
             min-height: 96px;
-            padding: 15px 10px;
+            padding: var(--space-3) var(--space-2);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             background: rgba(255,255,255,.025);
@@ -1281,7 +1290,7 @@
             display: flex;
             flex-direction: column;
             gap: 3px;
-            padding: 10px;
+            padding: var(--space-2);
             max-height: calc(100vh - 110px);
             overflow-y: auto;
             background: linear-gradient(150deg, color-mix(in srgb, var(--surface-elevated) 72%, var(--surface-color)), var(--surface-color));
@@ -1316,7 +1325,7 @@
             display: block;
             flex: 1 1 auto;
             min-width: 0;
-            padding: 10px 8px;
+            padding: var(--space-2) 8px;
             border: none;
             border-left: 3px solid transparent;
             border-radius: var(--radius-sm);
@@ -1378,7 +1387,7 @@
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 10px;
+                gap: var(--space-2);
                 width: 100%;
                 padding: 12px 16px;
                 border: 1px solid var(--border-color);
@@ -1408,7 +1417,7 @@
                 right: 0;
                 top: calc(100% + 8px);
                 z-index: 40;
-                padding: 10px;
+                padding: var(--space-2);
                 max-height: min(65vh, 480px);
                 overflow-y: auto;
                 background: linear-gradient(150deg, color-mix(in srgb, var(--surface-elevated) 72%, var(--surface-color)), var(--surface-color));
@@ -1478,11 +1487,11 @@
 
         @media (max-width: 680px) {
             .app-nav { margin-bottom: 34px; border-radius: var(--radius-md); }
-            #customer-header-text { padding-top: 24px; margin-bottom: 30px !important; }
+            #customer-header-text { padding-top: 24px; margin-bottom: var(--space-6) !important; }
             #customer-header-text h2 { font-size: clamp(2.55rem, 15vw, 4.1rem) !important; }
             .panel-box { border-radius: var(--radius-lg); }
             #customer-take-ticket, #bookingFormBox { padding: 22px 17px; }
-            #adminServicesList .service-sort-item { padding: 15px !important; }
+            #adminServicesList .service-sort-item { padding: var(--space-3) !important; }
             .weekly-hours-tabs { grid-template-columns: repeat(7, minmax(74px, 1fr)); }
             .weekly-hours-toolbar { align-items: stretch; flex-direction: column; }
             .weekly-hours-toolbar .btn { width: 100%; }
@@ -1501,63 +1510,63 @@
         #navBarberBtn { display:none; }
         #navDisplayBtn { display:none; }
         #themeSelector { width: auto; padding: 8px 12px; height: auto; }
-        #customer-header-text { text-align: center; margin-bottom: 25px; }
+        #customer-header-text { text-align: center; margin-bottom: var(--space-5); }
         #customerShopName { color: var(--primary-color); font-size: 2rem; }
-        #customer-closed-view { display: none; background: rgba(220, 53, 69, 0.1); border: 2px solid var(--danger); padding: 40px; border-radius: var(--radius-md); text-align: center; margin: 20px 0; }
+        #customer-closed-view { display: none; background: rgba(220, 53, 69, 0.1); border: 2px solid var(--danger); padding: 40px; border-radius: var(--radius-md); text-align: center; margin: var(--space-4) 0; }
         #closedBookingReminder { display:none; margin-top:18px; padding-top:18px; border-top:1px solid var(--border-color); }
         #closedBookingReminderText { margin-bottom:12px; }
-        #customer-break-alert { display: none; background: rgba(255, 193, 7, 0.1); border: 2px solid #ffc107; padding: 20px; border-radius: var(--radius-md); text-align: center; margin: 20px 0; }
+        #customer-break-alert { display: none; background: rgba(255, 193, 7, 0.1); border: 2px solid #ffc107; padding: var(--space-4); border-radius: var(--radius-md); text-align: center; margin: var(--space-4) 0; }
         #breakUntilTime { font-size:1.2rem; }
         #customer-take-ticket { display: none; border-style: dashed; }
         #walkinQueueStatus { margin-bottom:18px; }
-        #queueFullAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: var(--radius-sm); }
+        #queueFullAlert { display:none; text-align:center; margin-bottom: var(--space-3); background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: var(--space-3); border-radius: var(--radius-sm); }
         #adminNoActiveSeatsWarning { display:none; text-align:center; margin-bottom:18px; background: rgba(220, 53, 69, 0.12); border: 1px solid var(--danger); color: var(--danger); padding: 14px 16px; border-radius: var(--radius-sm); font-weight: bold; font-size: 0.9rem; cursor: pointer; }
-        #closingSoonAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: var(--radius-sm); }
-        #closingSoonAlertText { margin-bottom:10px; font-size:0.9rem; }
+        #closingSoonAlert { display:none; text-align:center; margin-bottom: var(--space-3); background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: var(--space-3); border-radius: var(--radius-sm); }
+        #closingSoonAlertText { margin-bottom: var(--space-2); font-size:0.9rem; }
         #walkinServiceHint { display:none; }
-        #walkinServiceSummary { margin-top:15px; color:var(--primary-color); font-size:1.1rem; text-align:right; }
-        #btnBookTicket { width: 100%; font-size: 1.2rem; padding: 15px; margin-top: 20px; }
+        #walkinServiceSummary { margin-top: var(--space-3); color:var(--primary-color); font-size:1.1rem; text-align:right; }
+        #btnBookTicket { width: 100%; font-size: 1.2rem; padding: var(--space-3); margin-top: var(--space-4); }
         #customer-my-ticket { display: none; }
-        #myTicketServices { font-size:0.9rem; color:var(--primary-color); margin-bottom:15px; }
+        #myTicketServices { font-size:0.9rem; color:var(--primary-color); margin-bottom: var(--space-3); }
         #myQueueContext { margin-top:12px; font-size:0.8rem; line-height:1.5; }
-        #mySeatDir { margin-top: 15px; font-weight: bold; color: var(--success); font-size:1.2rem; display:none; }
-        #walkinWaitingActions { display:none; gap:10px; margin-top:20px; flex-wrap:wrap; }
-        #bookingFormTitle { color: var(--primary-color); margin-bottom: 15px; text-align: center; }
+        #mySeatDir { margin-top: var(--space-3); font-weight: bold; color: var(--success); font-size:1.2rem; display:none; }
+        #walkinWaitingActions { display:none; gap: var(--space-2); margin-top: var(--space-4); flex-wrap:wrap; }
+        #bookingFormTitle { color: var(--primary-color); margin-bottom: var(--space-3); text-align: center; }
         #customerMapFrame { width:100%; height:220px; border:0; border-radius: var(--radius-sm); }
-        #customerMapLink { display:block; width:100%; margin-top:10px; text-align:center; }
+        #customerMapLink { display:block; width:100%; margin-top: var(--space-2); text-align:center; }
         #bookingServiceHint { display:none; }
-        #bookServiceSummary { margin-top:15px; color:var(--primary-color); font-size:1.1rem; text-align:right; }
+        #bookServiceSummary { margin-top: var(--space-3); color:var(--primary-color); font-size:1.1rem; text-align:right; }
         #bookDateInput { display: none; }
         #bookingSlotNotice { display:none; margin-top:8px; color:var(--danger); font-size:0.85rem; }
         #btnSubmitApp { flex: 1; }
         #btnCancelEdit { display: none; }
         #customer-my-appointments { display:none; border-color: var(--info); }
         #tvServingGrid { margin-bottom: 50px; }
-        #tvUpcoming { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 20px; justify-content: flex-start; }
-        #tv-closed-notice { display: none; margin-top: 40px; padding: 20px; background: rgba(220,53,69,0.1); color: var(--danger); border-radius: var(--radius-sm); font-size: 1.5rem; font-weight: bold; }
-        #inviteBarberError { color:var(--danger); display:none; margin-bottom:10px; }
-        #staffListContainer { margin-top:20px; }
-        #adminDetectedLocation { padding:12px; margin-top:15px; border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
+        #tvUpcoming { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); justify-content: flex-start; }
+        #tv-closed-notice { display: none; margin-top: 40px; padding: var(--space-4); background: rgba(220,53,69,0.1); color: var(--danger); border-radius: var(--radius-sm); font-size: 1.5rem; font-weight: bold; }
+        #inviteBarberError { color:var(--danger); display:none; margin-bottom: var(--space-2); }
+        #staffListContainer { margin-top: var(--space-4); }
+        #adminDetectedLocation { padding:12px; margin-top: var(--space-3); border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
         #announcementImageStatus { font-size:0.78rem; margin-top:7px; }
         #fastPassCandidateSummary { padding:12px; margin-bottom:12px; border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
-        #adminUnservableBookingSection { display:none; margin-bottom:20px; padding:14px; border:1px solid var(--danger); border-radius: var(--radius-sm); background:rgba(220,53,69,0.08); }
+        #adminUnservableBookingSection { display:none; margin-bottom: var(--space-4); padding:14px; border:1px solid var(--danger); border-radius: var(--radius-sm); background:rgba(220,53,69,0.08); }
         #adminUnservableBookingSummary { color:var(--danger); margin-bottom:6px; }
         #adminCancelableQueueList { margin-bottom:18px; }
-        #adminClosedSelectionSummary { padding:12px; margin-bottom:15px; border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-main); font-weight:600; }
+        #adminClosedSelectionSummary { padding:12px; margin-bottom: var(--space-3); border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-main); font-weight:600; }
         #adminVisualCalendar { border-color: var(--danger); }
         #adminCalMonthYear { color: var(--danger); }
         #btnAddClosedDate { width: 100%; background: var(--danger); border-color: var(--danger); }
-        #adminEditServiceForm { display:none; background: rgba(23, 162, 184, 0.05); padding: 20px; border: 1px solid var(--info); border-radius: var(--radius-sm); margin-bottom: 20px; }
-        #editSvcProfileSummary { margin-top:8px; padding:10px; border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
-        #adminServicesList { margin-bottom: 20px; }
-        #newSvcProfileSummary { margin-top:8px; padding:10px; border-radius: var(--radius-sm); background:var(--card-bg); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
-        #operationalHoursNotice { display:none; margin-top:12px; padding:10px 12px; color:var(--warning); background:color-mix(in srgb, var(--warning) 10%, transparent); border-left:3px solid var(--warning); border-radius: var(--radius-sm); font-size:0.85rem; }
-        #saveOperationalHoursBtn { margin-top: 20px; width: 100%; }
-        #adminSeatControls { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:25px; }
-        #adminCancelDialogTitle { color:var(--danger); margin-bottom:10px; }
-        #adminCancelDialogSummary { margin-bottom:15px; }
-        #staffLoginError { color:var(--danger); display:none; margin-bottom:10px; }
-        #setPasswordError { color:var(--danger); display:none; margin-bottom:10px; }
+        #adminEditServiceForm { display:none; background: rgba(23, 162, 184, 0.05); padding: var(--space-4); border: 1px solid var(--info); border-radius: var(--radius-sm); margin-bottom: var(--space-4); }
+        #editSvcProfileSummary { margin-top:8px; padding: var(--space-2); border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
+        #adminServicesList { margin-bottom: var(--space-4); }
+        #newSvcProfileSummary { margin-top:8px; padding: var(--space-2); border-radius: var(--radius-sm); background:var(--card-bg); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
+        #operationalHoursNotice { display:none; margin-top:12px; padding: var(--space-2) 12px; color:var(--warning); background:color-mix(in srgb, var(--warning) 10%, transparent); border-left:3px solid var(--warning); border-radius: var(--radius-sm); font-size:0.85rem; }
+        #saveOperationalHoursBtn { margin-top: var(--space-4); width: 100%; }
+        #adminSeatControls { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-2); margin-bottom: var(--space-5); }
+        #adminCancelDialogTitle { color:var(--danger); margin-bottom: var(--space-2); }
+        #adminCancelDialogSummary { margin-bottom: var(--space-3); }
+        #staffLoginError { color:var(--danger); display:none; margin-bottom: var(--space-2); }
+        #setPasswordError { color:var(--danger); display:none; margin-bottom: var(--space-2); }
         /* alert()/confirm() messages sometimes embed \n\n for readability (e.g. a list
            of affected appointments) -- pre-line preserves those line breaks the same
            way the native alert()/confirm() box always rendered them, while still
@@ -1578,55 +1587,55 @@
         .fs-85 { font-size:0.85rem; }
         .fs-88 { font-size:0.88rem; }
         .fs-90 { font-size:0.9rem; }
-        .gap-10 { gap:10px; }
+        .gap-10 { gap: var(--space-2); }
         .items-end { align-items:flex-end; }
-        .mb-10 { margin-bottom:10px; }
+        .mb-10 { margin-bottom: var(--space-2); }
         .mb-14 { margin-bottom:14px; }
-        .mb-15 { margin-bottom:15px; }
-        .mb-5 { margin-bottom:5px; }
+        .mb-15 { margin-bottom: var(--space-3); }
+        .mb-5 { margin-bottom: var(--space-1); }
         .mb-8 { margin-bottom:8px; }
         .mt-0 { margin-top:0; }
-        .mt-10 { margin-top:10px; }
-        .mt-15 { margin-top:15px; }
-        .mt-20 { margin-top:20px; }
-        .mt-30 { margin-top:30px; }
-        .my-20 { margin:20px 0; }
+        .mt-10 { margin-top: var(--space-2); }
+        .mt-15 { margin-top: var(--space-3); }
+        .mt-20 { margin-top: var(--space-4); }
+        .mt-30 { margin-top: var(--space-6); }
+        .my-20 { margin: var(--space-4) 0; }
         .text-danger { color:var(--danger); }
         .text-info { color:var(--info); }
         .w-full { width:100%; }
-        #customerTagline { font-size: 0.95rem; margin-top: 5px; }
-        #customerClosedHeading { color: var(--danger); font-size: 2.5rem; margin-bottom: 15px; }
-        #customerBreakHeading { color: #ffc107; margin-bottom: 10px; }
-        #queueFullAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom:10px; }
-        #closingSoonAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom:10px; }
+        #customerTagline { font-size: 0.95rem; margin-top: var(--space-1); }
+        #customerClosedHeading { color: var(--danger); font-size: 2.5rem; margin-bottom: var(--space-3); }
+        #customerBreakHeading { color: #ffc107; margin-bottom: var(--space-2); }
+        #queueFullAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom: var(--space-2); }
+        #closingSoonAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom: var(--space-2); }
         #btnBackToMenu { margin-top: 12px; width: 100%; }
         #customerMapInfoBox { background:var(--border-light); border:1px solid var(--border-color); border-radius: var(--radius-sm); padding:12px; margin-bottom:18px; }
         #tvDisplayCard { border: 4px solid var(--surface-color); padding: 40px; border-radius: var(--radius-md); text-align: center; max-width: 900px; margin: 0 auto; }
-        #tvServingHeading { color: var(--primary-color); margin-bottom: 30px; font-size: 3rem; }
-        #tvUpcomingHeading { color: var(--text-muted); text-align: left; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
-        #barberWaitingPanel { margin-top: 30px; border-color: var(--info); }
-        #adminShopStatusRow { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:10px; }
+        #tvServingHeading { color: var(--primary-color); margin-bottom: var(--space-6); font-size: 3rem; }
+        #tvUpcomingHeading { color: var(--text-muted); text-align: left; border-bottom: 2px solid var(--border-color); padding-bottom: var(--space-2); }
+        #barberWaitingPanel { margin-top: var(--space-6); border-color: var(--info); }
+        #adminShopStatusRow { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
         #adminShopStatusHeading { margin:0; }
         #adminMapSearchRow { display:flex; gap:8px; }
-        #adminMapSearchNote { font-size:0.74rem; margin-top:10px; }
+        #adminMapSearchNote { font-size:0.74rem; margin-top: var(--space-2); }
         #adminAnnouncementSection { border-color:var(--warning); }
         #announcementUnderlineIcon { font-family:serif; font-size:1.05rem; text-decoration:underline; }
         #announcementImageAltField { min-width:180px; flex:1; }
-        #barberPerformanceHeading { margin:20px 0 10px; font-size:0.9rem; color:var(--text-muted); }
+        #barberPerformanceHeading { margin: var(--space-4) 0 var(--space-2); font-size:0.9rem; color:var(--text-muted); }
         #adminFastPassPanel { border-color:#ffc107; }
         #btnApproveFastPass { width:100%; background:#b57900; border-color:#b57900; }
         #adminUnservableBookingNote { font-size:0.84rem; margin-bottom:12px; }
-        #adminClosedDateGuide { background:rgba(220,53,69,0.08); border:1px dashed var(--danger); border-radius: var(--radius-sm); padding:12px; margin-bottom:15px; }
-        #adminClosedDateActions { display:flex; justify-content:flex-end; margin-bottom:10px; }
+        #adminClosedDateGuide { background:rgba(220,53,69,0.08); border:1px dashed var(--danger); border-radius: var(--radius-sm); padding:12px; margin-bottom: var(--space-3); }
+        #adminClosedDateActions { display:flex; justify-content:flex-end; margin-bottom: var(--space-2); }
         #calLegendSpecialIcon { background:rgba(220,53,69,.18); border:1px solid var(--danger); }
         #calLegendWeeklyClosureIcon { background:rgba(201,154,75,.12); border:1px dashed var(--warning); }
         #calLegendSelectedIcon { background: var(--primary-color); }
-        #adminAddServiceBox { background: var(--border-light); padding: 15px; border-radius: var(--radius-sm); border: 1px dashed var(--border-color); }
-        #addServiceHeading { font-size: 1rem; color: var(--text-main); margin-bottom: 10px; }
+        #adminAddServiceBox { background: var(--border-light); padding: var(--space-3); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); }
+        #addServiceHeading { font-size: 1rem; color: var(--text-main); margin-bottom: var(--space-2); }
         #seatSectionDivider { border-color:var(--border-color); margin:24px 0; }
         #barberAssignmentHeading { margin-bottom:6px; }
         #btnSaveBarberAssignments { width:100%; margin-top:14px; }
-        #adminCancelDialogActions { display:flex; gap:10px; margin-top:18px; }
+        #adminCancelDialogActions { display:flex; gap: var(--space-2); margin-top:18px; }
         #btnConfirmAdminCancellation { flex:1; background:var(--danger); border-color:var(--danger); }
 
         /* Extracted from inline style="" attributes inside <script> template
@@ -1641,13 +1650,13 @@
         .items-center { align-items:center; }
         .items-start { align-items:flex-start; }
         .self-start { align-self:flex-start; }
-        .gap-5 { gap:5px; }
+        .gap-5 { gap: var(--space-1); }
         .gap-6 { gap:6px; }
         .gap-8 { gap:8px; }
-        .mt-5 { margin-top:5px; }
+        .mt-5 { margin-top: var(--space-1); }
         .mt-8 { margin-top:8px; }
-        .my-15 { margin:15px 0; }
-        .p-15 { padding:15px; }
+        .my-15 { margin: var(--space-3) 0; }
+        .p-15 { padding: var(--space-3); }
         .fw-600 { font-weight:600; }
         .fw-bold { font-weight:bold; }
         .fw-normal { font-weight:normal; }
@@ -1682,7 +1691,7 @@
            inert today by the same margin the inline style was, and stays
            ready to take effect exactly as designed if those !important rules
            are ever relaxed. */
-        .upcoming-item-accent { background:var(--border-light); padding:10px 15px; border-radius: var(--radius-sm); font-weight:bold; font-size:1.2rem; border-left:3px solid var(--primary-color); }
+        .upcoming-item-accent { background:var(--border-light); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); font-weight:bold; font-size:1.2rem; border-left:3px solid var(--primary-color); }
         /* Badge component: small colored pill used for service target/
            category/profile/status labels. */
         .badge { color:#fff; padding:2px 8px; border-radius: var(--radius-md); font-size:0.75rem; font-weight:bold; }
@@ -1696,10 +1705,10 @@
         .badge-danger { background:var(--danger); }
         /* Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md): per-staff
            capability/specialty checklist inside the admin staff card. */
-        .staff-capability-panel { width:100%; margin-top:10px; border:1px solid var(--border-color); border-radius: var(--radius-sm); padding:10px 12px; background:var(--card-bg); }
+        .staff-capability-panel { width:100%; margin-top: var(--space-2); border:1px solid var(--border-color); border-radius: var(--radius-sm); padding: var(--space-2) 12px; background:var(--card-bg); }
         .staff-capability-panel summary { cursor:pointer; font-weight:bold; }
         .capability-hint { font-size:0.85rem; margin:8px 0; }
-        .capability-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border-light); }
+        .capability-row { display:flex; align-items:center; gap: var(--space-2); padding:6px 0; border-bottom:1px solid var(--border-light); }
         .capability-row:last-of-type { border-bottom:none; }
         .capability-row-name { flex:1; }
         .specialty-star { background:none; border:1px solid var(--border-color); border-radius: var(--radius-sm); width:32px; height:32px; font-size:1rem; line-height:1; cursor:pointer; color:var(--border-color); }
@@ -1715,7 +1724,7 @@
            animation-duration: .01ms !important on `*`, which would turn any
            spinner into a static blur anyway. Same box metrics as
            .service-empty-state so swapping between the two never shifts layout. */
-        .catalog-loading-state { padding:15px; border:1px dashed var(--border-color); border-radius: var(--radius-sm); color:var(--text-muted); text-align:center; font-size:0.9rem; }
+        .catalog-loading-state { padding: var(--space-3); border:1px dashed var(--border-color); border-radius: var(--radius-sm); color:var(--text-muted); text-align:center; font-size:0.9rem; }
 </style>
 </head>
 <body>
