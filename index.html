@@ -1622,6 +1622,21 @@
         #tvServingHeading { color: var(--primary-color); margin-bottom: var(--space-6); font-size: 3rem; }
         #tvUpcomingHeading { color: var(--text-muted); text-align: left; border-bottom: 2px solid var(--border-color); padding-bottom: var(--space-2); }
         #barberWaitingPanel { margin-top: var(--space-6); border-color: var(--info); }
+
+        /* Kanban board (read-only, slice 2). Token-layer only: colors, spacing
+           and radii all come from the existing CSS variables, per the frozen
+           theme constraint (Samsung Internet light-theme limit). */
+        .kanban-board { display: flex; gap: var(--space-3); overflow-x: auto; padding-bottom: var(--space-2); }
+        .kanban-col { flex: 0 0 180px; display: flex; flex-direction: column; border: 1px solid var(--border-color); border-radius: var(--radius-md, 8px); background: var(--card-bg, transparent); min-width: 160px; }
+        .kanban-col.kanban-col-closed { opacity: .45; }
+        .kanban-col-head { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-light, var(--border-color)); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+        .kanban-col-head .kanban-col-count { color: var(--text-muted); font-weight: 400; }
+        .kanban-col-body { padding: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); min-height: 60px; flex: 1; }
+        .kanban-card { border: 1px solid var(--border-color); border-radius: var(--radius-md, 8px); padding: var(--space-2) var(--space-3); background: var(--card-hover, transparent); }
+        .kanban-card .kanban-card-num { font-weight: 700; color: var(--primary-color); font-size: 1.05rem; letter-spacing: -.02em; }
+        .kanban-card .kanban-card-meta { color: var(--text-muted); font-size: .68rem; margin-top: 2px; }
+        .kanban-card.kanban-card-fastpass { border-color: var(--primary-color); }
+        .kanban-empty { color: var(--text-muted); font-size: .7rem; text-align: center; padding: var(--space-3) 0; }
         #adminShopStatusRow { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
         #adminShopStatusHeading { margin:0; }
         #adminMapSearchRow { display:flex; gap:8px; }
@@ -1989,6 +2004,19 @@
             <div class="panel-box" id="barberWaitingPanel">
                 <h3 class="text-info mb-15">SENARAI MENUNGGU (WALK-IN)</h3>
                 <div id="barberWaitingList"></div>
+            </div>
+            <!--
+                Kanban board (slice 2, read-only): columns = seats, cards =
+                today's serving/waiting tickets. Rendered purely from
+                js/domain/kanbanState.js over the same local caches every
+                other view reads (queues via getQueues(), seats via
+                seatServerState + getSeatNumbers()). Drag-and-drop reassignment
+                is a later slice -- this panel is display-only until the
+                admin_reassign_queue RPC exists.
+            -->
+            <div class="panel-box" id="kanbanPanel">
+                <h3 class="text-primary mb-15">PAPAN KERJA (KANBAN)</h3>
+                <div class="kanban-board" id="kanbanBoard"></div>
             </div>
             <!--
                 Each signed-in barber's own performance summary -- same KPI-card
@@ -2719,6 +2747,8 @@
             adminCancelRecord, listActiveAppointments, subscribeAppointmentChanges
         } from './js/repositories/appointmentRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
+        import * as KanbanState from './js/domain/kanbanState.js';
+        window.KanbanState = KanbanState;
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
         window.SeatRepo = { listSeats, setSeatAssignment, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
@@ -6244,6 +6274,47 @@
             return Array.from({ length: getSeatCount() }, (_, index) => index + 1);
         }
 
+        // --- KANBAN BOARD (slice 2, read-only) -------------------------------
+        // Renders the barber panel's kanban view purely from KanbanState.
+        // buildBoard() over the same data every other view reads: getQueues()
+        // (the local ticket cache, kept fresh by mergeServerRows + realtime)
+        // and seatServerState/getSeatNumbers() (public.seats, kept fresh by
+        // reconcileLocalSeatStateFromServer). No writes here -- drag-and-drop
+        // reassignment waits for the admin_reassign_queue RPC (slice 3+).
+        function kanbanSeatInputs() {
+            const seatNos = getSeatNumbers();
+            return seatNos.map(n => {
+                const serverSeat = seatServerState[String(n)];
+                return serverSeat
+                    ? { seatNo: n, active: !!serverSeat.active, barberId: serverSeat.barberId ?? null, barberName: serverSeat.barberName ?? null }
+                    : { seatNo: n, active: !!getActiveSeats()[n], barberId: null, barberName: normalizeBarberName(getBarberAssignments()[n] || '') || null };
+            });
+        }
+
+        function renderKanbanBoard() {
+            const boardEl = document.getElementById('kanbanBoard');
+            if (!boardEl || typeof window.KanbanState?.buildBoard !== 'function') return;
+            const { columns } = window.KanbanState.buildBoard({ seats: kanbanSeatInputs(), queues: getQueues() });
+            // Re-render per column body from the diff-able board state; cards
+            // are keyed by queue id so a later slice can move nodes instead
+            // of replacing them. InnerHTML here is safe: every dynamic value
+            // is escaped through escapeHTML() below.
+            boardEl.innerHTML = columns.map(column => {
+                const count = column.doneCount ? `${column.cards.length} · selesai ${column.doneCount}` : `${column.cards.length}`;
+                const cards = column.cards.map(card => `
+                    <div class="kanban-card${card.isFastPass ? ' kanban-card-fastpass' : ''}" data-queue-id="${escapeHTML(String(card.id))}">
+                        <div class="kanban-card-num">${escapeHTML(String(card.name ?? card.id))}</div>
+                        <div class="kanban-card-meta">${escapeHTML(String(card.service ?? ''))}${card.status === 'serving' ? ' · sedang dilayan' : ''}</div>
+                    </div>`).join('') || '<div class="kanban-empty">—</div>';
+                return `
+                    <div class="kanban-col${column.closed ? ' kanban-col-closed' : ''}" data-column-id="${escapeHTML(column.id)}">
+                        <div class="kanban-col-head"><span>${escapeHTML(column.label)}</span><span class="kanban-col-count">${escapeHTML(count)}</span></div>
+                        <div class="kanban-col-body">${cards}</div>
+                    </div>`;
+            }).join('');
+        }
+
+
         function renderSeatStructures() {
             const seatCount = getSeatCount();
             const tvGrid = document.getElementById('tvServingGrid');
@@ -8659,6 +8730,7 @@
             populateOperationalTimeSelects();
             renderOperationalDayTabs();
             renderShopIdentitySettings();
+            renderKanbanBoard();
             let isShopOpen = localStorage.getItem('shopStatus') === 'open';
             renderSeatStructures();
             renderBarberAssignments();
