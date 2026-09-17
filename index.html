@@ -1857,11 +1857,11 @@
                         <input type="text" id="customerNameInput" placeholder="Cth: Haziq" maxlength="20" autocomplete="name" required aria-required="true">
                     </div>
                     <div class="input-group">
-                        <label for="customerPhoneInput">Nombor WhatsApp:</label>
-                        <input type="tel" id="customerPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true" aria-describedby="customerPhoneError">
+                        <label for="customerPhoneInput">Nombor WhatsApp (pilihan):</label>
+                        <input type="tel" id="customerPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" aria-describedby="customerPhoneError">
                         <p id="customerPhoneError" class="field-error" aria-live="polite"></p>
                     </div>
-                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk memaklumkan status giliran dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Anggaran masa boleh berubah mengikut operasi semasa.</div>
+                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp adalah pilihan dan tidak dikongsi dengan pihak ketiga. Anggaran masa boleh berubah mengikut operasi semasa.</div>
                     
                     <div class="input-group">
                         <label id="walkinServicesLabel">Pilih Servis:</label>
@@ -1922,11 +1922,11 @@
                         <input type="text" id="bookNameInput" placeholder="Sila masukkan nama" maxlength="20" autocomplete="name" required aria-required="true">
                     </div>
                     <div class="input-group">
-                        <label for="bookPhoneInput">Nombor WhatsApp:</label>
-                        <input type="tel" id="bookPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" required aria-required="true" aria-describedby="bookPhoneError">
+                        <label for="bookPhoneInput">Nombor WhatsApp (pilihan):</label>
+                        <input type="tel" id="bookPhoneInput" placeholder="Contoh: 012-345 6789" maxlength="20" autocomplete="tel" pattern="^[0-9+(][0-9 ()+\-]{8,19}$" title="Nombor telefon Malaysia, contoh: 012-345 6789" aria-describedby="bookPhoneError">
                         <p id="bookPhoneError" class="field-error" aria-live="polite"></p>
                     </div>
-                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp diperlukan untuk memaklumkan status tempahan dan sebarang perubahan masa, dan tidak dikongsi dengan pihak ketiga. Masa tempahan boleh berubah mengikut operasi semasa.</div>
+                    <div class="text-muted fs-85 mb-15">Nombor WhatsApp adalah pilihan dan tidak dikongsi dengan pihak ketiga. Masa tempahan boleh berubah mengikut operasi semasa.</div>
                     <div class="input-group">
                         <label id="bookingServicesLabel">Pilih Servis:</label>
                         <div class="service-category-tabs">
@@ -7422,7 +7422,7 @@
                 }
             }
             updateUI();
-            (await showAlertDialog("Pembatalan direkodkan. Notifikasi aplikasi dan WhatsApp yang layak telah dimasukkan ke outbox."));
+            (await showAlertDialog("Pembatalan direkodkan. Notifikasi aplikasi yang layak telah dimasukkan ke outbox."));
             } catch (error) {
                 // The server-side cancellation already succeeded at this point --
                 // only the local mirror/notification bookkeeping failed. The next
@@ -7715,7 +7715,7 @@
             let name = document.getElementById('customerNameInput').value.trim();
             if (!name) return (await showAlertDialog("Masukkan nama pelanggan."));
             const phone = normalizeWhatsAppNumber(document.getElementById('customerPhoneInput').value);
-            if (!phone) return (await showAlertDialog("Masukkan nombor WhatsApp Malaysia yang sah untuk menerima perubahan giliran secara automatik."));
+            if (document.getElementById('customerPhoneInput').value.trim() && !phone) return (await showAlertDialog("Masukkan nombor WhatsApp Malaysia yang sah, atau biarkan kosong."));
             let cb = document.querySelectorAll('input[name="walkinServices"]:checked');
             if(cb.length === 0) return (await showAlertDialog("Pilih satu servis."));
             const invalidWalkinSelection = getInvalidServiceCombinationMessage(cb);
@@ -7923,7 +7923,7 @@
             let cb = document.querySelectorAll('input[name="bookingServices"]:checked');
             if(!name) return (await showAlertDialog("Masukkan nama pelanggan."));
             if(!date || !time) return (await showAlertDialog("Pilih tarikh dan masa tempahan."));
-            if (!phone) return (await showAlertDialog("Masukkan nombor WhatsApp Malaysia yang sah untuk menerima perubahan tempahan secara automatik."));
+            if (!phone && document.getElementById('bookPhoneInput').value.trim()) return (await showAlertDialog("Masukkan nombor WhatsApp Malaysia yang sah, atau biarkan kosong."));
             if(cb.length === 0) return (await showAlertDialog("Pilih servis."));
             const invalidBookingSelection = getInvalidServiceCombinationMessage(cb);
             if(invalidBookingSelection) return (await showAlertDialog(invalidBookingSelection));
