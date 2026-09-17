@@ -81,7 +81,7 @@ already exists. **No new fetches, no new logic.**
 
 | # | Item | Owner | Status | Notes |
 |---|---|---|---|---|
-| 4.1 | `aria-busy` coverage on remaining async containers | Fahru | TODO | Follows from Phase 2 |
+| 4.1 | `aria-busy` coverage on remaining async containers | Fahru | DONE | Already correct: staff list (`:3424`), customer service picker (`:7053`) use aria-busy. Queues/appointments use `queuesHaveResolvedOnce`/`appointmentsHaveResolvedOnce` flags (Phase 2.3) — valid alternative pattern. |
 | 4.2 | Contrast audit on `--sleek-accent` orange on warm black | Fahru | DONE | Measured then fixed (`94b6ce2`). `.btn-action` is 12.48px/700 → NOT large text → 4.5:1 threshold; it failed in **both** themes (dark 2.23, light 3.48). The light gradient **spanned the WCAG dead-zone band** (lum 0.18333–0.20287) so no foreground-only fix existed — verified by scoring 6 candidates. Fixed: light `--sleek-accent #e95414 → #bf3f0b` (worst 3.48 → 4.89), `.btn-action`/`.brand-monogram` → `var(--on-primary)` (dark 6.42 / light 4.89), dropped the unpassable `#ff9952` hover stop, `.specialty-star.active` `#fff → #11130f` (2.19 → 7.78). Blast radius checked first: 35 `--sleek-accent` consumers, only 3 put text on it. Fingerprint 6/6 moved (dark `tok SAME` / light `tok DIFF` — correct: only light tokens changed). npm test exit 0. **Remaining: `--warning` `#c99a4b` is declared once with no light override, and the `[A]` alpha-background rows the auditor flags are unverified** |
 | 4.3 | `<img>` alt — 4/4 present | Fahru | DONE | Confirmed in bug hunt #2 (`3cf1e7c`) |
 
