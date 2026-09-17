@@ -44,7 +44,7 @@
         .text-muted { color: var(--text-muted); }
 
         .app-nav { display: flex; gap: 15px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid var(--nav-border); flex-wrap: wrap; align-items: center;}
-        .app-nav .btn { padding: 12px 24px; background: transparent; color: var(--text-main); border: 1px solid var(--primary-color); cursor: pointer; transition: 0.3s; font-size: 1rem; letter-spacing: 1px; }
+        .app-nav .btn { padding: 12px 24px; background: transparent; color: var(--text-main); border: 1px solid var(--primary-color); cursor: pointer; transition: transform .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease), color .15s var(--ease), box-shadow .15s var(--ease); font-size: 1rem; letter-spacing: 1px; }
         .app-nav .btn.active, .app-nav .btn:hover { background: var(--primary-color); color: #fff; }
         
         .btn { padding: 12px 24px; background: transparent; color: var(--text-main); border: 1px solid var(--primary-color); cursor: pointer; font-size: 1rem; letter-spacing: 1px; }
@@ -122,7 +122,7 @@
         .reminder-box p { font-size: 0.85rem; line-height: 1.4; margin: 0; }
 
         .serving-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin: 15px 0 25px 0; }
-        .serving-seat { background: var(--border-light); border: 1px solid var(--border-color); padding: 15px 10px; text-align: center; transition: 0.3s; }
+        .serving-seat { background: var(--border-light); border: 1px solid var(--border-color); padding: 15px 10px; text-align: center; transition: border-color .15s var(--ease), background .15s var(--ease), opacity .15s var(--ease), filter .15s var(--ease); }
         .serving-seat.active { border-color: var(--primary-color); background: var(--card-hover); }
         .serving-seat.closed { opacity: 0.4; border-color: var(--border-light); background: transparent; cursor: not-allowed; }
         .serving-seat h4 { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 5px; }
@@ -139,7 +139,7 @@
         .ticket-name { font-size: 1.5rem; margin-bottom: 5px; font-weight: 600; text-transform: capitalize; }
 
         .mode-toggle { display: flex; border: 1px solid var(--primary-color); overflow: hidden; margin-bottom: 20px;}
-        .mode-toggle .mode-btn { flex: 1; padding: 12px; text-align: center; cursor: pointer; background: transparent; color: var(--text-main); border: none; font-size: 1.1rem; transition: 0.3s;}
+        .mode-toggle .mode-btn { flex: 1; padding: 12px; text-align: center; cursor: pointer; background: transparent; color: var(--text-main); border: none; font-size: 1.1rem; transition: background .15s var(--ease), color .15s var(--ease), box-shadow .15s var(--ease);}
         .mode-toggle .mode-btn.active { background: var(--primary-color); color: #fff; font-weight: bold; }
 
         .service-checkbox-container { display:flex; flex-direction:column; gap:10px; padding-top: 5px; }
@@ -329,7 +329,7 @@
         }
 
         .view-section { max-width: 1180px; margin: 0 auto; }
-        .view-section.active { animation: viewEnter .42s var(--ease); }
+        .view-section.active { animation: viewEnter .35s var(--ease); }
         @keyframes viewEnter { from { opacity: 0; transform: translateY(8px) scale(.995); } to { opacity: 1; transform: none; } }
         .customer-container { max-width: 720px; }
         .admin-panel { max-width: 980px; }
@@ -668,7 +668,7 @@
         .barber-card-identity span { display: block; font-size: .68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
         .barber-sales-figure { font-family: 'Manrope', sans-serif; font-size: 1.4rem; font-weight: 600; letter-spacing: -.03em; color: var(--primary-strong); }
         .barber-compare-track { height: 6px; border-radius: 99px; background: var(--border-light); overflow: hidden; }
-        .barber-compare-fill { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--primary-color), var(--primary-strong)); transition: width .4s var(--ease); }
+        .barber-compare-fill { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--primary-color), var(--primary-strong)); transition: width .3s var(--ease); }
         .barber-performance-metrics-row { display: flex; gap: 16px; }
 
         .dashboard-empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 36px 20px; border: 1px dashed var(--border-color); border-radius: var(--radius-md); color: var(--text-muted); grid-column: 1 / -1; }
@@ -1359,7 +1359,7 @@
         .admin-nav-arrow:disabled { opacity: .3; cursor: not-allowed; }
         .admin-content { min-width: 0; }
         .admin-content-section { display: none; }
-        .admin-content-section.active { display: block; animation: fadeIn .25s ease; }
+        .admin-content-section.active { display: block; animation: fadeIn .25s var(--ease); }
         /* Mobile nav: the desktop sidebar collapses into a single
            "current section" dropdown button. Tapping it opens a mobile-only
            list of its own -- deliberately NOT the desktop's block/underline
