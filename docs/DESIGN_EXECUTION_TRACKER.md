@@ -59,8 +59,8 @@ already exists. **No new fetches, no new logic.**
 | 2.1 | Customer service picker loading state | Fahru | DONE | `241bc77`. `.catalog-loading-state` (`:1781`), `catalogLoadsInFlight`/`catalogHasResolvedOnce`, `aria-busy`, `load` safety net. Verified by `probe-loading.cjs` 15/15, 3 scenarios |
 | 2.2 | Staff list first-paint loading state | Fahru | DONE | `refreshStaffList()` (`:3466`) — first-paint only, `aria-busy` cleared in `finally` |
 | 2.3 | Queue/appointment lists: gate the `Tiada…` fallback behind a resolved flag | Fahru | DONE | `df9519d`. Four "Tiada…" fallbacks now only render AFTER the first successful server fetch — uses the same `queuesHaveResolvedOnce` / `appointmentsHaveResolvedOnce` pattern as the existing services catalog flag. |
-| 2.4 | Admin services empty state | Fahru | TODO | `:9018` — already an honest empty state; verify it is not shown pre-hydration |
-| 2.5 | Error states for the queue/appointment refresh paths | Fahru | TODO | Currently `console.warn` only (`:9170`, `:9182`) — deliberate "never surface a missed live refresh"; leave unless a user-visible failure is shown |
+| 2.4 | Admin services empty state | Fahru | DONE | Already correct: reads from localStorage `shopServices`, shows honest message if empty. No loading artifact. |
+| 2.5 | Error states for the queue/appointment refresh paths | Fahru | DONE | Deliberate: `console.warn` only. A missed live refresh is not an error — the next refresh or existing localStorage catches up. |
 
 **Gate:** each item verified by a probe scenario, `npm test` exit 0, zero page errors.
 
