@@ -3579,3 +3579,242 @@ theme functions and every `color-scheme` declaration are intact.
 Branch `ui/dead-font-cleanup` off `main` (`3cf1e7c`). Single commit. `git revert`
 of that commit restores the previous file exactly.
 
+## Done — first-paint loading state on the customer service picker (2026-09-16)
+
+Scope B of `docs/DESIGN_BLUEPRINT.md` Phase 2. The first change in this
+modernisation that a customer can actually see.
+
+### The bug, stated correctly
+
+`renderCustomerServiceOptions()` renders "Tiada servis ... yang aktif." when
+the active-service list is empty. That is the correct FINAL answer once the
+fetch has resolved — the defect was showing it BEFORE.
+
+The first draft of the code comment claimed a first-time customer was told the
+shop sells nothing. **That was wrong, and checking it is what shaped the fix.**
+`initData()` seeds one default service (`Gunting Biasa`) at `:5637` and runs at
+`:9171`, BEFORE `updateUI()` (`:9177`) and `populateWalkinServices()` (`:9178`),
+so `getServices()` is not empty on a genuine first visit. The comment was
+corrected in place rather than shipped.
+
+What actually reaches the empty branch early:
+
+- An admin deletes or deactivates every service on a device, so `getServices()`
+  comes back empty (or all-inactive) on the next load. The first-visit seed is
+  guarded by `!localStorage.getItem('shopServices')` — a PRESENCE check — and
+  `'[]'` is a present value, so it does not re-fire and the empty list survives
+  the reload.
+- Any load where the local catalog is empty and `seedOrRefreshServices()` has
+  not answered yet.
+
+### The change
+
+- `.catalog-loading-state` — a plain dashed text row, same box metrics as the
+  existing `.service-empty-state` so swapping between the two never shifts
+  layout. Deliberately NOT a skeleton or spinner: a shimmer reads as "broken" on
+  the TV and the seat tablets, and the blanket `prefers-reduced-motion` rule at
+  `:826` sets `animation-duration: .01ms !important` on `*`, which would turn a
+  spinner into a static blur anyway.
+- `catalogLoadsInFlight` (counter) + `catalogHasResolvedOnce` (flag), declared
+  in the classic script and exported on `window` for the deferred module above.
+  A counter because `seedOrRefreshServices()` runs twice at boot and again on
+  every auth change; a flag because the classic script is not deferred while the
+  module is, so the counter alone measures 0 at the exact moment that matters.
+- `aria-busy` set on the picker container, cleared when the state resolves.
+- `refreshStaffList()` gets the same treatment, but only on first paint — that
+  function is re-called after every rename, role change and removal, and blanking
+  an already-rendered roster to "Memuatkan..." on each of those would be a
+  regression, not a loading state.
+- **A `load`-event safety net.** If the module never executes (import throws,
+  `js/repositories/*.js` 404s, an extension blocks it) then `endCatalogLoad()`
+  is never called, `catalogHasResolvedOnce` stays false, and an empty catalog
+  would sit on "Memuatkan..." for the life of the page — strictly worse than the
+  empty state it replaced. The condition is exact, not a timeout: resolved is
+  false AND in-flight is 0 means the fetch never started. It deliberately does
+  not touch the counter, so it cannot double-decrement a genuine in-flight load.
+
+### Verification — three scenarios, DOM state recorded with a MutationObserver
+
+`probe-loading.cjs` (outside the repo). `npm test` exit 0, read without a pipe.
+
+| Scenario | Module | Result |
+|---|---|---|
+| A — empty catalog | loads | loading appears; resolves via `endCatalogLoad()`; ends on the honest empty state; `aria-busy` ends `false` |
+| B — empty catalog | BLOCKED | loading appears; resolves via the `load` safety net; ends on the honest empty state |
+| C — default seed | loads | the seeded service renders and never disappears; never stuck loading |
+
+All 15 checks pass, zero page errors in every scenario.
+
+### Three harness defects this run exposed — all in the probe, not the app
+
+1. **The module never loaded in ANY scenario, including the control.** The first
+   run reported `ServiceRepo: undefined` for scenario A too. Cause:
+   `js/supabaseClient.js:14` imports `https://esm.sh/@supabase/supabase-js@2`, and
+   the harness aborts non-local requests — so the module graph never evaluated
+   and every scenario silently exercised the safety net instead of the primary
+   path. Fixed by stubbing that import, and by asserting module state in the
+   verdict rather than only logging it. Without the control assertion, a harness
+   whose module never runs looks identical to one that runs fine.
+2. **The stub had no latency**, so the loading state rendered and resolved inside
+   one microtask — before `DOMContentLoaded` — and scenario A honestly reported
+   `sawLoading: false`. A 400ms stub restores the timing that is the thing under
+   test.
+3. **The observer attached on `DOMContentLoaded`**, after the transition had
+   already happened. Moved to `document` at t=0 with `subtree: true`.
+
+Two assertions were also wrong and were corrected rather than worked around: C
+does not mean "no loading ever" (the fashion category is legitimately empty
+locally and correctly shows the loading state first), and it does not mean
+"services >= 1 from the first sample" (the observer now legitimately catches the
+picker container before the boot sequence populates it).
+
+`index.html` blob 578,754 -> 586,865 bytes (`git cat-file -s`, which is the
+only count that matters -- the worktree is CRLF and reads 596,086, higher than
+the blob by roughly one byte per line). 125 insertions, 3 deletions. Theme
+mechanism untouched; `npm test` green.
+
+CORRECTION, recorded because the first revision of this entry shipped the wrong
+numbers: it said "588,485 -> 588,896 bytes on the worktree". Both figures were
+derived from an assumption about the CRLF delta rather than measured, and both
+were wrong. Caught while verifying the PR body, which carried the same claim
+from the same source. The lesson is the one already in this file twice: read
+`git cat-file -s`, never infer a byte count.
+
+Branch `ui/loading-states`. The `index.html` change is its own commit (`241bc77`),
+so `git revert 241bc77` undoes only the code. The `HANDOFF.md` log is separate and
+spans more than one commit — revert its commits together to drop it. Do not revert
+the log's first commit (`0f766e8`) alone: the later correction rewrote the lines it
+added, so a lone revert conflicts.
+
+
+## Done — design execution: Phase 0 token collapse, Phase 1.1 radius, Phase 1.2 dead shadows (2026-09-17)
+
+Ran the first three phases of the blueprint execution plan
+(`docs/DESIGN_EXECUTION_TRACKER.md`, the runnable companion to
+`docs/DESIGN_BLUEPRINT.md`), each as its own revertible commit, with a
+rendered-DOM fingerprint gate as the verifier for every "no visual change" claim.
+
+**Phase 0 - token-block consolidation (`3a6d80e`).** `index.html` carried three
+stacked `:root` / `[data-theme="light"]` pairs (blocks at :39/:57, :257/:284,
+:880/:903). All equal specificity, so source order silently decided every
+winner. Collapsed to one pair: block 1 was 100% shadowed and deleted; block 2's
+7 unshadowed dark + 4 light tokens folded into block 3. 9222 -> 9150 lines,
+blob 586865 -> 584113. The `--warning` landmine (`#c99a4b`, declared only in
+block 2, never light-overridden) is preserved by construction.
+
+**Phase 1.1 - `--radius-sm` wired (`a607da9`).** Declared at 10px with zero
+consumers. Nine literal `border-radius: 10px` sites now use `var(--radius-sm)`:
+`.customer-announcement img`, `#adminGoogleMapFrame`, `.map-picker-guide`,
+`.app-nav .btn`, `.mode-toggle .mode-btn`, `.service-sort-handle`, `.cal-btn`,
+`.admin-nav-row`, `.admin-nav-item`. Same declared value, so a provable no-op.
+
+**Phase 1.2 - dead box-shadow removal (`f3d3b7e`).** A brace-depth cascade walk
+over the three style blocks flagged 13 `box-shadow` declarations superseded by a
+later rule on the same selector (e.g. `.panel-box` :66 loses to :374's
+`var(--shadow-sm)`; `.app-dialog` :109 loses to :738; `.ticket-box` :135 loses
+to :1451). The walker is a heuristic -- it models neither specificity nor
+`@media` -- so the fingerprint gate was the real verifier: identical hashes mean
+the 13 were genuinely dead. They were. `box-shadow` occurrences 49 -> 36, and
+`index.html` blob 584221 -> 583557.
+
+**The gate (`tests/dom/fingerprint.mjs`, added in `c6252b3`).** Hashes the
+computed custom-property map plus per-element computed styles across 2 themes x
+3 viewports (1440 / 820 / 390), 1468 elements each, 0 page errors. Its first
+version was **theme-blind**: it set `data-theme` after load and `applyTheme()`
+(:4909) silently re-resolved it, so dark and light hashed identically. A gate
+that cannot tell dark from light returns PASS while measuring nothing. Fixed by
+setting the attribute and reading computed styles inside ONE synchronous
+`evaluate`, pinning the context `colorScheme`, and exiting 2 if dark == light.
+Every "no visual change" claim above rests on the fixed harness.
+
+All three phases: fingerprint 6/6 byte-identical before <-> after, `npm test`
+exit 0. CI run `35126653208` green on `da7e703`. `index.html` blob at `da7e703`
+is 583557 bytes / 9143 lines, read with `git cat-file -s` and
+`git show HEAD:index.html | wc -l` -- the worktree is CRLF and reads higher, so
+never compare `wc -c`.
+
+**Deliberately NOT done - two open visual decisions, not tasks:**
+
+1. The radius mass is 6px (x17) / 8px (x27) / 12px (x15) -- all BELOW
+   `--radius-sm`'s 10px. Collapsing them onto the declared 10/18/28 scale
+   changes rendering and needs a human eye, not a script. Phase 1.1 stays WIP.
+2. Of the 22 remaining LIVE raw `box-shadow` declarations, only about 8 are true
+   drop shadows. The rest are focus rings, `inset` hairlines, drag indicators,
+   `none` resets and the autofill-backdrop hack -- not elevation, not token
+   candidates. The ~8 real ones are mostly branded orange glows
+   (`0 8px 24px rgba(255,103,29,.20)`) with no token to map onto. Adding an
+   accent-shadow token is a visual decision. Phase 1.2 stays WIP.
+
+Branch `ui/loading-states`, PR #15. Each phase's `index.html` change is its own
+commit (`3a6d80e`, `a607da9`, `f3d3b7e`), so `git revert <sha>` undoes only that
+phase's code. The tracker and this log are separate commits.
+
+Two process notes worth carrying. (a) The strip script's own post-check printed
+`45 (was 45)` because it re-parsed the structure captured BEFORE the edit -- an
+internal post-check that reads stale state is not verification; use git or a
+fresh read. (b) A heuristic that proposes deletions is only safe when paired
+with a cheap independent verifier, which is what the fingerprint gate is: the
+tool proposes, the gate disposes.
+
+## Done — design execution: dead-radius cleanup + contrast (Phase 4.2) (2026-09-17)
+
+Continuation of the blueprint execution on `ui/loading-states` / PR #15. Three
+`index.html` commits, each independently revertible. The tracker (`7fb0968`) and
+this log are separate from the code.
+
+**Dead `border-radius` cleanup (`1da39df`).** Same disease as Phase 1.2: three
+stacked design passes re-declared the same selectors. A cascade walk (same
+selector, same `@media`, importance ≥ mine) flagged 31 superseded
+`border-radius` declarations. Deleted; fresh re-parse showed 0 dead remaining
+(`130 → 99`). Fingerprint 6/6 identical, `npm test` exit 0. Blob `583557 →
+582742`, lines `9143 → 9132`. Three of the 31 were `var(--radius-sm)` sites
+wired in `a607da9` that later rules already overrode — the token never reached
+computed style. Phase 1.1's "9 sites wired" is accurate as a source edit and
+overstated as an outcome: 6 of those 9 are live. Corrected here rather than
+left in the earlier entry.
+
+**`--on-primary` (`dbf69cf`).** Dark `--primary-color #d8b06b` with white text
+is 2.03:1; light `#8b642f` with `#11130f` is 3.53:1. Mirror failures. Added
+`--on-primary` (`#11130f` dark / `#fff` light) and pointed the live
+primary-fill text sites at it: `.map-picker-step`, `.style-photo-toggle
+button.active`, `.cal-btn:hover`, `.cal-day.selected`, `.service-tab-badge`,
+`.badge-primary`. Runtime probe: the token resolves and those elements compute
+`rgb(17,19,15)` / `rgb(255,255,255)`. Five residual `#fff`/`#fff`-family
+primary-fill rules remain (`:48`, `:51`, `:143`, `:148`, `:201`) and are all
+DEAD. Fingerprint 6/6 moved (token count 27 → 28). `npm test` exit 0. Blob
+`582742 → 583283`, lines `9132 → 9139`.
+
+The first attempt aborted without writing: a 2-line badge anchor matched both
+the live badge and the dead `.btn-action` pair. Guard did its job. A
+hex-only auditor also missed `.map-picker-step { color: white }` — keyword
+colours are the same class of bug.
+
+**Primary CTA / monogram / specialty-star (`94b6ce2`).** Tracker 4.2: "Contrast
+audit on `--sleek-accent` orange on warm black — Measure, don't eyeball."
+`.btn-action` is 12.48px / 700 / uppercase — **not** WCAG large text, so the
+threshold is 4.5:1. Measured in the browser against both gradient stops:
+
+| theme | before (worst) | after (worst) |
+|---|---|---|
+| dark | `#fff8f2` on `#ff8a3d` **2.23:1** FAIL both | `--on-primary` **6.42:1** PASS |
+| light | `#fff8f2` on `#e95414` **3.48:1** FAIL AA | white on `#c9430c`/`#bf3f0b` **4.89:1** PASS |
+
+Light's two stops sat on opposite sides of the WCAG dead-zone band
+(luminance 0.18333–0.20287), so **no foreground** reached 4.5:1. Confirmed by
+scoring six candidates. Fix was therefore a token change, not a text-colour
+change: light `--sleek-accent #e95414 → #bf3f0b` (and `--sleek-accent-soft`
+kept in lockstep). Dark gradient unchanged. Also: dropped the unpassable
+`#ff9952` hover stop (shadow already carries hover); `.brand-monogram`
+`#fff4ec → var(--on-primary)`; `.specialty-star.active` `#fff → #11130f`
+(2.19 → 7.78, amber is bright in both themes so no per-theme token). Blast
+radius checked first: ~35 `--sleek-accent` consumers, only 3 put text on a
+fill. Fingerprint: dark `tok SAME` / light `tok DIFF` — correct, only light
+tokens moved. `npm test` exit 0. Blob `583283 → 583942`, lines `9139 → 9147`.
+
+**Not done, still visual calls:** the 6/8/12px radius mass below `--radius-sm`;
+the ~8 live branded orange glows with no shadow token. `--warning` `#c99a4b`
+is still dark-only (no light override). Auditor `[A]` alpha-background rows
+are unverified.
+
+PR #15 body was rewritten against measured blob sizes (`main` 578,754 →
+branch 583,942). CI run `35128502724` green on `7fb0968`.
