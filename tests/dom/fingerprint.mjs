@@ -25,6 +25,9 @@
 // Usage:
 //   node tests/dom/fingerprint.mjs --out .fingerprint-before.json
 //   node tests/dom/fingerprint.mjs --compare .fingerprint-before.json
+//   QC_BROWSER_CHANNEL=msedge node tests/dom/fingerprint.mjs --out baseline.json
+//     (opt-in system-browser channel for hosts whose Device Guard policy
+//      blocks Playwright's own Chromium image; default is Playwright chromium)
 //
 // Playwright is resolved from $PW_MODULE, a local install, or the newest
 // package under %LOCALAPPDATA%/npm-cache/_npx/*/node_modules/. It is
@@ -176,7 +179,14 @@ const arg = name => {
 const compareFile = arg('--compare');
 const outFile = arg('--out');
 
-const browser = await chromium.launch();
+// QC_BROWSER_CHANNEL: opt-in system-browser channel ('msedge', 'chrome').
+// Needed on hosts whose Device Guard / WDAC policy blocks Playwright's own
+// Chromium image -- this machine (arm64) blocks the x64 emulated headless
+// shell with "blocked by your organization's Device Guard policy", while the
+// signed, org-installed Edge and Chrome run fine. Default (unset) keeps
+// Playwright's chromium, so the harness behaves exactly as before elsewhere.
+const launchChannel = process.env.QC_BROWSER_CHANNEL || '';
+const browser = await chromium.launch(launchChannel ? { channel: launchChannel } : {});
 const result = {};
 for (const vp of VIEWPORTS) {
   for (const theme of ['dark', 'light']) {
