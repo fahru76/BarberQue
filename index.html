@@ -1620,6 +1620,13 @@
         [data-theme="light"] #customerBreakHeading { color: #7a5f12; }
         #queueFullAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom: var(--space-2); }
         #closingSoonAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom: var(--space-2); }
+        /* Alpha-row [A] audit: --danger #a34e48 lands at 3.96-4.26:1 over the
+           rgba(220,53,69,.08-.15) washes in light theme (below AA for normal
+           text). #964a44 measures 4.64-5.00:1 on those same composites while
+           keeping the hue; dark keeps its --danger (#c76e68, 4.54-5.24:1). */
+        [data-theme="light"] .cal-day.closed,
+        [data-theme="light"] #adminNoActiveSeatsWarning,
+        [data-theme="light"] #tv-closed-notice { color: #964a44; }
         #btnBackToMenu { margin-top: 12px; width: 100%; }
         #customerMapInfoBox { background:var(--border-light); border:1px solid var(--border-color); border-radius: var(--radius-sm); padding:12px; margin-bottom:18px; }
         #tvDisplayCard { border: 4px solid var(--surface-color); padding: 40px; border-radius: var(--radius-md); text-align: center; max-width: 900px; margin: 0 auto; }
