@@ -92,7 +92,7 @@ already exists. **No new fetches, no new logic.**
 | # | Date | Commit | Result |
 |---|---|---|---|
 | 1 | 2026-09-16 | `3cf1e7c` | 0 dup ids, 0 dup functions, 0 dangling aria/for, 0 form-scoped type-less buttons, 4/4 img alt. Leftovers: dead `customerHeaderEyebrow`, `'Oswald'`/`'Inter'` (both fixed in `5346c23`), no loading state |
-| 2 | after Phase 4 | — | Run per `frontend-static-audit`: validate every checker against a known-good and known-bad input first; read every hit at its source line; report real / artifact / accepted separately |
+| 2 | 2026-09-17 | (read-only, no commit) | Checkers validated good/bad first (6/6). Battery over `index.html` (9171 lines; style :20-1640, script :1641-9169): 0 dup ids, 0 dangling aria/for, 0 untyped form buttons, 0 form-scoped issues. `--` token contract clean: 41 declared / 41 consumed, 0 undeclared, 0 unused (2 checker hits `:8789`/`:8849` are `'---'` string literals — artifact). `<img>`: 6 total, all have alt (2 empty decorative + 1 dialog `:2639` with `alt=""` — intentional). 2 real findings, both accepted: (1) `:1670` `.text-white` — white on `--success` = 2.84:1 dark / 4.93:1 light; single "Selesai" btn `:6256`, fails AA dark. (2) `:1608` `#customerBreakHeading` `#ffc107` — 10.3:1 dark but 1.36:1 light (break-alert surface has no light-theme override); fails AA light. 105 hardcoded colour literals outside token decls = accepted debt (borders/washes/shadows documented in Phase 1.2). aria-busy=4, resolvedOnce refs=17. Read-only audit: file byte-identical, `git status` clean except pre-existing `.specify/` |
 
 ---
 
