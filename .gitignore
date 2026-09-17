@@ -4,3 +4,6 @@
 # Generated DOM fingerprint baselines (tests/dom/fingerprint.mjs --out).
 # Regenerable; the harness is the committed artifact, not its output.
 .fingerprint-*.json
+
+# Spec-Kit tooling state (machine-local, not app source)
+/.specify/
