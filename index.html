@@ -77,7 +77,7 @@
         .input-row label { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px; }
 
         .customer-container { max-width: 500px; margin: 0 auto; }
-        .customer-announcement { display: none; margin: 0 0 22px; padding: 18px 20px; border: 1px solid color-mix(in srgb, var(--warning) 70%, var(--border-color)); border-radius: 12px; background: color-mix(in srgb, var(--warning) 12%, var(--surface-color)); }
+        .customer-announcement { display: none; margin: 0 0 22px; padding: 18px 20px; border: 1px solid color-mix(in srgb, var(--warning) 70%, var(--border-color)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--warning) 12%, var(--surface-color)); }
         .customer-announcement h3 { margin: 0 0 7px; color: var(--warning); font-size: 0.95rem; letter-spacing: .04em; text-transform: uppercase; }
         .customer-announcement p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
         .customer-announcement .announcement-content { line-height: 1.65; overflow-wrap: anywhere; }
@@ -85,21 +85,21 @@
         .rich-editor-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:4px; padding:8px; border:1px solid var(--border-color); border-bottom:0; border-radius:8px 8px 0 0; background:var(--border-light); }
         .editor-tool-group { display:flex; align-items:center; gap:3px; }
         .editor-tool-group + .editor-tool-group { margin-left:4px; padding-left:8px; border-left:1px solid var(--border-color); }
-        .editor-tool-button { display:grid; place-items:center; width:36px !important; min-width:36px; height:36px !important; padding:0 !important; border:1px solid transparent !important; border-radius:6px !important; background:transparent !important; color:var(--text-main) !important; box-shadow:none !important; }
+        .editor-tool-button { display:grid; place-items:center; width:36px !important; min-width:36px; height:36px !important; padding:0 !important; border:1px solid transparent !important; border-radius: var(--radius-sm) !important; background:transparent !important; color:var(--text-main) !important; box-shadow:none !important; }
         .editor-tool-button:hover, .editor-tool-button[aria-pressed="true"] { background:var(--card-hover) !important; border-color:var(--border-color) !important; color:var(--primary-color) !important; transform:none !important; }
         .rich-editor-surface { min-height:180px; padding:16px; border:1px solid var(--border-color); border-radius:0 0 8px 8px; background:var(--input-bg); color:var(--text-main); outline:none; overflow-wrap:anywhere; }
         .rich-editor-surface:focus { border-color:var(--primary-color); box-shadow:0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent); }
         .rich-editor-surface:empty::before { content:attr(data-placeholder); color:var(--text-muted); pointer-events:none; }
-        .rich-editor-surface img { max-width:100%; height:auto; border-radius:8px; cursor:pointer; }
+        .rich-editor-surface img { max-width:100%; height:auto; border-radius: var(--radius-sm); cursor:pointer; }
         .rich-editor-surface img.editor-image-selected { outline:3px solid var(--primary-color); outline-offset:3px; }
         #adminGoogleMapFrame { width:100%; height:360px; border:1px solid var(--border-color); border-radius:var(--radius-sm); margin-top:14px; }
         .map-search-results { display:grid; gap:8px; margin-top:10px; }
-        .map-search-result { width:100%; text-align:left; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; background:var(--card-bg); color:var(--text-main); cursor:pointer; }
+        .map-search-result { width:100%; text-align:left; padding:10px 12px; border:1px solid var(--border-color); border-radius: var(--radius-sm); background:var(--card-bg); color:var(--text-main); cursor:pointer; }
         .map-search-result:hover { border-color:var(--primary-color); }
         .map-search-result strong { display:block; color:var(--primary-color); margin-bottom:4px; }
         .map-picker-guide { display:flex; gap:12px; align-items:flex-start; padding:14px; margin-top:14px; border-radius:var(--radius-sm); background:color-mix(in srgb, var(--primary-color) 9%, var(--surface-color)); border:1px solid color-mix(in srgb, var(--primary-color) 28%, var(--border-color)); }
         .map-picker-step { display:grid; place-items:center; flex:0 0 30px; width:30px; height:30px; border-radius:50%; background:var(--primary-color); color:var(--on-primary); font-weight:800; }
-        .image-editor-controls { display:none; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-top:12px; padding:12px; border:1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color)); border-radius:9px; background:var(--border-light); }
+        .image-editor-controls { display:none; flex-wrap:wrap; align-items:flex-end; gap:10px; margin-top:12px; padding:12px; border:1px solid color-mix(in srgb, var(--primary-color) 35%, var(--border-color)); border-radius: var(--radius-sm); background:var(--border-light); }
         .image-editor-controls.active { display:flex; }
         .image-editor-controls .btn { width:auto; height:40px; padding:8px 11px; }
         .image-control-field { display:flex; flex-direction:column; gap:5px; min-width:110px; }
@@ -111,13 +111,13 @@
         .app-dialog-content { padding: 24px; }
         /* Item 3: style photo lightbox -- same .app-dialog shell as the
            alert/confirm dialogs, just wider content for an image. */
-        .style-photo-viewer { display: flex; justify-content: center; background: var(--border-light); border-radius: 8px; overflow: hidden; min-height: 120px; }
+        .style-photo-viewer { display: flex; justify-content: center; background: var(--border-light); border-radius: var(--radius-sm); overflow: hidden; min-height: 120px; }
         .style-photo-viewer img { max-width: 100%; max-height: 60vh; display: block; }
         .style-photo-toggle { display: flex; gap: 8px; margin-top: 12px; }
         .style-photo-toggle button { flex: 1; }
         .style-photo-toggle button.active { background: var(--primary-color); color: var(--on-primary); border-color: var(--primary-color); }
 
-        .reminder-box { background: rgba(220, 53, 69, 0.05); border-left: 4px solid var(--danger); padding: 15px; margin-top: 20px; border-radius: 6px; }
+        .reminder-box { background: rgba(220, 53, 69, 0.05); border-left: 4px solid var(--danger); padding: 15px; margin-top: 20px; border-radius: var(--radius-sm); }
         .reminder-box h4 { color: var(--danger); font-size: 0.9rem; margin-bottom: 8px; font-weight: bold; }
         .reminder-box p { font-size: 0.85rem; line-height: 1.4; margin: 0; }
 
@@ -147,7 +147,7 @@
         .service-category-tab { flex:1; padding:9px 12px; border:1px solid transparent; background:transparent; color:var(--text-main); font-size:0.95rem; cursor:pointer; }
         .service-category-tab.active { background:var(--primary-color); color:#fff; font-weight:bold; }
         .service-category-panel { display:flex; flex-direction:column; gap:10px; }
-        .service-empty-state { padding:15px; border:1px dashed var(--border-color); border-radius:8px; color:var(--text-muted); text-align:center; font-size:0.9rem; }
+        .service-empty-state { padding:15px; border:1px dashed var(--border-color); border-radius: var(--radius-sm); color:var(--text-muted); text-align:center; font-size:0.9rem; }
         /* Each service option is itself a <label>, nested inside the
            surrounding .input-group -- without this override it inherits the
            .input-group label all-caps rule (line ~523), which is fine for a
@@ -156,21 +156,21 @@
            (customer-facing service picker, Item 2/notes) -- higher
            specificity than that rule (two classes vs. class+type), so this
            wins regardless of source order. */
-        .input-group .service-checkbox-label { display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer; margin-bottom: 0; text-transform: none; }
+        .input-group .service-checkbox-label { display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); cursor: pointer; margin-bottom: 0; text-transform: none; }
         .input-group .service-checkbox-label:hover { background: var(--card-hover); border-color: var(--primary-color); }
         .input-group .service-checkbox-label.disabled-box { opacity: 0.4; cursor: not-allowed; background: var(--border-light); border-color: transparent; pointer-events: none; }
         .input-group .service-checkbox-label input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary-color); cursor: pointer; flex-shrink: 0; margin: 0; }
         /* Item 3: front-photo thumbnail, customer-facing picker only. Omitted
            entirely (no element rendered) when a service has no photo yet --
            see renderCustomerServiceOptions()'s thumbHTML. */
-        .service-thumb { width: 48px; height: 48px; flex-shrink: 0; border-radius: 8px; object-fit: cover; cursor: zoom-in; border: 1px solid var(--border-color); }
+        .service-thumb { width: 48px; height: 48px; flex-shrink: 0; border-radius: var(--radius-sm); object-fit: cover; cursor: zoom-in; border: 1px solid var(--border-color); }
         /* Item 3: admin upload slots (Kemas Kini Servis form only -- see
            index.html's comment on why "Tambah Servis Baru" doesn't get
            these). Front/back side by side, each with a square preview box
            that shows a placeholder label until a photo exists. */
         .service-photo-slots { display: flex; gap: 12px; }
         .service-photo-slot { flex: 1; min-width: 0; }
-        .service-photo-preview-box { position: relative; width: 100%; aspect-ratio: 1; border: 1px dashed var(--border-color); border-radius: 8px; overflow: hidden; background: var(--border-light); display: flex; align-items: center; justify-content: center; }
+        .service-photo-preview-box { position: relative; width: 100%; aspect-ratio: 1; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); overflow: hidden; background: var(--border-light); display: flex; align-items: center; justify-content: center; }
         .service-photo-preview { width: 100%; height: 100%; object-fit: cover; }
         .service-photo-placeholder { color: var(--text-muted); font-size: 0.8rem; }
         .service-info { display: flex; flex-direction: column; gap: 3px; }
@@ -187,7 +187,7 @@
         .booking-list-item { background: var(--border-light); border-left: 4px solid var(--primary-color); padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
 
         /* Kalendar Visual */
-        .custom-calendar { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 20px; transition: 0.3s; width: 100%; box-sizing: border-box;}
+        .custom-calendar { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 15px; margin-bottom: 20px; transition: 0.3s; width: 100%; box-sizing: border-box;}
         .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 1.2rem; }
         .cal-btn { background: transparent; border: 1px solid var(--primary-color); color: var(--text-main); padding: 4px 12px; cursor: pointer; font-weight: bold; }
         .cal-btn:hover { background: var(--primary-color); color: var(--on-primary); }
@@ -426,7 +426,7 @@
         .btn-reset:hover { background: rgba(199,110,104,.1); color: var(--danger); }
         .btn-info { border-color: rgba(119,165,173,.45); color: var(--info); }
         .btn-info:hover { background: rgba(119,165,173,.1); color: var(--info); }
-        .btn-sm { min-height: 34px; padding: 7px 11px; font-size: .67rem; border-radius: 9px; }
+        .btn-sm { min-height: 34px; padding: 7px 11px; font-size: .67rem; border-radius: var(--radius-sm); }
         .btn:disabled { transform: none; box-shadow: none; filter: saturate(.25); opacity: .48; }
 
         input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea {
@@ -538,7 +538,7 @@
             min-height: 130px;
             padding: 18px 14px;
             border: 1px solid var(--border-color);
-            border-radius: 18px;
+            border-radius: var(--radius-md);
             background: var(--card-bg);
             display: flex;
             flex-direction: column;
@@ -571,7 +571,7 @@
             padding: 10px 13px !important;
             border: 1px solid var(--border-color) !important;
             border-left: 1px solid var(--border-color) !important;
-            border-radius: 11px !important;
+            border-radius: var(--radius-md) !important;
             background: var(--card-bg) !important;
             font-family: 'Manrope', sans-serif !important;
             font-size: .9rem !important;
@@ -604,14 +604,14 @@
             margin-bottom: 8px;
             border: 1px solid var(--border-color);
             border-left: 1px solid var(--border-color);
-            border-radius: 13px;
+            border-radius: var(--radius-md);
             background: var(--card-bg);
         }
         .report-summary-box { gap: 10px; }
         .report-card {
             padding: 22px;
             border: 1px solid var(--border-color);
-            border-radius: 16px;
+            border-radius: var(--radius-md);
             background: var(--card-bg);
             text-align: left;
         }
@@ -626,7 +626,7 @@
         .barber-performance-card {
             padding: 16px;
             border: 1px solid var(--border-color);
-            border-radius: 14px;
+            border-radius: var(--radius-md);
             background: var(--card-bg);
         }
         .barber-performance-card strong { display: block; margin-bottom: 10px; font-size: .9rem; }
@@ -644,7 +644,7 @@
         .report-export-btn { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
         .report-summary-box { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
         .kpi-card { position: relative; text-align: left; }
-        .kpi-card-icon { display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: 10px; border-radius: 9px; background: color-mix(in srgb, var(--primary-color) 16%, transparent); color: var(--primary-strong); }
+        .kpi-card-icon { display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: 10px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--primary-color) 16%, transparent); color: var(--primary-strong); }
         .kpi-card-highlight { border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color)); background: linear-gradient(160deg, color-mix(in srgb, var(--primary-color) 10%, var(--card-bg)), var(--card-bg)); }
         .report-val-name { font-size: 1.25rem !important; line-height: 1.25; }
         .kpi-sub { margin-top: 4px; font-size: .72rem; color: var(--text-muted); }
@@ -658,7 +658,7 @@
         .barber-performance-card.rank-2 { border-color: color-mix(in srgb, #c7c7c7 45%, var(--border-color)); }
         .barber-performance-card.rank-3 { border-color: color-mix(in srgb, #c78a52 45%, var(--border-color)); }
         .barber-card-top { display: flex; align-items: center; gap: 12px; }
-        .barber-rank-badge { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px; border-radius: 8px; font-size: .72rem; font-weight: 700; background: var(--border-light); color: var(--text-muted); }
+        .barber-rank-badge { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px; border-radius: var(--radius-sm); font-size: .72rem; font-weight: 700; background: var(--border-light); color: var(--text-muted); }
         .barber-performance-card.rank-1 .barber-rank-badge { background: #e0bd7a; color: #241a06; }
         .barber-performance-card.rank-2 .barber-rank-badge { background: #c7c7c7; color: #242424; }
         .barber-performance-card.rank-3 .barber-rank-badge { background: #c78a52; color: #2a1608; }
@@ -683,17 +683,17 @@
         .barber-assignment-card {
             padding: 14px;
             border: 1px solid var(--border-color);
-            border-radius: 14px;
+            border-radius: var(--radius-md);
             background: var(--card-bg);
         }
         .barber-assignment-card label { display: block; margin-bottom: 7px; color: var(--text-muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
         .barber-duty-name { min-height: 18px; margin-top: 5px; color: var(--text-muted); font-size: .72rem; font-weight: 600; }
         .admin-seat-toggle-barber { display:block; font-size: .68rem; font-weight: 500; opacity: .8; margin: 3px 0; letter-spacing: normal; }
 
-        .custom-calendar { padding: 16px; border-radius: 16px; background: var(--card-bg); }
+        .custom-calendar { padding: 16px; border-radius: var(--radius-md); background: var(--card-bg); }
         .cal-header { font-family: 'Manrope', sans-serif; font-size: .9rem; font-weight: 700; }
         .cal-btn { min-width: 34px; min-height: 34px; border-radius: var(--radius-sm); border-color: var(--border-color); }
-        .cal-day { padding: 10px 0; border-radius: 9px; font-size: .78rem; transition: background .14s var(--ease), transform .14s var(--ease); }
+        .cal-day { padding: 10px 0; border-radius: var(--radius-sm); font-size: .78rem; transition: background .14s var(--ease), transform .14s var(--ease); }
         .cal-day:hover:not(.disabled) { transform: translateY(-1px); background: var(--card-hover); }
         .cal-day.selected { background: var(--primary-color); color: var(--on-primary); }
 
@@ -703,7 +703,7 @@
             min-height: 72vh;
             padding: clamp(28px, 6vw, 64px) !important;
             border: 1px solid var(--border-color) !important;
-            border-radius: 30px !important;
+            border-radius: var(--radius-lg) !important;
             overflow: hidden;
             background: linear-gradient(145deg, var(--surface-color), color-mix(in srgb, var(--surface-color) 92%, var(--primary-color) 8%));
             box-shadow: var(--shadow-lg);
@@ -719,7 +719,7 @@
         }
         #display-app h2 { color: var(--text-main) !important; font-family: 'Cormorant Garamond', serif; font-size: clamp(3rem, 8vw, 6rem) !important; font-weight: 500; letter-spacing: -.055em; }
 
-        .app-dialog { border-radius: 22px; background: var(--surface-elevated); box-shadow: var(--shadow-lg); }
+        .app-dialog { border-radius: var(--radius-lg); background: var(--surface-elevated); box-shadow: var(--shadow-lg); }
         .app-dialog::backdrop { background: rgba(3,5,4,.72); backdrop-filter: blur(8px); }
         .app-dialog-content { padding: 28px; }
 
@@ -752,7 +752,7 @@
             .input-row { gap: 10px; }
             .input-row > div { min-width: 100%; }
             .ticket-box { padding-inline: 20px; }
-            #display-app > div { border-radius: 22px !important; }
+            #display-app > div { border-radius: var(--radius-lg) !important; }
         }
 
         /* Solo-state Pelanggan pill: when no staff is signed in, Pelanggan is
@@ -796,9 +796,9 @@
             --ticket-gradient: linear-gradient(145deg, rgba(255,103,29,.10), rgba(216,176,107,.055) 52%, rgba(255,255,255,.02));
             --shadow-sm: 0 12px 34px rgba(0,0,0,.24);
             --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
-            --radius-md: 18px;
-            --radius-lg: 28px;
-            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 22px;
+            --radius-sm: 8px;
             --ease: cubic-bezier(.2,.8,.2,1);
             --warning: #c99a4b;
             --danger: #c76e68;
@@ -862,7 +862,7 @@
             margin-bottom: 52px;
             padding: 9px;
             border-color: rgba(255,255,255,.10);
-            border-radius: 20px;
+            border-radius: var(--radius-lg);
             background: color-mix(in srgb, var(--surface-color) 90%, transparent);
             box-shadow: 0 18px 54px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.035);
         }
@@ -904,7 +904,7 @@
         }
         .brand-monogram {
             border-color: rgba(255,103,29,.45);
-            border-radius: 13px;
+            border-radius: var(--radius-md);
             color: var(--on-primary);
             background: linear-gradient(145deg, var(--sleek-accent-strong), var(--sleek-accent));
             box-shadow: 0 8px 24px rgba(255,103,29,.20);
@@ -914,7 +914,7 @@
         }
         .brand-copy strong { font-size: .88rem; letter-spacing: -.015em; text-transform: none; }
         .brand-copy span { color: var(--primary-color); letter-spacing: .12em; }
-        .app-nav .btn { border-radius: 11px; }
+        .app-nav .btn { border-radius: var(--radius-md); }
         .app-nav .btn.active {
             border-color: rgba(255,103,29,.28);
             background: var(--sleek-accent-soft);
@@ -979,7 +979,7 @@
             text-transform: none;
         }
 
-        .btn { border-radius: 13px; }
+        .btn { border-radius: var(--radius-md); }
         .btn-action {
             border-color: var(--sleek-accent);
             background: linear-gradient(135deg, var(--sleek-accent-strong), var(--sleek-accent));
@@ -996,7 +996,7 @@
         }
         #btnBookTicket, #btnSubmitApp {
             min-height: 56px;
-            border-radius: 16px;
+            border-radius: var(--radius-md);
             font-size: .84rem !important;
             letter-spacing: .075em;
         }
@@ -1006,7 +1006,7 @@
 
         input[type="text"], input[type="tel"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], input[type="password"], select, textarea {
             min-height: 52px;
-            border-radius: 15px;
+            border-radius: var(--radius-md);
             background: color-mix(in srgb, var(--input-bg) 94%, white 6%);
         }
         input:focus, select:focus, textarea:focus {
@@ -1030,7 +1030,7 @@
         #themeSelector {
             min-height: 38px;
             height: 38px !important;
-            border-radius: 11px;
+            border-radius: var(--radius-md);
             background-color: var(--surface-elevated);
             color: var(--text-main);
             color-scheme: dark;
@@ -1066,17 +1066,17 @@
 
         .mode-toggle {
             padding: 5px;
-            border-radius: 17px;
+            border-radius: var(--radius-md);
             background: color-mix(in srgb, var(--surface-color) 90%, black 10%);
         }
-        .mode-toggle .mode-btn { border-radius: 12px; }
+        .mode-toggle .mode-btn { border-radius: var(--radius-md); }
         .mode-toggle .mode-btn.active {
             background: var(--surface-elevated);
             color: var(--text-main);
             box-shadow: 0 8px 24px rgba(0,0,0,.22), inset 0 0 0 1px rgba(255,103,29,.20);
         }
-        .service-category-tabs { padding: 5px; border-radius: 15px; }
-        .service-category-tab { min-height: 42px; border-radius: 11px; }
+        .service-category-tabs { padding: 5px; border-radius: var(--radius-md); }
+        .service-category-tab { min-height: 42px; border-radius: var(--radius-md); }
         .service-category-tab.active {
             background: var(--sleek-accent-soft);
             color: var(--sleek-accent-strong);
@@ -1091,14 +1091,14 @@
             padding: 6px;
             overflow-x: auto;
             border: 1px solid var(--border-color);
-            border-radius: 16px;
+            border-radius: var(--radius-md);
             background: color-mix(in srgb, var(--surface-color) 88%, black 12%);
         }
         .weekly-hours-tab {
             min-height: 42px;
             padding: 8px 10px;
             border: 1px solid transparent;
-            border-radius: 11px;
+            border-radius: var(--radius-md);
             background: transparent;
             color: var(--text-muted);
             font: 700 .72rem/1 'Manrope', sans-serif;
@@ -1145,7 +1145,7 @@
             margin-bottom: 16px;
             padding: 14px 16px;
             border: 1px solid var(--border-color);
-            border-radius: 14px;
+            border-radius: var(--radius-md);
             background: var(--card-bg);
             color: var(--text-main);
             cursor: pointer;
@@ -1158,7 +1158,7 @@
 
         .input-group .service-checkbox-label {
             min-height: 70px;
-            border-radius: 17px;
+            border-radius: var(--radius-md);
             background: color-mix(in srgb, var(--card-bg) 88%, var(--surface-elevated) 12%);
         }
         .input-group .service-checkbox-label:has(input:checked) {
@@ -1182,7 +1182,7 @@
             margin-top: 12px;
             padding: 12px 14px;
             border: 1px dashed var(--primary-color);
-            border-radius: 12px;
+            border-radius: var(--radius-md);
             background: rgba(199,166,106,.08);
             color: var(--text-main);
             font-size: .82rem;
@@ -1208,7 +1208,7 @@
             min-height: 96px;
             padding: 15px 10px;
             border: 1px solid var(--border-color);
-            border-radius: 14px;
+            border-radius: var(--radius-md);
             background: rgba(255,255,255,.025);
             display: flex;
             flex-direction: column;
@@ -1235,7 +1235,7 @@
         #adminServicesList .service-sort-item {
             padding: 18px !important;
             border-left-width: 1px !important;
-            border-radius: 18px;
+            border-radius: var(--radius-md);
             background: color-mix(in srgb, var(--surface-elevated) 65%, var(--card-bg));
             box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
         }
@@ -1243,7 +1243,7 @@
             border-color: rgba(255,103,29,.28);
             background: color-mix(in srgb, var(--surface-elevated) 88%, var(--sleek-accent) 12%);
         }
-        .service-sort-handle { border-radius: 12px; }
+        .service-sort-handle { border-radius: var(--radius-md); }
         .service-sort-item.drag-before { border-top-color: var(--sleek-accent); }
         .service-sort-item.drag-after { border-bottom-color: var(--sleek-accent); }
         .service-type-badge { background: rgba(255,255,255,.075); color: var(--text-main); }
@@ -1333,7 +1333,7 @@
             width: 22px;
             height: 22px;
             border: 1px solid var(--border-color);
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             background: transparent;
             color: var(--text-muted);
             font-size: .68rem;
@@ -1419,7 +1419,7 @@
                 gap: 6px;
                 padding: 4px 6px 4px 14px;
                 border: 1px solid var(--border-color);
-                border-radius: 14px;
+                border-radius: var(--radius-md);
                 background: var(--surface-color);
                 cursor: default;
             }
@@ -1447,7 +1447,7 @@
 
         .ticket-box {
             border-color: rgba(255,103,29,.42);
-            border-radius: 30px;
+            border-radius: var(--radius-lg);
             box-shadow: 0 32px 100px rgba(0,0,0,.46), 0 0 70px rgba(255,103,29,.07);
         }
         .ticket-number { color: var(--primary-strong); text-shadow: 0 12px 40px rgba(216,176,107,.16); }
@@ -1463,10 +1463,10 @@
         .view-section.active { animation-duration: .26s; }
 
         @media (max-width: 680px) {
-            .app-nav { margin-bottom: 34px; border-radius: 17px; }
+            .app-nav { margin-bottom: 34px; border-radius: var(--radius-md); }
             #customer-header-text { padding-top: 24px; margin-bottom: 30px !important; }
             #customer-header-text h2 { font-size: clamp(2.55rem, 15vw, 4.1rem) !important; }
-            .panel-box { border-radius: 22px; }
+            .panel-box { border-radius: var(--radius-lg); }
             #customer-take-ticket, #bookingFormBox { padding: 22px 17px; }
             #adminServicesList .service-sort-item { padding: 15px !important; }
             .weekly-hours-tabs { grid-template-columns: repeat(7, minmax(74px, 1fr)); }
@@ -1492,16 +1492,16 @@
         #themeSelector { width: auto; padding: 8px 12px; height: auto; }
         #customer-header-text { text-align: center; margin-bottom: 25px; }
         #customerShopName { color: var(--primary-color); font-size: 2rem; }
-        #customer-closed-view { display: none; background: rgba(220, 53, 69, 0.1); border: 2px solid var(--danger); padding: 40px; border-radius: 12px; text-align: center; margin: 20px 0; }
+        #customer-closed-view { display: none; background: rgba(220, 53, 69, 0.1); border: 2px solid var(--danger); padding: 40px; border-radius: var(--radius-md); text-align: center; margin: 20px 0; }
         #closedBookingReminder { display:none; margin-top:18px; padding-top:18px; border-top:1px solid var(--border-color); }
         #closedBookingReminderText { margin-bottom:12px; }
-        #customer-break-alert { display: none; background: rgba(255, 193, 7, 0.1); border: 2px solid #ffc107; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0; }
+        #customer-break-alert { display: none; background: rgba(255, 193, 7, 0.1); border: 2px solid #ffc107; padding: 20px; border-radius: var(--radius-md); text-align: center; margin: 20px 0; }
         #breakUntilTime { font-size:1.2rem; }
         #customer-take-ticket { display: none; border-style: dashed; }
         #walkinQueueStatus { margin-bottom:18px; }
-        #queueFullAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 8px; }
-        #adminNoActiveSeatsWarning { display:none; text-align:center; margin-bottom:18px; background: rgba(220, 53, 69, 0.12); border: 1px solid var(--danger); color: var(--danger); padding: 14px 16px; border-radius: 8px; font-weight: bold; font-size: 0.9rem; cursor: pointer; }
-        #closingSoonAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: 8px; }
+        #queueFullAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: var(--radius-sm); }
+        #adminNoActiveSeatsWarning { display:none; text-align:center; margin-bottom:18px; background: rgba(220, 53, 69, 0.12); border: 1px solid var(--danger); color: var(--danger); padding: 14px 16px; border-radius: var(--radius-sm); font-weight: bold; font-size: 0.9rem; cursor: pointer; }
+        #closingSoonAlert { display:none; text-align:center; margin-bottom:15px; background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: 15px; border-radius: var(--radius-sm); }
         #closingSoonAlertText { margin-bottom:10px; font-size:0.9rem; }
         #walkinServiceHint { display:none; }
         #walkinServiceSummary { margin-top:15px; color:var(--primary-color); font-size:1.1rem; text-align:right; }
@@ -1512,7 +1512,7 @@
         #mySeatDir { margin-top: 15px; font-weight: bold; color: var(--success); font-size:1.2rem; display:none; }
         #walkinWaitingActions { display:none; gap:10px; margin-top:20px; flex-wrap:wrap; }
         #bookingFormTitle { color: var(--primary-color); margin-bottom: 15px; text-align: center; }
-        #customerMapFrame { width:100%; height:220px; border:0; border-radius:6px; }
+        #customerMapFrame { width:100%; height:220px; border:0; border-radius: var(--radius-sm); }
         #customerMapLink { display:block; width:100%; margin-top:10px; text-align:center; }
         #bookingServiceHint { display:none; }
         #bookServiceSummary { margin-top:15px; color:var(--primary-color); font-size:1.1rem; text-align:right; }
@@ -1523,24 +1523,24 @@
         #customer-my-appointments { display:none; border-color: var(--info); }
         #tvServingGrid { margin-bottom: 50px; }
         #tvUpcoming { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 20px; justify-content: flex-start; }
-        #tv-closed-notice { display: none; margin-top: 40px; padding: 20px; background: rgba(220,53,69,0.1); color: var(--danger); border-radius: 8px; font-size: 1.5rem; font-weight: bold; }
+        #tv-closed-notice { display: none; margin-top: 40px; padding: 20px; background: rgba(220,53,69,0.1); color: var(--danger); border-radius: var(--radius-sm); font-size: 1.5rem; font-weight: bold; }
         #inviteBarberError { color:var(--danger); display:none; margin-bottom:10px; }
         #staffListContainer { margin-top:20px; }
-        #adminDetectedLocation { padding:12px; margin-top:15px; border-radius:8px; background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
+        #adminDetectedLocation { padding:12px; margin-top:15px; border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
         #announcementImageStatus { font-size:0.78rem; margin-top:7px; }
-        #fastPassCandidateSummary { padding:12px; margin-bottom:12px; border-radius:8px; background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
-        #adminUnservableBookingSection { display:none; margin-bottom:20px; padding:14px; border:1px solid var(--danger); border-radius:8px; background:rgba(220,53,69,0.08); }
+        #fastPassCandidateSummary { padding:12px; margin-bottom:12px; border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.88rem; }
+        #adminUnservableBookingSection { display:none; margin-bottom:20px; padding:14px; border:1px solid var(--danger); border-radius: var(--radius-sm); background:rgba(220,53,69,0.08); }
         #adminUnservableBookingSummary { color:var(--danger); margin-bottom:6px; }
         #adminCancelableQueueList { margin-bottom:18px; }
-        #adminClosedSelectionSummary { padding:12px; margin-bottom:15px; border-radius:8px; background:var(--border-light); color:var(--text-main); font-weight:600; }
+        #adminClosedSelectionSummary { padding:12px; margin-bottom:15px; border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-main); font-weight:600; }
         #adminVisualCalendar { border-color: var(--danger); }
         #adminCalMonthYear { color: var(--danger); }
         #btnAddClosedDate { width: 100%; background: var(--danger); border-color: var(--danger); }
-        #adminEditServiceForm { display:none; background: rgba(23, 162, 184, 0.05); padding: 20px; border: 1px solid var(--info); border-radius: 8px; margin-bottom: 20px; }
-        #editSvcProfileSummary { margin-top:8px; padding:10px; border-radius:6px; background:var(--border-light); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
+        #adminEditServiceForm { display:none; background: rgba(23, 162, 184, 0.05); padding: 20px; border: 1px solid var(--info); border-radius: var(--radius-sm); margin-bottom: 20px; }
+        #editSvcProfileSummary { margin-top:8px; padding:10px; border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
         #adminServicesList { margin-bottom: 20px; }
-        #newSvcProfileSummary { margin-top:8px; padding:10px; border-radius:6px; background:var(--card-bg); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
-        #operationalHoursNotice { display:none; margin-top:12px; padding:10px 12px; color:var(--warning); background:color-mix(in srgb, var(--warning) 10%, transparent); border-left:3px solid var(--warning); border-radius:6px; font-size:0.85rem; }
+        #newSvcProfileSummary { margin-top:8px; padding:10px; border-radius: var(--radius-sm); background:var(--card-bg); color:var(--text-muted); font-size:0.85rem; line-height:1.45; }
+        #operationalHoursNotice { display:none; margin-top:12px; padding:10px 12px; color:var(--warning); background:color-mix(in srgb, var(--warning) 10%, transparent); border-left:3px solid var(--warning); border-radius: var(--radius-sm); font-size:0.85rem; }
         #saveOperationalHoursBtn { margin-top: 20px; width: 100%; }
         #adminSeatControls { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:25px; }
         #adminCancelDialogTitle { color:var(--danger); margin-bottom:10px; }
@@ -1589,8 +1589,8 @@
         #queueFullAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom:10px; }
         #closingSoonAlertHeading { color:var(--danger); font-weight:bold; font-size: 1.1rem; margin-bottom:10px; }
         #btnBackToMenu { margin-top: 12px; width: 100%; }
-        #customerMapInfoBox { background:var(--border-light); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:18px; }
-        #tvDisplayCard { border: 4px solid var(--surface-color); padding: 40px; border-radius: 12px; text-align: center; max-width: 900px; margin: 0 auto; }
+        #customerMapInfoBox { background:var(--border-light); border:1px solid var(--border-color); border-radius: var(--radius-sm); padding:12px; margin-bottom:18px; }
+        #tvDisplayCard { border: 4px solid var(--surface-color); padding: 40px; border-radius: var(--radius-md); text-align: center; max-width: 900px; margin: 0 auto; }
         #tvServingHeading { color: var(--primary-color); margin-bottom: 30px; font-size: 3rem; }
         #tvUpcomingHeading { color: var(--text-muted); text-align: left; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
         #barberWaitingPanel { margin-top: 30px; border-color: var(--info); }
@@ -1605,12 +1605,12 @@
         #adminFastPassPanel { border-color:#ffc107; }
         #btnApproveFastPass { width:100%; background:#b57900; border-color:#b57900; }
         #adminUnservableBookingNote { font-size:0.84rem; margin-bottom:12px; }
-        #adminClosedDateGuide { background:rgba(220,53,69,0.08); border:1px dashed var(--danger); border-radius:8px; padding:12px; margin-bottom:15px; }
+        #adminClosedDateGuide { background:rgba(220,53,69,0.08); border:1px dashed var(--danger); border-radius: var(--radius-sm); padding:12px; margin-bottom:15px; }
         #adminClosedDateActions { display:flex; justify-content:flex-end; margin-bottom:10px; }
         #calLegendSpecialIcon { background:rgba(220,53,69,.18); border:1px solid var(--danger); }
         #calLegendWeeklyClosureIcon { background:rgba(201,154,75,.12); border:1px dashed var(--warning); }
         #calLegendSelectedIcon { background: var(--primary-color); }
-        #adminAddServiceBox { background: var(--border-light); padding: 15px; border-radius: 8px; border: 1px dashed var(--border-color); }
+        #adminAddServiceBox { background: var(--border-light); padding: 15px; border-radius: var(--radius-sm); border: 1px dashed var(--border-color); }
         #addServiceHeading { font-size: 1rem; color: var(--text-main); margin-bottom: 10px; }
         #seatSectionDivider { border-color:var(--border-color); margin:24px 0; }
         #barberAssignmentHeading { margin-bottom:6px; }
@@ -1671,10 +1671,10 @@
            inert today by the same margin the inline style was, and stays
            ready to take effect exactly as designed if those !important rules
            are ever relaxed. */
-        .upcoming-item-accent { background:var(--border-light); padding:10px 15px; border-radius:6px; font-weight:bold; font-size:1.2rem; border-left:3px solid var(--primary-color); }
+        .upcoming-item-accent { background:var(--border-light); padding:10px 15px; border-radius: var(--radius-sm); font-weight:bold; font-size:1.2rem; border-left:3px solid var(--primary-color); }
         /* Badge component: small colored pill used for service target/
            category/profile/status labels. */
-        .badge { color:#fff; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:bold; }
+        .badge { color:#fff; padding:2px 8px; border-radius: var(--radius-md); font-size:0.75rem; font-weight:bold; }
         .badge-orange { background:#f39c12; }
         .badge-pink { background:#e83e8c; }
         .badge-info { background:var(--info); }
@@ -1685,18 +1685,18 @@
         .badge-danger { background:var(--danger); }
         /* Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md): per-staff
            capability/specialty checklist inside the admin staff card. */
-        .staff-capability-panel { width:100%; margin-top:10px; border:1px solid var(--border-color); border-radius:8px; padding:10px 12px; background:var(--card-bg); }
+        .staff-capability-panel { width:100%; margin-top:10px; border:1px solid var(--border-color); border-radius: var(--radius-sm); padding:10px 12px; background:var(--card-bg); }
         .staff-capability-panel summary { cursor:pointer; font-weight:bold; }
         .capability-hint { font-size:0.85rem; margin:8px 0; }
         .capability-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border-light); }
         .capability-row:last-of-type { border-bottom:none; }
         .capability-row-name { flex:1; }
-        .specialty-star { background:none; border:1px solid var(--border-color); border-radius:6px; width:32px; height:32px; font-size:1rem; line-height:1; cursor:pointer; color:var(--border-color); }
+        .specialty-star { background:none; border:1px solid var(--border-color); border-radius: var(--radius-sm); width:32px; height:32px; font-size:1rem; line-height:1; cursor:pointer; color:var(--border-color); }
         /* #f39c12 amber is bright in both themes, so white fails at 2.19:1;
            a near-black foreground reaches 7.78:1 and needs no per-theme token. */
         .specialty-star.active { color:#11130f; background:#f39c12; border-color:#f39c12; }
         /* Higher specificity than the global `input[type="number"] { width:100%; height:48px; }` rule (an attribute selector beats a lone class), otherwise this box balloons to fill the row and crushes the service name column. */
-        .staff-capability-panel input.capability-duration-input { width:52px; min-width:52px; max-width:52px; flex:0 0 auto; height:34px; padding:2px 4px; border:1px solid var(--border-color); border-radius:6px; font-size:0.8rem; text-align:center; }
+        .staff-capability-panel input.capability-duration-input { width:52px; min-width:52px; max-width:52px; flex:0 0 auto; height:34px; padding:2px 4px; border:1px solid var(--border-color); border-radius: var(--radius-sm); font-size:0.8rem; text-align:center; }
         /* Phase 2 (docs/DESIGN_BLUEPRINT.md): first-paint loading state.
            Deliberately a plain text row, not a skeleton or a spinner.
            A shimmer reads as "broken" on the TV and the seat tablets, and the
@@ -1704,7 +1704,7 @@
            animation-duration: .01ms !important on `*`, which would turn any
            spinner into a static blur anyway. Same box metrics as
            .service-empty-state so swapping between the two never shifts layout. */
-        .catalog-loading-state { padding:15px; border:1px dashed var(--border-color); border-radius:8px; color:var(--text-muted); text-align:center; font-size:0.9rem; }
+        .catalog-loading-state { padding:15px; border:1px dashed var(--border-color); border-radius: var(--radius-sm); color:var(--text-muted); text-align:center; font-size:0.9rem; }
 </style>
 </head>
 <body>
