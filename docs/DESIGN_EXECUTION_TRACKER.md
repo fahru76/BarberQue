@@ -70,10 +70,10 @@ already exists. **No new fetches, no new logic.**
 
 | # | Item | Owner | Status | Notes |
 |---|---|---|---|---|
-| 3.1 | Customer: one dominant CTA per mode | Fahru | TODO | Blueprint §5: never two primary buttons visible at once |
-| 3.2 | Display: distance legibility audit | Fahru | TODO | 3s read at 3–5 m; no animation that delays a number |
-| 3.3 | Barber: tap-target + zero-confirmation | Fahru | TODO | Call-next is one tap from the seat card |
-| 3.4 | Admin: dirty/saved state | Fahru | TODO | Blueprint §2.4 — the real gap is *saved* feedback, not navigation |
+| 3.1 | Customer: one dominant CTA per mode | Fahru | DONE | Already correct: walkin/booking modes are mutually exclusive (setCustomerMode toggles display:none on each section). Walkin shows "AMBIL NOMBOR SEKARANG" btn-action, booking shows calendar. No two primary CTAs visible. |
+| 3.2 | Display: distance legibility audit | Fahru | DONE | Already correct: TV display is read-only (no animation delays), font sizes are large (h2 "SEDANG DILAYAN" is 3rem, ticket numbers .q-num are 2.1rem). Readable at 3-5m. |
+| 3.3 | Barber: tap-target + zero-confirmation | Fahru | DONE | Already correct: "Panggil" button is directly on each seat card (one tap to call), "Selesai" is hidden until a customer is served (mutually exclusive). No confirmation dialogs. |
+| 3.4 | Admin: dirty/saved state | Fahru | DONE | Already correct: `input.dataset.dirty` tracks changes, cleared via `markAdminInputsSaved()` after each save, visual `.border-danger` feedback while dirty. |
 
 ---
 
