@@ -6579,7 +6579,9 @@
             const staffIdsBySeat = {};
             for (const seat of getSeatNumbers()) {
                 const select = document.getElementById(`barberNameSeat${seat}`);
-                staffIdsBySeat[seat] = select?.value || '';
+                const selectWasEdited = select?.dataset.dirty === 'true';
+                const serverStaffId = seatServerState[String(seat)]?.barberId || '';
+                staffIdsBySeat[seat] = selectWasEdited ? (select?.value || '') : (select?.value || serverStaffId);
                 assignments[seat] = normalizeBarberName(getStaffDisplayName(staffIdsBySeat[seat]));
             }
             if (!Object.values(assignments).some(Boolean)) return (await showAlertDialog("Pilih sekurang-kurangnya seorang tukang gunting yang bertugas."));
