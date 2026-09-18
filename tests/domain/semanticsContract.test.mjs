@@ -21,6 +21,13 @@ ok('customer surface hides staff login and reset controls',
     html.includes("const customerSurface = activeViewId === 'customer-app'") &&
     html.includes("loginBtn.style.display = customerSurface ? 'none' : 'inline-block'") &&
     html.includes("resetBtn.style.display = customerSurface ? 'none' : 'inline-block'"));
+ok('admin cancellation does not claim undelivered outbox notification',
+    !html.includes('Notifikasi aplikasi yang layak telah dimasukkan ke outbox') &&
+    !html.includes("eventKey: `admin-cancel:") &&
+    !html.includes("eventKey: `appointment-created:") &&
+    !html.includes("eventKey: `walkin-converted:") &&
+    !html.includes("eventKey: `customer-cancel:") &&
+    html.includes('Pelanggan akan melihat notifikasi dalam aplikasi apabila rekod disegarkan'));
 
 console.log(`\n${failures.length ? failures.length + ' failed' : '5 passed'}`);
 if (failures.length) process.exit(1);
