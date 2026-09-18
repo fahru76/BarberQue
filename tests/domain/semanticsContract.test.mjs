@@ -28,6 +28,11 @@ ok('admin cancellation does not claim undelivered outbox notification',
     !html.includes("eventKey: `walkin-converted:") &&
     !html.includes("eventKey: `customer-cancel:") &&
     html.includes('Pelanggan akan melihat notifikasi dalam aplikasi apabila rekod disegarkan'));
+const assignmentSaveBody = html.slice(html.indexOf('async function saveBarberAssignments()'), html.indexOf('async function saveSeatCountSetting()'));
+ok('seat assignment save avoids unique-index race',
+    assignmentSaveBody.includes('Clear changed old assignments first') &&
+    assignmentSaveBody.includes('for (const seat of seats)') &&
+    !assignmentSaveBody.includes('Promise.all(getSeatNumbers()'));
 
 console.log(`\n${failures.length ? failures.length + ' failed' : '5 passed'}`);
 if (failures.length) process.exit(1);
