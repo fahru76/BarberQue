@@ -2537,6 +2537,7 @@
             <!-- OTHER SETTINGS... -->
             <div class="panel-box">
                 <h3 class="admin-setting-title mb-15">TETAPAN WAKTU OPERASI</h3>
+                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('hours')">RESET BAHAGIAN</button>
                 <p class="text-muted fs-85 mb-15">Tetapkan waktu berasingan untuk setiap hari. Waktu operasi dan tempahan dipaparkan dalam waktu Malaysia (GMT+8).</p>
                 <!-- Component-audit fix (finding #4): role="tab" + aria-selected
                      (was aria-pressed) on each button, roving tabindex managed by
@@ -5739,7 +5740,6 @@
             global: 'semua tetapan operasi, katalog servis, susunan kerusi dan cache tempatan',
             shop: 'identiti dan lokasi kedai',
             announcement: 'pengumuman pelanggan',
-            reports: 'pilihan laporan sahaja',
             closedDates: 'senarai cuti kedai',
             services: 'katalog servis dan tetapan kebolehan servis',
             hours: 'waktu operasi dan had tempahan',
@@ -5782,6 +5782,15 @@
             button.disabled = true;
             try {
                 await window.ShopSettingsRepo.resetOperationalState(scope);
+            } catch (resetError) {
+                button.disabled = false;
+                error.textContent = resetError?.message || 'Reset gagal. Tiada perubahan disahkan.';
+                return;
+            }
+
+            // The RPC is the commit point. Everything below is local hydration;
+            // a read failure must not claim that the server reset did not happen.
+            try {
                 clearOperationalLocalState();
                 closeOperationalResetDialog();
                 initData();
@@ -5796,9 +5805,10 @@
                 refreshServiceConfigurationUI();
                 updateUI();
                 await showAlertDialog('Reset operasi berjaya. Staff dan sejarah transaksi dikekalkan.');
-            } catch (resetError) {
-                button.disabled = false;
-                error.textContent = resetError?.message || 'Reset gagal. Tiada perubahan disahkan.';
+            } catch (hydrationError) {
+                closeOperationalResetDialog();
+                await showAlertDialog('Reset operasi berjaya, tetapi paparan tempatan belum disegarkan. Muat semula halaman untuk melihat tetapan baharu.');
+                console.warn('Reset berjaya di server tetapi penyegaran tempatan gagal.', hydrationError);
             }
         }
 

@@ -3879,3 +3879,12 @@ are fixed in production.
 (planMove/diffBoards already exist for it); deploy verification of #kanbanPanel.
 Slice 3 is a real authorization surface and needs its own card + threat review
 before anyone builds it.
+## Done — reset error hunt (2026-09-18)
+
+- Found and fixed a missing Hours section reset control: the `hours` RPC scope
+  existed but was not reachable from the Admin UI.
+- Found and fixed a false failure path after a successful reset RPC: local
+  hydration errors are now reported separately and cannot claim the server
+  commit did not happen.
+- `npm test`: passed; reset contract: passed; differential: 20,000 / 0
+  mismatches; SQL consistency and grant consistency: passed.
