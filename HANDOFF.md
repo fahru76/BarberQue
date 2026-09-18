@@ -3837,6 +3837,43 @@ Why keep:
 - Both test suites are wired into `npm test` and pass (23 + 13 cases), so
   reverting would only churn history and delete coverage.
 
+## Done — final semantics bug hunt: six cross-layer defects patched (2026-09-18)
+
+Patched without changing the existing schema design:
+
+- Removed the offline walk-in fallback that created a local-only ticket with no
+  `public.queues` row; failed server registration now reports failure and leaves
+  no fake waiting ticket.
+- Made customer walk-in cancellation server-authoritative: the RPC must return
+  true before local state is marked cancelled. Network/RPC failure retains the
+  waiting ticket and offers retry instead of claiming success.
+- Added `cancelledByAdmin` semantic mapping for queue rows, preserving the raw
+  admin UUID while allowing cross-device UI/notification logic to recognize
+  admin cancellation (appointments already use the literal `admin`).
+- Staff-only queue, appointment, and seat realtime hydration/subscriptions now
+  require both a session and an active staff profile; inactive authenticated
+  accounts use the anon-safe queue path and do not receive staff-only feeds.
+- Kanban now counts completed/cancelled unassigned tickets in the waiting
+  column's `doneCount` instead of dropping them.
+- Added migration `20260918100000_harden_overnight_booking_capacity.sql` to map
+  overnight appointment times onto the continuous business-day axis in both
+  hours and capacity validation, aligning the authoritative RPC with the
+  client scheduler. Existing function signatures, tables, and columns remain
+  unchanged.
+
+Verification: `npm test` passes (24 Kanban tests, 3 overnight RPC contract
+checks, scheduler, 20,000 differential comparisons with 0 mismatches, SQL
+consistency, and SQL grant consistency). DOM boot/view sweep passes at both
+ themes and desktop/mobile sizes; only expected Supabase DNS errors occur on
+ the offline HTTP stub. No schema columns or existing function signatures were
+ changed.
+
+Risks deliberately not hidden: the offline browser probe cannot exercise a
+real Supabase booking/cancellation transaction; the new SQL migration requires
+production CI approval and live database application before overnight bookings
+are fixed in production.
+
+
 **Parked (none started, none scheduled):** slices 3–5 of the original plan —
 `admin_reassign_queue` RPC + migration + verification SQL; drag-and-drop
 (planMove/diffBoards already exist for it); deploy verification of #kanbanPanel.

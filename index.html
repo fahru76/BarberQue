@@ -3283,7 +3283,7 @@
             // declaration comment above) -- arm it the moment a session appears,
             // disarm it the moment one clears (staff sign-out), rather than leaving
             // it running for whoever's on this device next.
-            if (staffSession && !appointmentChannelUnsubscribe) {
+            if (staffSession && staffProfile?.active && !appointmentChannelUnsubscribe) {
                 appointmentChannelUnsubscribe = window.AppointmentRepo.subscribeAppointmentChanges(scheduleAppointmentRefresh);
                 // Same "fetch current state now" fix as the queues block above,
                 // and for the same reason -- refreshAppointmentsFromServer()
@@ -3293,15 +3293,15 @@
                 // correct: a fresh sign-in is exactly when this device's view of
                 // appointments is most likely to already be stale.
                 refreshAppointmentsFromServer();
-            } else if (!staffSession && appointmentChannelUnsubscribe) {
+            } else if ((!staffSession || !staffProfile?.active) && appointmentChannelUnsubscribe) {
                 appointmentChannelUnsubscribe();
                 appointmentChannelUnsubscribe = null;
             }
             // Same arm-on-session/disarm-on-signout treatment for seats -- see the
             // declaration comment above for why this one exists.
-            if (staffSession && !seatChannelUnsubscribe) {
+            if (staffSession && staffProfile?.active && !seatChannelUnsubscribe) {
                 seatChannelUnsubscribe = window.SeatRepo.subscribeSeatChanges(scheduleSeatRefresh);
-            } else if (!staffSession && seatChannelUnsubscribe) {
+            } else if ((!staffSession || !staffProfile?.active) && seatChannelUnsubscribe) {
                 seatChannelUnsubscribe();
                 seatChannelUnsubscribe = null;
             }
@@ -4896,7 +4896,7 @@
                     if (position >= 0 && position < activeSeatCount && servingCount > 0) {
                         notifyOnce(`prepare:${ticket.id}`, 'SILA BERSEDIA', `${getDisplayTicketId(ticket)}: Giliran anda semakin hampir. Pastikan anda berada berhampiran kedai.`);
                     }
-                } else if (ticket?.status === 'cancelled' && ticket.cancelledBy === 'admin') {
+                } else if (ticket?.status === 'cancelled' && (ticket.cancelledByAdmin || ticket.cancelledBy === 'admin')) {
                     notifyOnce(`admin-cancel:${ticket.id}:${ticket.cancelledAt}`, 'GILIRAN DIBATALKAN', `${getDisplayTicketId(ticket)}: ${ticket.cancelReason || 'Giliran dibatalkan oleh Admin.'}`);
                 }
             }
@@ -7793,13 +7793,9 @@
                 newId = serverTicket.id;
                 claimToken = serverTicket.claimToken;
             } catch (error) {
-                console.warn('Pendaftaran ke pelayan gagal; guna kaunter tempatan sahaja.', error);
-                let count = getDailyQueueCounter();
-                newId = `${getSessionPrefix()}${count.toString().padStart(2, '0')}-${getDailyTicketSuffix()}`;
-                // Ensure ID is unique if duplicate exists
-                const usedIds = new Set([...queues.map(q => q.id), ...getAppointments().map(a => a.id)]);
-                while(usedIds.has(newId)) { count++; newId = `${getSessionPrefix()}${count.toString().padStart(2, '0')}-${getDailyTicketSuffix()}`; }
-                saveDailyQueueCounter(count + 1);
+                console.warn('Pendaftaran ke pelayan gagal; tiket tidak dikeluarkan.', error);
+                await showAlertDialog('Pendaftaran gagal kerana sambungan ke pelayan tidak tersedia. Sila cuba lagi.');
+                return;
             }
 
             requestNotificationPermission();
@@ -8151,22 +8147,21 @@
             if (index < 0 || queues[index].status !== 'waiting') return (await showAlertDialog("Hanya Walk-in yang masih menunggu boleh dibatalkan."));
             const queue = queues[index];
             if (!(await showConfirmDialog(`Batalkan Walk-in ${queue.id}? Kedudukan giliran ini tidak boleh dipulihkan.`))) return;
+            const claimToken = localStorage.getItem('activeTicketClaimToken');
+            if (!claimToken) return (await showAlertDialog('Tiket ini tidak mempunyai pengesahan pelayan. Sila muat semula dan cuba lagi.'));
+            try {
+                const cancelled = await window.QueueRepo.cancelOwn(ticketId, claimToken);
+                if (!cancelled) return (await showAlertDialog('Tiket telah berubah atau tidak lagi boleh dibatalkan. Sila muat semula.'));
+            } catch (error) {
+                console.warn('Pembatalan tidak dapat disegerakkan ke pelayan.', error);
+                return (await showAlertDialog('Pembatalan gagal kerana sambungan ke pelayan tidak tersedia. Sila cuba lagi.'));
+            }
             queue.status = 'cancelled';
             queue.cancelledBy = 'customer';
             queue.cancelReason = 'Dibatalkan oleh pelanggan';
             queue.cancelledAt = getUTCISOString();
             queue.version = nextRecordVersion(queue);
             saveQueues(queues);
-            // Best-effort: mirror the cancellation to the server record too, if this
-            // ticket was ever taken through it (only tickets taken while the network
-            // call in bookTicket() succeeded have a token here). Never blocks the
-            // customer-facing cancellation above on network failure — the local
-            // record is still the source of truth this flow is read from.
-            const claimToken = localStorage.getItem('activeTicketClaimToken');
-            if (claimToken) {
-                try { await window.QueueRepo.cancelOwn(ticketId, claimToken); }
-                catch (error) { console.warn('Pembatalan tidak dapat disegerakkan ke pelayan.', error); }
-            }
             appendAuditEvent('walkin_cancelled', 'queue', queue.id, 'customer');
             enqueueNotification({
                 eventKey: `customer-cancel:${queue.id}:${queue.version}`, recordId: queue.id,
@@ -8702,7 +8697,7 @@
                 document.getElementById('myQueueContext').innerText = `Sila ke Kerusi ${ticket.seat || ''}. Terima kasih kerana menunggu.`;
             } else if (ticket.status === 'cancelled') {
                 const reason = ticket.cancelReason ? `: ${ticket.cancelReason}` : '';
-                document.getElementById('myStatus').innerText = `${ticket.cancelledBy === 'admin' ? 'Dibatalkan oleh Admin' : 'Dibatalkan'}${reason}`;
+                document.getElementById('myStatus').innerText = `${(ticket.cancelledByAdmin || ticket.cancelledBy === 'admin') ? 'Dibatalkan oleh Admin' : 'Dibatalkan'}${reason}`;
                 document.getElementById('myStatus').style.color = 'var(--danger)';
                 if (queueProgress) queueProgress.style.display = 'none';
                 if (queueContext) queueContext.style.display = 'none';
@@ -9208,7 +9203,7 @@
                 // comment for why a plain anon-safe merge isn't enough for staff
                 // (it would silently drop `version`, which cancel/fast-pass writes
                 // already assume is present and correct).
-                const freshRows = staffSession
+                const freshRows = staffSession && staffProfile?.active
                     ? await window.QueueRepo.listTodayQueuesFull()
                     : await window.QueueRepo.listQueues();
                 if (!saveQueues(mergeServerRows(getQueues(), freshRows))) return;
