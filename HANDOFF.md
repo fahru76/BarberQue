@@ -3879,6 +3879,48 @@ are fixed in production.
 (planMove/diffBoards already exist for it); deploy verification of #kanbanPanel.
 Slice 3 is a real authorization surface and needs its own card + threat review
 before anyone builds it.
+## Parked — WhatsApp Cloud API notification delivery (implementation soon)
+
+**Status:** Reserved, not implemented. Do not restore the removed browser-local
+`notificationOutbox` writes as a production solution.
+
+**Decision:** Integrate directly with Meta WhatsApp Cloud API. Keep browser/UI
+notifications separate from WhatsApp delivery. The browser must never call Meta
+with a secret token.
+
+**Target architecture:** server-authoritative QueueCut event/RPC → server-side
+`notification_jobs` outbox row → Supabase Edge Function dispatcher → Meta
+WhatsApp Cloud API approved utility template → Meta webhook → delivery status
+update on `notification_jobs`.
+
+**Prerequisites before coding:** Meta developer account, Business Portfolio,
+WhatsApp Business Account, WhatsApp-enabled business phone, Phone Number ID,
+System User long-lived access token, required WhatsApp permissions, approved
+message templates, customer opt-in capture, and a public webhook endpoint.
+
+**First implementation slice:** one server-side `notification_jobs` migration
+with RLS and idempotent `event_key`; one `whatsapp-dispatch` Edge Function; one
+`whatsapp-webhook` Edge Function; wire only admin appointment cancellation to
+one approved `appointment_cancelled` utility template. Verify accepted/sent/
+delivered/read/failed states before adding other events.
+
+**Required job fields:** channel, normalized recipient phone, template name and
+language, template variables, status, attempts, retry time, provider message ID,
+last error, and sent/delivered/read timestamps. Insert the job in the same
+server-side transaction as the business event; do not create it from a browser
+follow-up after the RPC.
+
+**Non-goals:** no WhatsApp Web automation, no access token in `index.html`, no
+localStorage outbox, no claim that an API acceptance response means delivery,
+and no WhatsApp send without explicit customer opt-in. Keep current in-app/
+browser `processCustomerNotifications()` behavior working independently.
+
+**Official references:**
+- https://developers.facebook.com/docs/whatsapp/cloud-api/get-started
+- https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-messages/
+- https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
+- https://developers.facebook.com/docs/whatsapp/cloud-api/guides/set-up-webhooks/
+
 ## Done — reset error hunt (2026-09-18)
 
 - Found and fixed a missing Hours section reset control: the `hours` RPC scope
