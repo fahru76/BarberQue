@@ -1513,6 +1513,7 @@
         #staffAuthStatus { font-size:0.82rem; }
         #staffLoginBtn { display:none; }
         #staffLogoutBtn { display:none; }
+        #appResetBtn { display:none; }
         /* Hidden by default (same reasoning as staffLoginBtn/staffLogoutBtn
            above) so it never flashes visible before updateStaffAuthUI() runs
            on page load -- JS reveals it only once a signed-in admin profile
@@ -1796,7 +1797,7 @@
                 <option value="dark">Gelap</option>
                 <option value="light">Cerah</option>
             </select>
-            <button class="btn btn-reset" onclick="resetSystem()">Reset</button>
+            <button class="btn btn-reset" id="appResetBtn" onclick="resetSystem()">Reset</button>
         </div>
     </nav>
     </header>
@@ -3365,12 +3366,21 @@
             const barberBtn = document.getElementById('navBarberBtn');
             const displayBtn = document.getElementById('navDisplayBtn');
             const customerBtn = document.getElementById('navCustomerBtn');
+            const resetBtn = document.getElementById('appResetBtn');
+            const activeViewId = document.querySelector('.view-section.active')?.id || 'customer-app';
+            const customerSurface = activeViewId === 'customer-app';
             if (!statusEl || !loginBtn || !logoutBtn) return;
             if (staffSession && staffProfile) {
                 const roleLabel = staffProfile.role === 'admin' ? 'Admin' : 'Tukang Gunting';
                 statusEl.textContent = `${staffProfile.displayName} (${roleLabel}${staffProfile.active ? '' : ' — belum aktif'})`;
+                // Customer is a public surface: keep staff identity/actions and
+                // destructive reset controls out of that header even when this
+                // browser happens to hold a staff session. Staff routes still
+                // expose their own sign-out control below.
                 loginBtn.style.display = 'none';
-                logoutBtn.style.display = 'inline-block';
+                logoutBtn.style.display = customerSurface ? 'none' : 'inline-block';
+                statusEl.style.display = customerSurface ? 'none' : 'inline';
+                if (resetBtn) resetBtn.style.display = customerSurface ? 'none' : 'inline-block';
                 if (displayBtn) displayBtn.style.display = 'inline-block';
                 if (barberBtn) barberBtn.style.display = 'inline-block';
                 if (adminBtn) adminBtn.style.display = staffProfile.role === 'admin' ? 'inline-block' : 'none';
@@ -3381,8 +3391,10 @@
                 if (customerBtn) customerBtn.classList.remove('nav-solo');
             } else {
                 statusEl.textContent = '';
-                loginBtn.style.display = 'inline-block';
+                loginBtn.style.display = customerSurface ? 'none' : 'inline-block';
                 logoutBtn.style.display = 'none';
+                statusEl.style.display = 'none';
+                if (resetBtn) resetBtn.style.display = customerSurface ? 'none' : 'inline-block';
                 if (displayBtn) displayBtn.style.display = 'none';
                 if (barberBtn) barberBtn.style.display = 'none';
                 if (adminBtn) adminBtn.style.display = 'none';
@@ -5771,6 +5783,7 @@
             if (viewId === 'admin-app') refreshStaffList();
             if (viewId === 'barber-app') refreshSeatServerState();
             updateUI();
+            updateStaffAuthUI();
             // Keep the URL in sync with whichever view is now actually showing.
             // Only reached past the gate above, i.e. only on a genuine switch --
             // a denied attempt never gets here, so it never touches the address

@@ -17,6 +17,10 @@ ok('queue hydration only uses staff RPC for active staff',
     html.includes('staffSession && staffProfile?.active'));
 ok('admin queue attribution is preserved separately from raw actor',
     fs.readFileSync('js/repositories/queueRepository.js', 'utf8').includes('cancelledByAdmin'));
+ok('customer surface hides staff login and reset controls',
+    html.includes("const customerSurface = activeViewId === 'customer-app'") &&
+    html.includes("loginBtn.style.display = customerSurface ? 'none' : 'inline-block'") &&
+    html.includes("resetBtn.style.display = customerSurface ? 'none' : 'inline-block'"));
 
-console.log(`\n${failures.length ? failures.length + ' failed' : '4 passed'}`);
+console.log(`\n${failures.length ? failures.length + ' failed' : '5 passed'}`);
 if (failures.length) process.exit(1);
