@@ -34,5 +34,9 @@ ok('seat assignment save avoids unique-index race',
     assignmentSaveBody.includes('for (const seat of seats)') &&
     !assignmentSaveBody.includes('Promise.all(getSeatNumbers()'));
 
+ok('seat assignment save preserves untouched server assignments',
+    assignmentSaveBody.includes("selectWasEdited = select?.dataset.dirty === 'true'") &&
+    assignmentSaveBody.includes("select?.value || serverStaffId"));
+
 console.log(`\n${failures.length ? failures.length + ' failed' : '5 passed'}`);
 if (failures.length) process.exit(1);
