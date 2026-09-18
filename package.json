@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node tests/domain/scheduler.test.mjs && node tests/domain/kanbanState.test.mjs && node tests/domain/overnightRpcContract.test.mjs && node tests/domain/semanticsContract.test.mjs && node tests/differential.test.mjs && node tests/sql-consistency.mjs && node tests/sql-grant-consistency.mjs",
+    "test": "node tests/domain/scheduler.test.mjs && node tests/domain/kanbanState.test.mjs && node tests/domain/overnightRpcContract.test.mjs && node tests/domain/semanticsContract.test.mjs && node tests/domain/resetContract.test.mjs && node tests/differential.test.mjs && node tests/sql-consistency.mjs && node tests/sql-grant-consistency.mjs",
     "test:live": "node tests/live-smoke.mjs"
   }
 }
