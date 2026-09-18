@@ -379,6 +379,19 @@
         #admin-app .admin-setting-title {
             color: var(--primary-color);
         }
+        .admin-section-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-3);
+            margin-bottom: var(--space-3);
+        }
+        .admin-section-heading .admin-setting-title {
+            margin-bottom: 0 !important;
+        }
+        .admin-section-heading .btn-reset {
+            flex: 0 0 auto;
+        }
         .panel-box::after {
             content: '';
             position: absolute;
@@ -1506,6 +1519,14 @@
             .weekly-hours-tabs { grid-template-columns: repeat(7, minmax(74px, 1fr)); }
             .weekly-hours-toolbar { align-items: stretch; flex-direction: column; }
             .weekly-hours-toolbar .btn { width: 100%; }
+            .admin-section-heading {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: var(--space-2);
+            }
+            .admin-section-heading .btn-reset {
+                align-self: flex-start;
+            }
         }
 
     
@@ -2141,8 +2162,10 @@
             </div>
 
             <section class="panel-box">
-                <h3 class="admin-setting-title mb-10">IDENTITI &amp; LOKASI KEDAI</h3>
-                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('shop')">RESET BAHAGIAN</button>
+                <div class="admin-section-heading">
+                    <h3 class="admin-setting-title mb-10">IDENTITI &amp; LOKASI KEDAI</h3>
+                    <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('shop')">RESET BAHAGIAN</button>
+                </div>
                 <p class="text-muted fs-88 mb-15">Nama aplikasi, nama kedai dan lokasi akan dipaparkan pada halaman pelanggan.</p>
                 <div class="input-group">
                     <label for="adminAppNameInput">Nama Aplikasi:</label>
@@ -2182,8 +2205,10 @@
                     <div class="admin-content-section" data-admin-section="announcement">
 
             <section class="panel-box" id="adminAnnouncementSection">
-                <h3 class="admin-setting-title mb-10">PENGUMUMAN PELANGGAN</h3>
-                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('announcement')">RESET BAHAGIAN</button>
+                <div class="admin-section-heading">
+                    <h3 class="admin-setting-title mb-10">PENGUMUMAN PELANGGAN</h3>
+                    <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('announcement')">RESET BAHAGIAN</button>
+                </div>
                 <p class="text-muted fs-88 mb-15">Pengumuman akan dipaparkan pada halaman pelanggan untuk Walk-in dan Tempahan Online.</p>
                 <div class="input-group">
                     <label id="announcementEditorLabel">Kandungan Pengumuman:</label>
@@ -2338,8 +2363,10 @@
 
             <!-- CUTI KEDAI -->
             <div class="panel-box border-danger">
-                <h3 class="admin-setting-title mb-15">TETAPAN CUTI / TUTUP KEDAI</h3>
-                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('closedDates')">RESET BAHAGIAN</button>
+                <div class="admin-section-heading">
+                    <h3 class="admin-setting-title mb-15">TETAPAN CUTI / TUTUP KEDAI</h3>
+                    <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('closedDates')">RESET BAHAGIAN</button>
+                </div>
                 <div id="adminClosedDateGuide">
                     <strong class="d-block text-danger mb-5">Cara Pilih Cuti</strong>
                     <span class="text-muted fs-88" id="adminClosedDateGuideText">Klik mana-mana tarikh untuk tambah ke senarai cuti di bawah. Klik sekali lagi pada tarikh yang sama untuk buang. Pilih seberapa banyak tarikh berlainan yang perlu sebelum tekan REKOD CUTI.</span>
@@ -2377,8 +2404,10 @@
 
             <!-- TETAPAN SERVIS -->
             <div class="panel-box">
-                <h3 class="admin-setting-title mb-15">TETAPAN SERVIS & DURASI</h3>
-                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('services')">RESET BAHAGIAN</button>
+                <div class="admin-section-heading">
+                    <h3 class="admin-setting-title mb-15">TETAPAN SERVIS & DURASI</h3>
+                    <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('services')">RESET BAHAGIAN</button>
+                </div>
                 <div id="adminEditServiceForm">
                     <h4 class="text-info mb-10">Kemas Kini Servis</h4>
                     <input type="hidden" id="editSvcId">
@@ -2536,8 +2565,10 @@
 
             <!-- OTHER SETTINGS... -->
             <div class="panel-box">
-                <h3 class="admin-setting-title mb-15">TETAPAN WAKTU OPERASI</h3>
-                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('hours')">RESET BAHAGIAN</button>
+                <div class="admin-section-heading">
+                    <h3 class="admin-setting-title mb-15">TETAPAN WAKTU OPERASI</h3>
+                    <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('hours')">RESET BAHAGIAN</button>
+                </div>
                 <p class="text-muted fs-85 mb-15">Tetapkan waktu berasingan untuk setiap hari. Waktu operasi dan tempahan dipaparkan dalam waktu Malaysia (GMT+8).</p>
                 <!-- Component-audit fix (finding #4): role="tab" + aria-selected
                      (was aria-pressed) on each button, roving tabindex managed by
@@ -2603,8 +2634,10 @@
                     <div class="admin-content-section" data-admin-section="seats">
 
             <div class="panel-box">
-                <h3 class="admin-setting-title mb-15">KAWALAN KERUSI & HAD GILIRAN</h3>
-                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('seats')">RESET BAHAGIAN</button>
+                <div class="admin-section-heading">
+                    <h3 class="admin-setting-title mb-15">KAWALAN KERUSI & HAD GILIRAN</h3>
+                    <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('seats')">RESET BAHAGIAN</button>
+                </div>
                 <div class="input-group mb-15">
                     <label for="adminMaxQueueInput">Had Maksimum Giliran Menunggu:</label>
                     <input type="number" id="adminMaxQueueInput" min="1">
