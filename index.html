@@ -7533,11 +7533,7 @@
                     queue.version = nextRecordVersion(queue);
                     saveQueues(queues);
                     appendAuditEvent('queue_cancelled', 'queue', queue.id, 'admin', { reason });
-                    enqueueNotification({
-                        eventKey: `admin-cancel:${queue.id}:${queue.version}`, recordId: queue.id,
-                        phone: queue.phone,
-                        title: 'GILIRAN DIBATALKAN', message: `${queue.id}: Giliran anda dibatalkan oleh Admin. Sebab: ${reason}`
-                    });
+
                 }
             } else {
                 const appointments = getAppointments();
@@ -7553,15 +7549,11 @@
                     appointment.version = nextRecordVersion(appointment);
                     saveAppointments(appointments);
                     appendAuditEvent('appointment_cancelled', 'appointment', appointment.id, 'admin', { reason });
-                    enqueueNotification({
-                        eventKey: `admin-cancel:${appointment.id}:${appointment.version}`, recordId: appointment.id,
-                        phone: appointment.phone,
-                        title: 'TEMPAHAN DIBATALKAN', message: `${appointment.id}: Tempahan ${appointment.date} ${appointment.time} GMT+8 dibatalkan oleh Admin. Sebab: ${reason}`
-                    });
+
                 }
             }
             updateUI();
-            (await showAlertDialog("Pembatalan direkodkan. Notifikasi aplikasi yang layak telah dimasukkan ke outbox."));
+            (await showAlertDialog("Pembatalan direkodkan. Pelanggan akan melihat notifikasi dalam aplikasi apabila rekod disegarkan."));
             } catch (error) {
                 // The server-side cancellation already succeeded at this point --
                 // only the local mirror/notification bookkeeping failed. The next
@@ -8127,11 +8119,7 @@
                 }
                 saveAppointments(apps);
                 appendAuditEvent('appointment_rescheduled', 'appointment', appointment.id, 'customer', { date, time, fastPassRevoked: hadFastPass });
-                enqueueNotification({
-                    eventKey: `rescheduled:${appointment.id}:${appointment.version}`, recordId: appointment.id,
-                    phone, title: 'TEMPAHAN DIKEMAS KINI',
-                    message: `${appointment.id}: Tempahan baharu pada ${date} ${time} GMT+8.${hadFastPass ? ' Kelulusan keutamaan perlu dibuat semula oleh Admin.' : ''}`
-                });
+
                 (await showAlertDialog(hadFastPass ? "Tempahan dikemas kini. Laluan Pantas dibatalkan dan memerlukan kelulusan semula Admin." : "Tempahan berjaya dikemas kini."));
                 cancelEditMode(); updateUI();
                 return;
@@ -8179,10 +8167,7 @@
                     return (await showAlertDialog("Pertukaran berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman."));
                 }
                 appendAuditEvent('walkin_converted_to_booking', 'queue', queue.id, 'customer', { appointmentId: newId, date, time });
-                enqueueNotification({
-                    eventKey: `walkin-converted:${newId}:1`, recordId: newId, phone,
-                    title: 'TEMPAHAN DISAHKAN', message: `${newId}: Walk-in anda telah ditukar kepada tempahan pada ${date} ${time} GMT+8.`
-                });
+
                 window.currentCustomerTicket = null;
                 localStorage.removeItem('activeTicket');
                 localStorage.removeItem('activeTicketClaimToken');
@@ -8207,10 +8192,7 @@
             const createResult = commitStorageTransaction({ myAppIds: [...new Set(myAppIds)], appointments: apps });
             if (!createResult.ok) return (await showAlertDialog("Tempahan berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman."));
             appendAuditEvent('appointment_created', 'appointment', newId, 'customer', { date, time });
-            enqueueNotification({
-                eventKey: `appointment-created:${newId}:1`, recordId: newId, phone,
-                title: 'TEMPAHAN DISAHKAN', message: `${newId}: Tempahan anda pada ${date} ${time} GMT+8 telah disahkan.`
-            });
+
             (await showAlertDialog("Tempahan berjaya!"));
             cancelEditMode(); updateUI();
         }
@@ -8279,11 +8261,7 @@
             queue.version = nextRecordVersion(queue);
             saveQueues(queues);
             appendAuditEvent('walkin_cancelled', 'queue', queue.id, 'customer');
-            enqueueNotification({
-                eventKey: `customer-cancel:${queue.id}:${queue.version}`, recordId: queue.id,
-                phone: queue.phone,
-                title: 'WALK-IN DIBATALKAN', message: `${queue.id}: Pembatalan Walk-in anda telah direkodkan.`
-            });
+
             window.currentCustomerTicket = null;
             localStorage.removeItem('activeTicket');
             updateUI();
@@ -8335,11 +8313,7 @@
             app.version = nextRecordVersion(app);
             if (!saveAppointments(apps)) return (await showAlertDialog("Pembatalan berjaya di pelayan, tetapi tidak dapat disimpan di peranti ini. Sila muat semula halaman."));
             appendAuditEvent('appointment_cancelled', 'appointment', app.id, 'customer');
-            enqueueNotification({
-                eventKey: `customer-cancel:${app.id}:${app.version}`, recordId: app.id,
-                phone: app.phone,
-                title: 'TEMPAHAN DIBATALKAN', message: `${app.id}: Pembatalan tempahan ${app.date} ${app.time} GMT+8 telah direkodkan.`
-            });
+
             updateUI();
         }
 
