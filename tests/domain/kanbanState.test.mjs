@@ -51,6 +51,13 @@ console.log('\nCard placement');
         columns.map(c => c.doneCount), [0, 2, 0, 0]);
 }
 
+console.log('\nUnassigned cancellation count');
+{
+    const { columns } = K.buildBoard({ seats: SEATS, queues: [q('C1', 'cancelled')] });
+    eq('cancelled unassigned ticket is counted in waiting column',
+        columns.find(c => c.id === K.WAITING_COLUMN_ID).doneCount, 1);
+}
+
 console.log('\nFast-pass ordering  (matches sortWaitingQueue)');
 {
     const queues = [q('W1', 'waiting', { min: 0 }), q('W2', 'waiting', { min: 5 }), q('FP', 'waiting', { min: 20, fast: true })];

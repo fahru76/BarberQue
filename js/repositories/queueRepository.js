@@ -177,7 +177,11 @@ function mapQueueRowFull(row) {
         calledAt: row.called_at,
         completedAt: row.completed_at,
         cancelledAt: row.cancelled_at,
+        // Queue cancellation stores the admin auth UUID, unlike appointment
+        // cancellation which stores the literal 'admin'. Preserve the raw
+        // actor for auditability and expose the semantic UI flag separately.
         cancelledBy: row.cancelled_by,
+        cancelledByAdmin: Boolean(row.cancelled_by && row.cancelled_by !== 'customer'),
         cancelReason: row.cancel_reason,
         version: row.version
     };

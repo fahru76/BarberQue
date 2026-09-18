@@ -81,8 +81,12 @@ export function buildBoard({ seats, queues, statusOrder = ['serving', 'waiting']
     for (const q of safeQueues) {
         if (!q || !q.id) continue;
         if (!statusOrder.includes(q.status)) {
-            // Completed / cancelled / anything else: count, not card.
-            const target = columns.get(`seat:${q.seat}`);
+            // Completed / cancelled / anything else: count, not card. An
+            // unassigned waiting ticket has no seat column, so count it in
+            // WAITING rather than dropping it from the board totals.
+            const target = Number.isFinite(q.seat)
+                ? columns.get(`seat:${q.seat}`)
+                : columns.get(WAITING_COLUMN_ID);
             if (target) target.doneCount++;
             continue;
         }

@@ -1513,6 +1513,8 @@
         #staffAuthStatus { font-size:0.82rem; }
         #staffLoginBtn { display:none; }
         #staffLogoutBtn { display:none; }
+        #appResetBtn { display:none; }
+        #adminGlobalResetBtn { display:none; }
         /* Hidden by default (same reasoning as staffLoginBtn/staffLogoutBtn
            above) so it never flashes visible before updateStaffAuthUI() runs
            on page load -- JS reveals it only once a signed-in admin profile
@@ -1796,7 +1798,7 @@
                 <option value="dark">Gelap</option>
                 <option value="light">Cerah</option>
             </select>
-            <button class="btn btn-reset" onclick="resetSystem()">Reset</button>
+            <button class="btn btn-reset" id="appResetBtn" onclick="resetSystem()">Reset</button>
         </div>
     </nav>
     </header>
@@ -2090,6 +2092,8 @@
     <main id="admin-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Admin</h2>
+            <button type="button" class="btn btn-reset" id="adminGlobalResetBtn" onclick="openOperationalResetDialog('global')">RESET OPERASI GLOBAL</button>
+            <p class="text-muted fs-82">Reset mengekalkan akaun kakitangan dan sejarah transaksi. Disekat jika masih ada giliran aktif atau tempahan akan datang.</p>
 
             <div id="adminNoActiveSeatsWarning" class="admin-no-active-seats-warning" role="alert" onclick="setAdminSection('seats')">
                 &#9888; TIADA KERUSI AKTIF &mdash; tempahan online dan giliran walk-in baharu TIDAK BOLEH dibuat sehingga sekurang-kurangnya satu kerusi diaktifkan. Klik untuk pergi ke tab <strong>Kerusi &amp; Giliran</strong>.
@@ -2138,6 +2142,7 @@
 
             <section class="panel-box">
                 <h3 class="admin-setting-title mb-10">IDENTITI &amp; LOKASI KEDAI</h3>
+                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('shop')">RESET BAHAGIAN</button>
                 <p class="text-muted fs-88 mb-15">Nama aplikasi, nama kedai dan lokasi akan dipaparkan pada halaman pelanggan.</p>
                 <div class="input-group">
                     <label for="adminAppNameInput">Nama Aplikasi:</label>
@@ -2178,6 +2183,7 @@
 
             <section class="panel-box" id="adminAnnouncementSection">
                 <h3 class="admin-setting-title mb-10">PENGUMUMAN PELANGGAN</h3>
+                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('announcement')">RESET BAHAGIAN</button>
                 <p class="text-muted fs-88 mb-15">Pengumuman akan dipaparkan pada halaman pelanggan untuk Walk-in dan Tempahan Online.</p>
                 <div class="input-group">
                     <label id="announcementEditorLabel">Kandungan Pengumuman:</label>
@@ -2333,6 +2339,7 @@
             <!-- CUTI KEDAI -->
             <div class="panel-box border-danger">
                 <h3 class="admin-setting-title mb-15">TETAPAN CUTI / TUTUP KEDAI</h3>
+                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('closedDates')">RESET BAHAGIAN</button>
                 <div id="adminClosedDateGuide">
                     <strong class="d-block text-danger mb-5">Cara Pilih Cuti</strong>
                     <span class="text-muted fs-88" id="adminClosedDateGuideText">Klik mana-mana tarikh untuk tambah ke senarai cuti di bawah. Klik sekali lagi pada tarikh yang sama untuk buang. Pilih seberapa banyak tarikh berlainan yang perlu sebelum tekan REKOD CUTI.</span>
@@ -2371,6 +2378,7 @@
             <!-- TETAPAN SERVIS -->
             <div class="panel-box">
                 <h3 class="admin-setting-title mb-15">TETAPAN SERVIS & DURASI</h3>
+                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('services')">RESET BAHAGIAN</button>
                 <div id="adminEditServiceForm">
                     <h4 class="text-info mb-10">Kemas Kini Servis</h4>
                     <input type="hidden" id="editSvcId">
@@ -2529,6 +2537,7 @@
             <!-- OTHER SETTINGS... -->
             <div class="panel-box">
                 <h3 class="admin-setting-title mb-15">TETAPAN WAKTU OPERASI</h3>
+                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('hours')">RESET BAHAGIAN</button>
                 <p class="text-muted fs-85 mb-15">Tetapkan waktu berasingan untuk setiap hari. Waktu operasi dan tempahan dipaparkan dalam waktu Malaysia (GMT+8).</p>
                 <!-- Component-audit fix (finding #4): role="tab" + aria-selected
                      (was aria-pressed) on each button, roving tabindex managed by
@@ -2595,6 +2604,7 @@
 
             <div class="panel-box">
                 <h3 class="admin-setting-title mb-15">KAWALAN KERUSI & HAD GILIRAN</h3>
+                <button type="button" class="btn btn-sm btn-reset" onclick="openOperationalResetDialog('seats')">RESET BAHAGIAN</button>
                 <div class="input-group mb-15">
                     <label for="adminMaxQueueInput">Had Maksimum Giliran Menunggu:</label>
                     <input type="number" id="adminMaxQueueInput" min="1">
@@ -2690,6 +2700,20 @@
         </div>
     </dialog>
 
+    <dialog id="operationalResetDialog" class="app-dialog" aria-labelledby="operationalResetDialogTitle">
+        <div class="app-dialog-content">
+            <h3 id="operationalResetDialogTitle">Reset Operasi</h3>
+            <p id="operationalResetDialogMessage" class="text-muted"></p>
+            <label for="operationalResetConfirmation">Taip <strong>RESET</strong> untuk meneruskan:</label>
+            <input id="operationalResetConfirmation" type="text" autocomplete="off" spellcheck="false">
+            <p id="operationalResetError" class="text-danger" aria-live="polite"></p>
+            <div class="d-flex gap-10 mt-15">
+                <button type="button" class="btn btn-reset flex-1" onclick="closeOperationalResetDialog()">Batal</button>
+                <button type="button" class="btn btn-action flex-1" id="operationalResetConfirmBtn" disabled onclick="confirmOperationalReset()">Reset</button>
+            </div>
+        </div>
+    </dialog>
+
     <!-- Item 3: style photo preview lightbox (customer-facing). Opened by
          tapping a .service-thumb thumbnail; see openStylePhotoPreview(). -->
     <dialog id="stylePhotoDialog" class="app-dialog style-photo-dialog" aria-labelledby="stylePhotoDialogTitle">
@@ -2763,7 +2787,7 @@
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
         import { listSeats, setSeatAssignment, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
-        import { getShopSettings, createShopSettings, updateShopSettings } from './js/repositories/shopSettingsRepository.js';
+        import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
         import {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
             convertWalkinToAppointment, checkinAppointment, approveFastPass, revokeFastPass,
@@ -2775,7 +2799,7 @@
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
         window.SeatRepo = { listSeats, setSeatAssignment, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
-        window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings };
+        window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState };
         window.AppointmentRepo = {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
             convertWalkinToAppointment, checkinAppointment, approveFastPass, revokeFastPass,
@@ -3283,7 +3307,7 @@
             // declaration comment above) -- arm it the moment a session appears,
             // disarm it the moment one clears (staff sign-out), rather than leaving
             // it running for whoever's on this device next.
-            if (staffSession && !appointmentChannelUnsubscribe) {
+            if (staffSession && staffProfile?.active && !appointmentChannelUnsubscribe) {
                 appointmentChannelUnsubscribe = window.AppointmentRepo.subscribeAppointmentChanges(scheduleAppointmentRefresh);
                 // Same "fetch current state now" fix as the queues block above,
                 // and for the same reason -- refreshAppointmentsFromServer()
@@ -3293,15 +3317,15 @@
                 // correct: a fresh sign-in is exactly when this device's view of
                 // appointments is most likely to already be stale.
                 refreshAppointmentsFromServer();
-            } else if (!staffSession && appointmentChannelUnsubscribe) {
+            } else if ((!staffSession || !staffProfile?.active) && appointmentChannelUnsubscribe) {
                 appointmentChannelUnsubscribe();
                 appointmentChannelUnsubscribe = null;
             }
             // Same arm-on-session/disarm-on-signout treatment for seats -- see the
             // declaration comment above for why this one exists.
-            if (staffSession && !seatChannelUnsubscribe) {
+            if (staffSession && staffProfile?.active && !seatChannelUnsubscribe) {
                 seatChannelUnsubscribe = window.SeatRepo.subscribeSeatChanges(scheduleSeatRefresh);
-            } else if (!staffSession && seatChannelUnsubscribe) {
+            } else if ((!staffSession || !staffProfile?.active) && seatChannelUnsubscribe) {
                 seatChannelUnsubscribe();
                 seatChannelUnsubscribe = null;
             }
@@ -3365,15 +3389,26 @@
             const barberBtn = document.getElementById('navBarberBtn');
             const displayBtn = document.getElementById('navDisplayBtn');
             const customerBtn = document.getElementById('navCustomerBtn');
+            const resetBtn = document.getElementById('appResetBtn');
+            const globalResetBtn = document.getElementById('adminGlobalResetBtn');
+            const activeViewId = document.querySelector('.view-section.active')?.id || 'customer-app';
+            const customerSurface = activeViewId === 'customer-app';
             if (!statusEl || !loginBtn || !logoutBtn) return;
             if (staffSession && staffProfile) {
                 const roleLabel = staffProfile.role === 'admin' ? 'Admin' : 'Tukang Gunting';
                 statusEl.textContent = `${staffProfile.displayName} (${roleLabel}${staffProfile.active ? '' : ' — belum aktif'})`;
+                // Customer is a public surface: keep staff identity/actions and
+                // destructive reset controls out of that header even when this
+                // browser happens to hold a staff session. Staff routes still
+                // expose their own sign-out control below.
                 loginBtn.style.display = 'none';
-                logoutBtn.style.display = 'inline-block';
+                logoutBtn.style.display = customerSurface ? 'none' : 'inline-block';
+                statusEl.style.display = customerSurface ? 'none' : 'inline';
+                if (resetBtn) resetBtn.style.display = customerSurface ? 'none' : 'inline-block';
                 if (displayBtn) displayBtn.style.display = 'inline-block';
                 if (barberBtn) barberBtn.style.display = 'inline-block';
                 if (adminBtn) adminBtn.style.display = staffProfile.role === 'admin' ? 'inline-block' : 'none';
+                if (globalResetBtn) globalResetBtn.style.display = staffProfile.role === 'admin' && activeViewId === 'admin-app' ? 'inline-block' : 'none';
                 // Other nav buttons are visible now, so Pelanggan is a real
                 // tab again (something to switch away from) -- restore its
                 // normal interactive-pill styling. See the .nav-solo CSS
@@ -3381,11 +3416,14 @@
                 if (customerBtn) customerBtn.classList.remove('nav-solo');
             } else {
                 statusEl.textContent = '';
-                loginBtn.style.display = 'inline-block';
+                loginBtn.style.display = customerSurface ? 'none' : 'inline-block';
                 logoutBtn.style.display = 'none';
+                statusEl.style.display = 'none';
+                if (resetBtn) resetBtn.style.display = customerSurface ? 'none' : 'inline-block';
                 if (displayBtn) displayBtn.style.display = 'none';
                 if (barberBtn) barberBtn.style.display = 'none';
                 if (adminBtn) adminBtn.style.display = 'none';
+                if (globalResetBtn) globalResetBtn.style.display = 'none';
                 // Pelanggan is now the only visible nav button (design
                 // critique finding: it read as a broken toggle with nothing
                 // to switch to) -- drop the pill styling down to a plain
@@ -4896,7 +4934,7 @@
                     if (position >= 0 && position < activeSeatCount && servingCount > 0) {
                         notifyOnce(`prepare:${ticket.id}`, 'SILA BERSEDIA', `${getDisplayTicketId(ticket)}: Giliran anda semakin hampir. Pastikan anda berada berhampiran kedai.`);
                     }
-                } else if (ticket?.status === 'cancelled' && ticket.cancelledBy === 'admin') {
+                } else if (ticket?.status === 'cancelled' && (ticket.cancelledByAdmin || ticket.cancelledBy === 'admin')) {
                     notifyOnce(`admin-cancel:${ticket.id}:${ticket.cancelledAt}`, 'GILIRAN DIBATALKAN', `${getDisplayTicketId(ticket)}: ${ticket.cancelReason || 'Giliran dibatalkan oleh Admin.'}`);
                 }
             }
@@ -5698,41 +5736,85 @@
             }
         }
 
-        // P1 Fix: Clean wipe without triggering iframe sandbox refresh block
-        async function resetSystem() {
-            if((await showConfirmDialog("Padam SEMUA data kedai dan transaksi? Ini tidak boleh diundur."))) {
-                localStorage.clear();
-                sessionStorage.clear();
-                clearAllAdminDirtyFlags();
-                calSelectedDate = '';
-                adminServiceTab = 'asas';
-                bookingChangeMode = null;
-                pendingAdminCancellation = null;
-                selectedOperationalDay = null;
-                mapSelectionDirty = false;
-                selectedAnnouncementImage = null;
-                replaceAnnouncementImageTarget = null;
-                savedAnnouncementRange = null;
-                operationalTimeOptionsSignature = '';
-                resetOperationalHoursNotice();
-                customerServiceTabs.walkin = 'asas';
-                customerServiceTabs.booking = 'asas';
-                const resetToday = getMalaysiaDateTimeParts() || { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
-                calCurrentDate = new Date(resetToday.year, resetToday.month - 1, 1, 12, 0, 0, 0);
-                adminCalCurrentDate = new Date(resetToday.year, resetToday.month - 1, 1, 12, 0, 0, 0);
-                const cancelDialog = document.getElementById('adminCancelDialog');
-                if (cancelDialog?.open && typeof cancelDialog.close === 'function') cancelDialog.close();
-                adminPendingClosedDates = new Set();
-                adminClosedRangeAnchor = '';
-                adminClosedSelectionMode = 'single';
+        const OPERATIONAL_RESET_SCOPES = Object.freeze({
+            global: 'semua tetapan operasi, katalog servis, susunan kerusi dan cache tempatan',
+            shop: 'identiti dan lokasi kedai',
+            announcement: 'pengumuman pelanggan',
+            closedDates: 'senarai cuti kedai',
+            services: 'katalog servis dan tetapan kebolehan servis',
+            hours: 'waktu operasi dan had tempahan',
+            seats: 'tetapan kerusi dan had giliran'
+        });
+
+        function clearOperationalLocalState() {
+            const keys = ['appName','shopName','shopMapLink','shopMapQuery','shopMapAddress','shopLocationName','shopAnnouncement','shopAnnouncementHtml','shopAnnouncementEnabled','shopStatus','shopStatusChangedAtUtc','maxQueue','seatCount','activeSeats','barberAssignments','closedDates','bookingAdvanceDays','weeklyOpHours','opHours','shopServices','adminSidebarOrder','activeTicket','activeTicketClaimToken','myAppIds','appointmentClaimTokens','notificationOutbox','auditLog','queueCounter','queueCounterDate'];
+            keys.forEach(key => localStorage.removeItem(key));
+            sessionStorage.clear();
+        }
+
+        function closeOperationalResetDialog() {
+            closeAppDialog(document.getElementById('operationalResetDialog'));
+        }
+
+        function openOperationalResetDialog(scope = 'global') {
+            if (!staffSession || !staffProfile?.active || staffProfile.role !== 'admin') return;
+            const dialog = document.getElementById('operationalResetDialog');
+            const input = document.getElementById('operationalResetConfirmation');
+            const button = document.getElementById('operationalResetConfirmBtn');
+            const error = document.getElementById('operationalResetError');
+            dialog.dataset.scope = scope;
+            document.getElementById('operationalResetDialogMessage').textContent = `Ini akan reset ${OPERATIONAL_RESET_SCOPES[scope] || 'data operasi'}. Staff dan sejarah transaksi akan dikekalkan. Reset akan disekat jika masih ada giliran aktif atau tempahan akan datang.`;
+            input.value = '';
+            error.textContent = '';
+            button.disabled = true;
+            input.oninput = () => { button.disabled = input.value !== 'RESET'; };
+            openAppDialog(dialog);
+            setTimeout(() => input.focus(), 0);
+        }
+
+        async function confirmOperationalReset() {
+            const dialog = document.getElementById('operationalResetDialog');
+            const scope = dialog.dataset.scope || 'global';
+            const input = document.getElementById('operationalResetConfirmation');
+            const error = document.getElementById('operationalResetError');
+            if (input.value !== 'RESET') return;
+            const button = document.getElementById('operationalResetConfirmBtn');
+            button.disabled = true;
+            try {
+                await window.ShopSettingsRepo.resetOperationalState(scope);
+            } catch (resetError) {
+                button.disabled = false;
+                error.textContent = resetError?.message || 'Reset gagal. Tiada perubahan disahkan.';
+                return;
+            }
+
+            // The RPC is the commit point. Everything below is local hydration;
+            // a read failure must not claim that the server reset did not happen.
+            try {
+                clearOperationalLocalState();
+                closeOperationalResetDialog();
                 initData();
                 populateOperationalTimeSelects(true);
                 window.currentCustomerTicket = null;
                 setCustomerMode('walkin');
+                const resetServices = await window.ServiceRepo.listServices();
+                saveServices(resetServices);
+                const resetSettings = await window.ShopSettingsRepo.getShopSettings();
+                if (resetSettings) Object.entries(resetSettings).forEach(([key, value]) => safeSetItem(key, value));
+                await refreshSeatServerState();
                 refreshServiceConfigurationUI();
-                (await showAlertDialog("Sistem telah dikosongkan sepenuhnya."));
+                updateUI();
+                await showAlertDialog('Reset operasi berjaya. Staff dan sejarah transaksi dikekalkan.');
+            } catch (hydrationError) {
+                closeOperationalResetDialog();
+                await showAlertDialog('Reset operasi berjaya, tetapi paparan tempatan belum disegarkan. Muat semula halaman untuk melihat tetapan baharu.');
+                console.warn('Reset berjaya di server tetapi penyegaran tempatan gagal.', hydrationError);
             }
         }
+
+        // Legacy entry point kept for any existing internal caller; the public
+        // reset action now routes through the admin-only typed confirmation.
+        async function resetSystem() { openOperationalResetDialog('global'); }
 
         // UI & NAVIGATION
         async function switchView(viewId, btnElement, fromNav = true) {
@@ -5771,6 +5853,7 @@
             if (viewId === 'admin-app') refreshStaffList();
             if (viewId === 'barber-app') refreshSeatServerState();
             updateUI();
+            updateStaffAuthUI();
             // Keep the URL in sync with whichever view is now actually showing.
             // Only reached past the gate above, i.e. only on a genuine switch --
             // a denied attempt never gets here, so it never touches the address
@@ -7793,13 +7876,9 @@
                 newId = serverTicket.id;
                 claimToken = serverTicket.claimToken;
             } catch (error) {
-                console.warn('Pendaftaran ke pelayan gagal; guna kaunter tempatan sahaja.', error);
-                let count = getDailyQueueCounter();
-                newId = `${getSessionPrefix()}${count.toString().padStart(2, '0')}-${getDailyTicketSuffix()}`;
-                // Ensure ID is unique if duplicate exists
-                const usedIds = new Set([...queues.map(q => q.id), ...getAppointments().map(a => a.id)]);
-                while(usedIds.has(newId)) { count++; newId = `${getSessionPrefix()}${count.toString().padStart(2, '0')}-${getDailyTicketSuffix()}`; }
-                saveDailyQueueCounter(count + 1);
+                console.warn('Pendaftaran ke pelayan gagal; tiket tidak dikeluarkan.', error);
+                await showAlertDialog('Pendaftaran gagal kerana sambungan ke pelayan tidak tersedia. Sila cuba lagi.');
+                return;
             }
 
             requestNotificationPermission();
@@ -8151,22 +8230,21 @@
             if (index < 0 || queues[index].status !== 'waiting') return (await showAlertDialog("Hanya Walk-in yang masih menunggu boleh dibatalkan."));
             const queue = queues[index];
             if (!(await showConfirmDialog(`Batalkan Walk-in ${queue.id}? Kedudukan giliran ini tidak boleh dipulihkan.`))) return;
+            const claimToken = localStorage.getItem('activeTicketClaimToken');
+            if (!claimToken) return (await showAlertDialog('Tiket ini tidak mempunyai pengesahan pelayan. Sila muat semula dan cuba lagi.'));
+            try {
+                const cancelled = await window.QueueRepo.cancelOwn(ticketId, claimToken);
+                if (!cancelled) return (await showAlertDialog('Tiket telah berubah atau tidak lagi boleh dibatalkan. Sila muat semula.'));
+            } catch (error) {
+                console.warn('Pembatalan tidak dapat disegerakkan ke pelayan.', error);
+                return (await showAlertDialog('Pembatalan gagal kerana sambungan ke pelayan tidak tersedia. Sila cuba lagi.'));
+            }
             queue.status = 'cancelled';
             queue.cancelledBy = 'customer';
             queue.cancelReason = 'Dibatalkan oleh pelanggan';
             queue.cancelledAt = getUTCISOString();
             queue.version = nextRecordVersion(queue);
             saveQueues(queues);
-            // Best-effort: mirror the cancellation to the server record too, if this
-            // ticket was ever taken through it (only tickets taken while the network
-            // call in bookTicket() succeeded have a token here). Never blocks the
-            // customer-facing cancellation above on network failure — the local
-            // record is still the source of truth this flow is read from.
-            const claimToken = localStorage.getItem('activeTicketClaimToken');
-            if (claimToken) {
-                try { await window.QueueRepo.cancelOwn(ticketId, claimToken); }
-                catch (error) { console.warn('Pembatalan tidak dapat disegerakkan ke pelayan.', error); }
-            }
             appendAuditEvent('walkin_cancelled', 'queue', queue.id, 'customer');
             enqueueNotification({
                 eventKey: `customer-cancel:${queue.id}:${queue.version}`, recordId: queue.id,
@@ -8702,7 +8780,7 @@
                 document.getElementById('myQueueContext').innerText = `Sila ke Kerusi ${ticket.seat || ''}. Terima kasih kerana menunggu.`;
             } else if (ticket.status === 'cancelled') {
                 const reason = ticket.cancelReason ? `: ${ticket.cancelReason}` : '';
-                document.getElementById('myStatus').innerText = `${ticket.cancelledBy === 'admin' ? 'Dibatalkan oleh Admin' : 'Dibatalkan'}${reason}`;
+                document.getElementById('myStatus').innerText = `${(ticket.cancelledByAdmin || ticket.cancelledBy === 'admin') ? 'Dibatalkan oleh Admin' : 'Dibatalkan'}${reason}`;
                 document.getElementById('myStatus').style.color = 'var(--danger)';
                 if (queueProgress) queueProgress.style.display = 'none';
                 if (queueContext) queueContext.style.display = 'none';
@@ -9208,7 +9286,7 @@
                 // comment for why a plain anon-safe merge isn't enough for staff
                 // (it would silently drop `version`, which cancel/fast-pass writes
                 // already assume is present and correct).
-                const freshRows = staffSession
+                const freshRows = staffSession && staffProfile?.active
                     ? await window.QueueRepo.listTodayQueuesFull()
                     : await window.QueueRepo.listQueues();
                 if (!saveQueues(mergeServerRows(getQueues(), freshRows))) return;

@@ -133,3 +133,9 @@ export async function updateShopSettings(patch) {
     raiseOnError(error);
     return mapRow(data);
 }
+
+export async function resetOperationalState(scope = 'global') {
+    const { data, error } = await supabase.rpc('reset_operational_state', { p_scope: scope });
+    raiseOnError(error);
+    return data;
+}
