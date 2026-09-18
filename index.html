@@ -6611,18 +6611,39 @@
                     `(Kerusi ${seats.join(', ')}). Sila pilih tukang gunting lain untuk salah satu kerusi tersebut.`
                 ));
             }
-            // Server first, same posture as toggleSeatStatus(): push every
-            // seat's assignment to public.seats and only commit the local
-            // cache for the seats the server actually accepted. A seat whose
-            // server write failed keeps its previous local value rather than
-            // silently taking on a name the server never confirmed.
-            const syncResults = await Promise.all(getSeatNumbers().map(seat =>
-                syncSeatAssignmentToServer(seat, activeSeats[seat] === true, staffIdsBySeat[seat])
-                    .then(result => ({ seat, ...result }))
-            ));
-            const failedSeats = syncResults.filter(result => !result.ok);
+            // Server first. The database has a unique barber-to-seat constraint,
+            // so concurrent upserts are unsafe when a barber is moved or two
+            // seats are swapped: each write can still see the other seat's old
+            // assignment. Clear changed old assignments first, then apply the
+            // requested assignments one at a time.
+            const seats = getSeatNumbers();
+            const failedSeats = [];
+            const blockedSeats = new Set();
+            const clearedSeats = new Set();
+            for (const seat of seats) {
+                const currentStaffId = seatServerState[String(seat)]?.barberId || '';
+                const requestedStaffId = staffIdsBySeat[seat];
+                if (!currentStaffId || currentStaffId === requestedStaffId) continue;
+                const cleared = await syncSeatAssignmentToServer(seat, false, null);
+                if (!cleared.ok) {
+                    failedSeats.push({ seat, ...cleared });
+                    blockedSeats.add(seat);
+                } else {
+                    clearedSeats.add(seat);
+                }
+            }
+            const appliedSeats = new Set();
+            for (const seat of seats) {
+                if (blockedSeats.has(seat)) continue;
+                const result = await syncSeatAssignmentToServer(seat, activeSeats[seat] === true, staffIdsBySeat[seat]);
+                if (!result.ok) failedSeats.push({ seat, ...result });
+                else appliedSeats.add(seat);
+            }
             const confirmedAssignments = { ...getBarberAssignments() };
-            syncResults.filter(result => result.ok).forEach(result => { confirmedAssignments[result.seat] = assignments[result.seat]; });
+            appliedSeats.forEach(seat => { confirmedAssignments[seat] = assignments[seat]; });
+            clearedSeats.forEach(seat => {
+                if (!appliedSeats.has(seat)) confirmedAssignments[seat] = '';
+            });
             if (!safeSetItem('barberAssignments', confirmedAssignments)) return (await showAlertDialog("Tukang gunting gagal disimpan. Sila cuba lagi."));
             document.querySelectorAll('#adminBarberAssignments select').forEach(select => delete select.dataset.dirty);
             appendAuditEvent('barber_assignments_updated', 'shop_setting', 'barberAssignments', 'admin', { assignments: confirmedAssignments });

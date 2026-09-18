@@ -3879,6 +3879,19 @@ are fixed in production.
 (planMove/diffBoards already exist for it); deploy verification of #kanbanPanel.
 Slice 3 is a real authorization surface and needs its own card + threat review
 before anyone builds it.
+## Done — barber-to-chair assignment save race (2026-09-18)
+
+- Root cause: `saveBarberAssignments()` sent every seat upsert concurrently with
+  `Promise.all`, while the database enforces a unique barber-to-seat index.
+  Moving/swapping a barber could fail because the old assignment still existed
+  when the new assignment was written.
+- Fix: clear changed old assignments first, then apply requested assignments
+  sequentially; local state is updated only for confirmed writes.
+- Served swap simulation passed: clear chair 1, clear chair 2, assign the new
+  barber to chair 1, assign the other barber to chair 2; no page errors.
+- `npm test`: passed; differential: 20,000 / 0 mismatches; SQL consistency and
+  SQL grant consistency: passed.
+
 ## Parked — WhatsApp Cloud API notification delivery (implementation soon)
 
 **Status:** Reserved, not implemented. Do not restore the removed browser-local
