@@ -3892,6 +3892,209 @@ before anyone builds it.
 - `npm test`: passed; differential: 20,000 / 0 mismatches; SQL consistency and
   SQL grant consistency: passed.
 
+## Done — bug hunt (2026-09-19): capability-aware estimates + walk-in-aware booking capacity
+
+Cross-layer audit ("bug hunt for each logic and semantics for every layer"). Two
+real cross-layer divergences found and fixed; one smaller hardening fix. Full
+findings list (H1/H2/M3–M5/L6–L8) was reviewed with the user first; only the
+items below were actioned (H2 reframed per the user's directive that **walk-ins
+take precedence over same-day online bookings**).
+
+**H1 — the wait estimator ignored the barber capability gate.** `call_next_customer()`
+(server) hard-gates a ticket to a seat whose barber can perform *every* service
+on it (`service_ids <@ capability`), but the client estimator
+(`getQueueOccupancyIntervals` in index.html, `buildOccupancyIntervals` in
+js/domain/scheduler.js) scheduled any waiting ticket onto the earliest-free seat
+with no capability awareness — so a customer could be shown a wait time, or even
+issued a ticket, for a service combination no active barber could perform.
+
+- `js/domain/scheduler.js`: added `buildSeatCapabilityMap()` + `seatCanPerform()`
+  (client mirror of the server subset check; NULL capability = unrestricted,
+  NULL/empty `serviceIds` = unknown service, compatible — the same fail-open the
+  server applies). `buildOccupancyIntervals`/`estimateWaitMinutes`/
+  `buildWaitByRecordId` accept an optional `seatCapability` Map; a waiting ticket
+  is only placed on a capable seat, and a ticket no capable seat can take is left
+  unscheduled (estimate `null`) exactly as the server would refuse to call it.
+- index.html: identical inline copies (`seatCanPerformInline`,
+  `buildSeatCapabilityMapInline`, `resolveSeatCapability`) kept in lockstep for
+  the differential test. `resolveSeatCapability()` reads only data already on the
+  device (`seatServerState` + admin's `cachedStaffList`), so staff surfaces get
+  the accurate gate while the anon customer surface **fails open** — anon cannot
+  read `staff.capability_service_ids` (RLS keeps them authenticated-only), and no
+  staff/PII data is fetched just to refine an estimate. The authoritative gate
+  stays server-side regardless.
+- `bookTicketImpl()` backstop: the preview record now carries `serviceIds` (so
+  staff surfaces estimate accurately up front), and after `takeTicket()` succeeds
+  a capability-aware re-check cancels the ticket server-side (we hold its claim
+  token) if no capable seat could finish it before closing — never leaving a
+  customer in a queue that can't move.
+
+**H2 — same-day booking capacity now counts the live walk-in queue (walk-ins
+first).** Per the user's directive. New migration
+`20260919172934_walkin_aware_booking_capacity.sql` rewrites
+`_appointment_slot_capacity_ok()` (same signature, so `book_appointment`/
+`reschedule_own_appointment`/`convert_walkin_to_appointment` are untouched) to
+build today's walk-in occupancy — serving holds its seat until
+`called_at+duration` (finish-in-progress break policy), waiting walk-ins fill the
+earliest gap in fast-pass/booking/FIFO order with break-adjusted starts — and add
+it to the per-minute capacity sweep, but only when `p_date` equals
+`_current_business_date()`. Future-date bookings are unaffected (no live queue to
+count). This closes the old divergence where the client picker rejected a slot
+the server then accepted for someone with a stale queue view.
+
+**M3 — inline `isAppointmentSlotAvailable` was missing the NaN-time guard** the
+extracted module already had (the 2026-09-15 fix was never ported to the inline
+copy): a malformed time string made every comparison false and fell through to
+`return true`. Added `if (!Number.isFinite(timeToMinutes(time))) return false;`.
+
+**Tests** (`npm test` — 10 files, all green):
+- `tests/domain/scheduler.test.mjs`: +9 capability-aware fixtures (restricted vs
+  unrestricted seats, capable-seat routing, unservable ticket, fail-open parity).
+- `tests/differential-capability.test.mjs` (new): extracts the *current* inline
+  scheduler from index.html and proves it agrees with js/domain/scheduler.js on
+  capability-aware inputs — the complement to differential.test.mjs, which still
+  proves the no-gate path against the frozen build/legacy.cjs (0 mismatches,
+  unchanged behaviour on that path).
+- `tests/domain/walkinCapacityContract.test.mjs` (new): executable spec for the
+  H2 migration (no local Postgres available) — proves the walk-in occupancy model
+  matches the client scheduler and that walk-ins now count against capacity.
+- SQL consistency + grant consistency: passed (33 migrations; the rewritten
+  helper stays internal, no new RPC, no grant changes).
+
+**Not actioned (documented, low risk):** M4 (missing `open` resolves oddly),
+M5 (business-day boundary tracks current settings, not settings-at-ticket-time),
+L6 (services-reset orphans non-null `service_ids` snapshots — harmless), L7
+(two different emptiness guards on `serviceIds`). These are edge cases that need
+a data or config anomaly to trigger; noted here rather than patched to keep this
+change reviewable.
+
+**Served-surface verification (OMH gate, 2026-09-19).** The H1 change touches the
+customer walk-in surface, so it was rendered hermetically
+(`tests/dom/walkin-surface.verify.mjs`, same stub-origin/stubbed-Supabase pattern
+as tests/dom/fingerprint.mjs) at desktop 1440 / tablet 820 / mobile 390. Evidence:
+- **Zero page errors** on every viewport.
+- **Walk-in ETA preview**: with services selected and two open seats, renders a
+  real wait ("0 minit", label "JIKA SERTAI SEKARANG"). An initial "Belum dapat
+  dianggarkan" reading was a harness artifact — the boot-time
+  `normalizeActiveSeatsForAssignments()` invariant (`seats_active_requires_barber`)
+  correctly flips an open seat with no barber assignment back off; seeding
+  `barberAssignments` produced the real estimate. A desktop/tablet "etaOverflow"
+  flag was likewise a measurement false positive — with the longest realistic
+  value ("2 jam 45 minit") the ETA's `scrollWidth === clientWidth`, `whiteSpace:
+  normal`, `overflow: visible` (text wraps, never clips).
+- **New backstop confirm dialog** ("Tidak Sempat Hari Ini" / "Maaf, tiada tukang
+  gunting yang boleh membuat servis ini sebelum kedai tutup hari ini."): opens and
+  is visible at all sizes; pixel-accurate text-ink bounds sit fully inside the
+  dialog, the dialog fully inside the viewport (1440px: dialog 480 wide, ink
+  29–407 of 0–480; 390px: dialog 354 wide, ink 29–316 of 0–354), no horizontal
+  overflow, and both "Sahkan"/"Batal" buttons visible and within the dialog.
+  Note: dialog is left-anchored (x=0) by the existing `.app-dialog` stylesheet —
+  unchanged by this work and consistent with every other app dialog.
+- No image analysis was possible (active model kimi-k3 rejects image inputs), so
+  the layout claims rest on DOM geometry + computed styles, which is the stronger
+  evidence for overflow/clipping regardless. The verify script is kept
+  (not a one-off) so the surface can be re-checked after any future change.
+
+## Done — centre `.app-dialog` (2026-09-19)
+
+- Root cause: line 39's global reset `* { margin:0; padding:0 }` zeroed the
+  `<dialog>` element's UA `margin: auto`. With `position:fixed; inset:0` (UA
+  modal-dialog styles), a zero-margin dialog pins to the top-left (x=0) instead
+  of centring — confirmed at runtime (`margin:0px; inset:0px; position:fixed`).
+- Fix (one rule): `margin: auto` on `.app-dialog`. This is the standard way to
+  centre a modal `<dialog>` on both axes; it honours `width: min(92vw, 480px)`
+  with no transform/reflow, and applies to every dialog since they all share the
+  `.app-dialog` shell (confirm/alert/admin-cancel/lightbox). No other rule
+  overrides its margin/position.
+- Verified by rendering at desktop 1440 / tablet 820 / mobile 390: horizontally
+  AND vertically centred within ±2px at all three (1440: 480+480 / 358+358;
+  820: 170+170 / 498+498; 390: 18+18 / 318+318) and `fitsInViewport` everywhere
+  (no negative-margin clipping on the smallest screen). `npm test`: 10 files
+  green.
+
+**Served-surface verification, real dialog paths (2026-09-19).** Re-verified by
+opening the three most representative dialog types through their REAL open
+functions (not a bare `showModal`), hermetically at desktop 1440 / mobile 390
+(`tests/dom/dialog-centering.verify.mjs`):
+- `appAlertDialog` via `showAlertDialog`, `appConfirmDialog` via
+  `showConfirmDialog`, `staffLoginDialog` via `openStaffLoginDialog` (a form with
+  two inputs — the tallest dialog, best vertical-centring + interaction test).
+- All three, both sizes: `open=true`, `visible=true`, horizontally AND vertically
+  centred within ±2px (desktop all 480+480 horiz, e.g. login 268+268 vert;
+  mobile all 18+18 horiz, e.g. login 240+240 vert), `fitsInViewport=true`,
+  `textClipped=false` (text-ink of every h3/p/label/button inside the dialog
+  bounds), and the primary control (`#appAlertDialogOkBtn` /
+  `#appConfirmDialogOkBtn` / `#staffLoginEmail`) accepts focus
+  (`focusableControl=true`). Zero page errors everywhere. Computed `margin`
+  confirms symmetric auto resolution (e.g. desktop alert `369.5px 480px`).
+- No image analysis (kimi-k3 rejects image inputs); evidence is DOM geometry +
+  computed styles + focus, which is the stronger signal for clipping/centring.
+
+## Done — 4 colour schemes for the theme picker (2026-09-19)
+
+User asked for "multiple colour scheme for the website theme in admin page".
+Direction chosen with the user: **4 schemes, each a full light+dark pair, picked
+in the one existing `<select>` with `<optgroup>`s.** Schemes: **Emas/Gold** (the
+current theme — kept as the default so existing installs see zero change),
+**Teal**, **Forest**, **Royal Blue**.
+
+- **CSS (additive).** A new `data-scheme` attribute on `<html>` works alongside
+  the existing `data-theme` (light/dark). The current `:root` /
+  `[data-theme="light"]` blocks are untouched and serve as the gold default.
+  Six new blocks — `[data-scheme="teal"|"forest"|"royal"]` (dark values) and
+  `[data-scheme="…"][data-theme="light"]` (light values) — each override the
+  SAME themed token set (24 tokens: bg/surface/elevated, primary+strong,
+  sleek-accent family + all 7 glows, text-main/muted, input-bg, border-color/
+  light, card-bg/hover, ticket-gradient, shadows, warning/danger/success/info,
+  nav-border, on-primary/on-success). Radius/spacing/ease stay constant.
+  Neutrals are tinted to each scheme's hue; semantic colours stay recognisable
+  and are re-contrasted per mode.
+- **Tokenised page decorations.** The `body` radial gradient and `::selection`
+  were hard-coded orange (`rgba(255,103,29,…)`); they are now
+  `--bg-glow` / `--bg-glow-2` / `--selection-bg` tokens so every scheme
+  re-harmonises them instead of staying gold.
+- **JS.** `applyTheme()` now splits the picker value `scheme:mode` into
+  `data-scheme` + `data-theme` and persists `appScheme`; `auto` keeps the stored
+  scheme and resolves mode from the OS. Back-compat: a stored bare
+  `dark`/`light` from before schemes keeps gold. `THEME_SCHEMES` is the single
+  source of truth; the `<select id="themeSelector">` is now Auto + 4 optgroup
+  pairs (9 options).
+- **WCAG.** Every palette passes all 12 AA pairs the codebase documents
+  (text-main/muted >= 4.5, on-primary/on-success >= 4.5, primary-on-bg >= 3.0)
+  in BOTH modes — margins match or exceed the current theme. See
+  `tests/dom/contrast.mjs` (current-theme baseline) and
+  `tests/dom/theme-candidates.mjs` (the 4 new palettes, ALL PASS).
+- **Verified by rendering** (`tests/dom/theme-schemes.verify.mjs`, hermetic,
+  desktop 1440 + mobile 390): all 16 scheme×mode×viewport cases PASS — applied
+  through the real `changeTheme()` path, `data-scheme`/`data-theme` set
+  correctly, computed `--primary-color` matches the design hex, selector value
+  round-trips, and `appTheme`/`appScheme` persist. Painted-pixel sampling
+  confirms hue-correct accents (gold orange / teal cyan / forest green / royal
+  blue). Zero page errors. `npm test`: 10 files green.
+
+**Served-surface verification, the picker UI itself (2026-09-19).** The changed
+rendered element is the `<select id="themeSelector">` (now 9 options in 4
+`<optgroup>`s, with longer Malay labels). Inspected hermetically at desktop 1440
++ mobile 390 (`tests/dom/theme-picker.verify.mjs`), zero page errors:
+- **Closed selector — no truncation.** It auto-grows past `min-width:92px`
+  (desktop: 192px wide / 149px inner; mobile: 350px / 307px). Canvas-measured at
+  the control's own font, the longest label "Royal Blue — Cerah" is 115px and
+  every label FITS (114/115/89/76/84px text vs 149/307px inner). All 9 options +
+  4 optgroups ("Emas (Asal)", "Teal", "Forest", "Royal Blue") render; the control
+  is keyboard-focusable.
+- **Open dropdown contrast.** `[data-theme="light"] #themeSelector option` is a
+  hard-coded neutral `#1d1815` on `#ffffff` (~16:1) that is hue-independent, so
+  option text stays AA-compliant under every light scheme (confirmed for teal /
+  forest / royal / gold light). No change needed.
+- **Representative surface text layout.** The customer ticket panel (the most
+  text-dense surface) shows zero clipped/overflowing text elements under both
+  `teal:dark` and `royal:light` (text-ink of every h2/h3/p/strong/span/label/
+  button within panel bounds; `clippedCount=0`). `data-scheme`/`data-theme`
+  resolve correctly per case.
+- Evidence is DOM geometry + canvas text measurement + computed styles (no image
+  analysis — kimi-k3 rejects image inputs). Harness kept as
+  `tests/dom/theme-picker.verify.mjs` for re-checks.
+
 ## Parked — WhatsApp Cloud API notification delivery (implementation soon)
 
 **Status:** Reserved, not implemented. Do not restore the removed browser-local

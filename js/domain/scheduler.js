@@ -100,15 +100,82 @@ export function isWalkinQueue(queue) {
 }
 
 /**
+ * Resolve each active seat's assigned barber capability list into a seat ->
+ * (sorted capability id array | null) map. `null` means "unrestricted"
+ * (capable of everything) and is the default for every barber that predates
+ * the capability feature, so a missing/blank entry must NEVER restrict a seat.
+ *
+ * This is the client-side mirror of the hard gate call_next_customer()
+ * enforces server-side (`service_ids <@ v_capability`, NULL = capable of all).
+ * It only ever NARROWS which seats a ticket may be scheduled onto; it can
+ * never widen the set beyond what `activeSeats` already allows.
+ *
+ * @param {Object<number|string, boolean>} activeSeats  seatNo -> open flag
+ * @param {Object<string, {barberId?: string|null}>} [seatServerState]  seatNo ->
+ *   seat row (who is assigned). Keyed by String(seatNo), as in index.html.
+ * @param {Array<{id: string, capabilityServiceIds?: string[]|null}>} [staffList]
+ *   Roster with each member's capability list (null/empty = unrestricted).
+ * @returns {Map<number, string[]|null>} seatNo -> sorted capability ids, or null
+ */
+export function buildSeatCapabilityMap(activeSeats, seatServerState, staffList) {
+    const map = new Map();
+    if (!seatServerState || !Array.isArray(staffList) || !staffList.length) return map;
+    const capabilityByStaffId = new Map(
+        staffList
+            .filter(member => member && member.id != null)
+            .map(member => [member.id, Array.isArray(member.capabilityServiceIds) ? member.capabilityServiceIds : null])
+    );
+    for (const seat of Object.keys(activeSeats || {}).filter(no => activeSeats[no])) {
+        const seatNo = Number(seat);
+        if (!Number.isFinite(seatNo)) continue;
+        const barberId = seatServerState[String(seatNo)]?.barberId;
+        if (!barberId || !capabilityByStaffId.has(barberId)) {
+            map.set(seatNo, null); // unassigned or unknown barber -> unrestricted
+            continue;
+        }
+        const capability = capabilityByStaffId.get(barberId);
+        map.set(seatNo, capability && capability.length ? [...capability].sort() : null);
+    }
+    return map;
+}
+
+/**
+ * True when `capability` (a seat's resolved list, null = unrestricted) can
+ * perform EVERY service on `serviceIds`. Mirrors the server's subset check.
+ * A ticket with no service snapshot (`serviceIds` null/empty) is treated as
+ * compatible with any seat, exactly as call_next_customer() treats a NULL
+ * service_ids row -- refusing it would strand a customer over a data gap,
+ * not a genuine mismatch.
+ */
+export function seatCanPerform(capability, serviceIds) {
+    if (capability === null || capability === undefined) return true;
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) return true;
+    const capable = new Set(capability);
+    return serviceIds.every(id => capable.has(id));
+}
+
+/**
  * Simulate the day's seat occupancy.
  *
  * Serving records hold their seat (including a seat that was closed while occupied),
  * appointments claim seats next, then waiting walk-ins fill the remaining gaps.
  *
+ * When `seatCapability` (a Map from buildSeatCapabilityMap) is supplied AND
+ * non-empty, a waiting ticket is only scheduled onto a seat whose barber can
+ * perform every service on it -- mirroring the server-side hard gate so the
+ * estimate never promises a seat that could never call this ticket. An empty/
+ * absent map (e.g. the anon customer surface, which cannot read staff rows)
+ * disables the filter and reproduces the pre-gate behaviour.
+ *
  * @returns {Array<{start:number,end:number,recordId:string}>} queue-record intervals only.
  */
-export function buildOccupancyIntervals({ queues = [], appointments = [], activeSeats = {}, ops = {}, nowMinutes = 0 }) {
-    const seatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
+export function buildOccupancyIntervals({ queues = [], appointments = [], activeSeats = {}, ops = {}, nowMinutes = 0, seatCapability = null }) {
+    const hasCapability = seatCapability instanceof Map && seatCapability.size > 0;
+    const allSeatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
+    const capableSeatNumbers = ticket =>
+        !hasCapability ? allSeatNumbers
+        : allSeatNumbers.filter(seat => seatCanPerform(seatCapability.get(seat), ticket?.serviceIds));
+    const seatNumbers = allSeatNumbers;
     const seatSchedules = new Map(seatNumbers.map(seat => [seat, []]));
     const intervals = [];
     // Extends onto the business day's own axis -- see businessMinutes doc. A
@@ -158,7 +225,14 @@ export function buildOccupancyIntervals({ queues = [], appointments = [], active
 
         sortWaitingQueue(queues.filter(queue => queue.status === 'waiting')).forEach(queue => {
             const duration = Number(queue.duration) || AVG_WAIT_MINUTES;
-            const candidates = seatNumbers.map(seat => ({
+            // Only seats whose barber can perform every service on this ticket
+            // (see seatCanPerform / buildSeatCapabilityMap). A ticket no capable
+            // seat can take is left unscheduled -- exactly as call_next_customer()
+            // would refuse to call it -- rather than promised a seat that could
+            // never serve it.
+            const eligibleSeats = capableSeatNumbers(queue);
+            if (!eligibleSeats.length) return;
+            const candidates = eligibleSeats.map(seat => ({
                 seat,
                 start: findNextSeatStart(seatSchedules.get(seat), nowMinutes, duration, ops)
             }));
@@ -174,19 +248,19 @@ export function buildOccupancyIntervals({ queues = [], appointments = [], active
 }
 
 /** @returns {number|null} minutes until service starts, or null when unschedulable. */
-export function estimateWaitMinutes({ queues, appointments, activeSeats, ops, nowMinutes, ticketId }) {
+export function estimateWaitMinutes({ queues, appointments, activeSeats, ops, nowMinutes, ticketId, seatCapability = null }) {
     if (!Object.values(activeSeats || {}).some(Boolean)) return null;
     const resolvedNowMinutes = businessMinutes(nowMinutes, ops);
-    const interval = buildOccupancyIntervals({ queues, appointments, activeSeats, ops, nowMinutes })
+    const interval = buildOccupancyIntervals({ queues, appointments, activeSeats, ops, nowMinutes, seatCapability })
         .find(item => item.recordId === ticketId);
     return interval ? Math.max(0, Math.ceil(interval.start - resolvedNowMinutes)) : null;
 }
 
 /** Map of recordId to wait minutes, so a render pass runs one simulation instead of N. */
-export function buildWaitByRecordId({ queues, appointments, activeSeats, ops, nowMinutes }) {
+export function buildWaitByRecordId({ queues, appointments, activeSeats, ops, nowMinutes, seatCapability = null }) {
     if (!Object.values(activeSeats || {}).some(Boolean)) return new Map();
     const resolvedNowMinutes = businessMinutes(nowMinutes, ops);
-    return new Map(buildOccupancyIntervals({ queues, appointments, activeSeats, ops, nowMinutes })
+    return new Map(buildOccupancyIntervals({ queues, appointments, activeSeats, ops, nowMinutes, seatCapability })
         .map(interval => [interval.recordId, Math.max(0, Math.ceil(interval.start - resolvedNowMinutes))]));
 }
 

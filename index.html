@@ -106,7 +106,10 @@
         .image-control-field label { margin:0; font-size:.72rem; color:var(--text-muted); }
         .image-control-field input { height:40px; padding: 8px var(--space-2); }
         .admin-panel { max-width: 700px; margin: 0 auto; }
-        .app-dialog { width: min(92vw, 480px); padding: 0; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-main); }
+        /* margin:auto centres the modal <dialog> both axes. The global reset
+           (* { margin:0 }) otherwise zeroes the UA's own margin:auto, and with
+           inset:0 + position:fixed a zero-margin dialog pins to the top-left. */
+        .app-dialog { width: min(92vw, 480px); margin: auto; padding: 0; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-main); }
         .app-dialog::backdrop { background: rgba(0,0,0,0.65); }
         .app-dialog-content { padding: 24px; }
         /* Item 3: style photo lightbox -- same .app-dialog shell as the
@@ -834,6 +837,11 @@
             --success: #68a77a;
             --info: #77a5ad;
             --nav-border: rgba(242, 239, 232, 0.1);
+            /* Page-level decorations, tokenised (2026-09-19) so each colour
+               scheme re-harmonises them instead of staying gold. */
+            --bg-glow: rgba(255, 103, 29, .18);
+            --bg-glow-2: rgba(216, 176, 107, .09);
+            --selection-bg: rgba(255, 103, 29, .34);
             /* Foreground placed on a --primary-color fill. This cannot be a
                single literal: on dark gold #d8b06b white measures 2.03:1 while
                #11130f measures 9.20:1; on light brown #8b642f white measures
@@ -885,14 +893,140 @@
                --bg-color (WCAG AA normal text = 4.5:1). */
             --warning: #82601b;
             --nav-border: rgba(23,26,24,.1);
+            --bg-glow: rgba(191, 63, 11, .14);
+            --bg-glow-2: rgba(139, 100, 47, .08);
+            --selection-bg: rgba(191, 63, 11, .30);
             --on-primary: #fff;
             --on-success: #fff;
         }
 
+        /* ===================================================================
+           COLOUR SCHEMES (2026-09-19) -- 4 schemes, each a full light+dark pair.
+           data-scheme="gold" (or the attribute absent) is the current theme and
+           is intentionally left as the default above, so existing installs see
+           zero change. The three new schemes below override the SAME themed
+           token set (everything except radius/spacing/ease, which are constant)
+           via [data-scheme] (dark values) and [data-scheme][data-theme="light"]
+           (light values). Neutrals are tinted to each scheme's hue; the accent/
+           glow/gradient family is re-harmonised to match. Semantic colours
+           (warning/danger/success/info) stay recognisable across schemes and are
+           re-contrasted per mode. Every palette passes all 12 WCAG-AA pairs the
+           codebase documents (see tests/dom/theme-candidates.mjs -- on-primary/
+           on-success >= 4.5, text >= 4.5, primary-on-bg >= 3.0 in BOTH modes).
+           =================================================================== */
+
+        /* ---- TEAL : cool cyan, modern/clean ------------------------------- */
+        [data-scheme="teal"] {
+            --bg-color: #0a0f0f; --surface-color: #111a1a; --surface-elevated: #182425;
+            --primary-color: #5ec8c0; --primary-strong: #7dd8d1;
+            --sleek-accent: #2fb9ad; --sleek-accent-strong: #4fd0c4;
+            --glow-accent-20: rgba(47,185,173,.20); --glow-accent-04: rgba(47,185,173,.04);
+            --glow-accent-28: rgba(47,185,173,.28); --glow-accent-11: rgba(47,185,173,.11);
+            --glow-accent-16: rgba(47,185,173,.16); --glow-accent-22: rgba(47,185,173,.22);
+            --glow-accent-07: rgba(47,185,173,.07); --sleek-accent-soft: rgba(47,185,173,.12);
+            --text-main: #eef7f6; --text-muted: #9fb4b2; --input-bg: #0d1414;
+            --border-color: rgba(238,247,246,.12); --border-light: rgba(238,247,246,.055);
+            --card-bg: rgba(255,255,255,.028); --card-hover: rgba(47,185,173,.075);
+            --ticket-gradient: linear-gradient(145deg, rgba(47,185,173,.10), rgba(94,200,192,.055) 52%, rgba(255,255,255,.02));
+            --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
+            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #6fb3c9;
+            --nav-border: rgba(240,247,246,.1); --on-primary: #0b1514; --on-success: #0b1514;
+            --bg-glow: rgba(47,185,173,.16); --bg-glow-2: rgba(94,200,192,.09); --selection-bg: rgba(47,185,173,.34);
+        }
+        [data-scheme="teal"][data-theme="light"] {
+            --bg-color: #eef4f3; --surface-color: #f8fbfb; --surface-elevated: #ffffff;
+            --primary-color: #1c7a72; --primary-strong: #155e58;
+            --sleek-accent: #158a80; --sleek-accent-strong: #10756c;
+            --glow-accent-20: rgba(21,138,128,.20); --glow-accent-04: rgba(21,138,128,.04);
+            --glow-accent-28: rgba(21,138,128,.28); --glow-accent-11: rgba(21,138,128,.11);
+            --glow-accent-16: rgba(21,138,128,.16); --glow-accent-22: rgba(21,138,128,.22);
+            --glow-accent-07: rgba(21,138,128,.07); --sleek-accent-soft: rgba(21,138,128,.10);
+            --text-main: #14211f; --text-muted: #5f7370; --input-bg: #fdfefe;
+            --border-color: rgba(20,33,31,.13); --border-light: rgba(20,33,31,.055);
+            --card-bg: rgba(255,255,255,.64); --card-hover: rgba(21,138,128,.07);
+            --ticket-gradient: linear-gradient(145deg, #fbfefd, #e2efee);
+            --shadow-sm: 0 14px 38px rgba(27,58,55,.09); --shadow-lg: 0 32px 90px rgba(27,58,55,.16);
+            --warning: #7c5f16; --danger: #a04a44; --success: #2f7a4f; --info: #227081;
+            --nav-border: rgba(18,30,28,.1); --on-primary: #ffffff; --on-success: #ffffff;
+            --bg-glow: rgba(21,138,128,.12); --bg-glow-2: rgba(28,122,114,.08); --selection-bg: rgba(21,138,128,.30);
+        }
+
+        /* ---- FOREST : natural green, calm --------------------------------- */
+        [data-scheme="forest"] {
+            --bg-color: #0a0e0a; --surface-color: #121a12; --surface-elevated: #19251a;
+            --primary-color: #7cc97f; --primary-strong: #96d998;
+            --sleek-accent: #4caf55; --sleek-accent-strong: #68c470;
+            --glow-accent-20: rgba(76,175,85,.20); --glow-accent-04: rgba(76,175,85,.04);
+            --glow-accent-28: rgba(76,175,85,.28); --glow-accent-11: rgba(76,175,85,.11);
+            --glow-accent-16: rgba(76,175,85,.16); --glow-accent-22: rgba(76,175,85,.22);
+            --glow-accent-07: rgba(76,175,85,.07); --sleek-accent-soft: rgba(76,175,85,.12);
+            --text-main: #eff6ee; --text-muted: #a3b5a1; --input-bg: #0e150e;
+            --border-color: rgba(239,246,238,.12); --border-light: rgba(239,246,238,.055);
+            --card-bg: rgba(255,255,255,.028); --card-hover: rgba(76,175,85,.075);
+            --ticket-gradient: linear-gradient(145deg, rgba(76,175,85,.10), rgba(124,201,127,.055) 52%, rgba(255,255,255,.02));
+            --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
+            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #7fb3c4;
+            --nav-border: rgba(240,246,240,.1); --on-primary: #0d170d; --on-success: #0d170d;
+            --bg-glow: rgba(76,175,85,.16); --bg-glow-2: rgba(124,201,127,.09); --selection-bg: rgba(76,175,85,.34);
+        }
+        [data-scheme="forest"][data-theme="light"] {
+            --bg-color: #eff3ee; --surface-color: #f8faf8; --surface-elevated: #ffffff;
+            --primary-color: #2c6e33; --primary-strong: #235a29;
+            --sleek-accent: #2c8a36; --sleek-accent-strong: #237a2c;
+            --glow-accent-20: rgba(44,138,54,.20); --glow-accent-04: rgba(44,138,54,.04);
+            --glow-accent-28: rgba(44,138,54,.28); --glow-accent-11: rgba(44,138,54,.11);
+            --glow-accent-16: rgba(44,138,54,.16); --glow-accent-22: rgba(44,138,54,.22);
+            --glow-accent-07: rgba(44,138,54,.07); --sleek-accent-soft: rgba(44,138,54,.10);
+            --text-main: #162115; --text-muted: #5f7160; --input-bg: #fdfefd;
+            --border-color: rgba(22,33,21,.13); --border-light: rgba(22,33,21,.055);
+            --card-bg: rgba(255,255,255,.64); --card-hover: rgba(44,138,54,.07);
+            --ticket-gradient: linear-gradient(145deg, #fbfefb, #e4efe3);
+            --shadow-sm: 0 14px 38px rgba(30,58,32,.09); --shadow-lg: 0 32px 90px rgba(30,58,32,.16);
+            --warning: #7c5f16; --danger: #a04a44; --success: #2f7a4f; --info: #227081;
+            --nav-border: rgba(20,30,20,.1); --on-primary: #ffffff; --on-success: #ffffff;
+            --bg-glow: rgba(44,138,54,.12); --bg-glow-2: rgba(44,110,51,.08); --selection-bg: rgba(44,138,54,.30);
+        }
+
+        /* ---- ROYAL BLUE : classic barber blue, professional ----------------- */
+        [data-scheme="royal"] {
+            --bg-color: #0a0c12; --surface-color: #12141d; --surface-elevated: #1a1d29;
+            --primary-color: #8aa8e8; --primary-strong: #a5bef0;
+            --sleek-accent: #5b7fd6; --sleek-accent-strong: #7b98e2;
+            --glow-accent-20: rgba(91,127,214,.20); --glow-accent-04: rgba(91,127,214,.04);
+            --glow-accent-28: rgba(91,127,214,.28); --glow-accent-11: rgba(91,127,214,.11);
+            --glow-accent-16: rgba(91,127,214,.16); --glow-accent-22: rgba(91,127,214,.22);
+            --glow-accent-07: rgba(91,127,214,.07); --sleek-accent-soft: rgba(91,127,214,.12);
+            --text-main: #eef1f9; --text-muted: #a2aabd; --input-bg: #0e1018;
+            --border-color: rgba(238,241,249,.12); --border-light: rgba(238,241,249,.055);
+            --card-bg: rgba(255,255,255,.028); --card-hover: rgba(91,127,214,.075);
+            --ticket-gradient: linear-gradient(145deg, rgba(91,127,214,.10), rgba(138,168,232,.055) 52%, rgba(255,255,255,.02));
+            --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
+            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #7fa8c9;
+            --nav-border: rgba(240,242,250,.1); --on-primary: #0d1220; --on-success: #0d1220;
+            --bg-glow: rgba(91,127,214,.16); --bg-glow-2: rgba(138,168,232,.09); --selection-bg: rgba(91,127,214,.34);
+        }
+        [data-scheme="royal"][data-theme="light"] {
+            --bg-color: #eef0f6; --surface-color: #f9fafc; --surface-elevated: #ffffff;
+            --primary-color: #2c4ea3; --primary-strong: #233e82;
+            --sleek-accent: #2c56b8; --sleek-accent-strong: #2549a0;
+            --glow-accent-20: rgba(44,86,184,.20); --glow-accent-04: rgba(44,86,184,.04);
+            --glow-accent-28: rgba(44,86,184,.28); --glow-accent-11: rgba(44,86,184,.11);
+            --glow-accent-16: rgba(44,86,184,.16); --glow-accent-22: rgba(44,86,184,.22);
+            --glow-accent-07: rgba(44,86,184,.07); --sleek-accent-soft: rgba(44,86,184,.10);
+            --text-main: #171c28; --text-muted: #5d6474; --input-bg: #fdfdfe;
+            --border-color: rgba(23,28,40,.13); --border-light: rgba(23,28,40,.055);
+            --card-bg: rgba(255,255,255,.64); --card-hover: rgba(44,86,184,.07);
+            --ticket-gradient: linear-gradient(145deg, #fcfdfe, #e4e9f3);
+            --shadow-sm: 0 14px 38px rgba(32,42,72,.09); --shadow-lg: 0 32px 90px rgba(32,42,72,.16);
+            --warning: #7c5f16; --danger: #a04a44; --success: #2f7a4f; --info: #227081;
+            --nav-border: rgba(22,26,38,.1); --on-primary: #ffffff; --on-success: #ffffff;
+            --bg-glow: rgba(44,86,184,.12); --bg-glow-2: rgba(44,78,163,.08); --selection-bg: rgba(44,86,184,.30);
+        }
+
         body {
             background:
-                radial-gradient(ellipse 72% 20% at 50% 0%, rgba(255,103,29,.18), transparent 70%),
-                radial-gradient(circle at 8% 8%, rgba(216,176,107,.09), transparent 25rem),
+                radial-gradient(ellipse 72% 20% at 50% 0%, var(--bg-glow), transparent 70%),
+                radial-gradient(circle at 8% 8%, var(--bg-glow-2), transparent 25rem),
                 linear-gradient(180deg, rgba(255,255,255,.018), transparent 22rem),
                 var(--bg-color);
         }
@@ -901,7 +1035,7 @@
             background-size: 72px 72px;
             mask-image: linear-gradient(to bottom, black, transparent 52%);
         }
-        ::selection { background: rgba(255,103,29,.34); }
+        ::selection { background: var(--selection-bg); }
 
         .app-nav {
             top: 12px;
@@ -1814,10 +1948,24 @@
             <span id="staffAuthStatus" class="text-muted"></span>
             <button class="btn" id="staffLoginBtn" onclick="openStaffLoginDialog()">Log Masuk</button>
             <button class="btn btn-reset" id="staffLogoutBtn" onclick="signOutStaff()">Log Keluar</button>
-            <select id="themeSelector" onchange="changeTheme(this.value)">
-                <option value="auto">Auto</option>
-                <option value="dark">Gelap</option>
-                <option value="light">Cerah</option>
+            <select id="themeSelector" onchange="changeTheme(this.value)" aria-label="Tema warna">
+                <option value="auto">Auto (Ikut Peranti)</option>
+                <optgroup label="Emas (Asal)">
+                    <option value="gold:dark">Emas &mdash; Gelap</option>
+                    <option value="gold:light">Emas &mdash; Cerah</option>
+                </optgroup>
+                <optgroup label="Teal">
+                    <option value="teal:dark">Teal &mdash; Gelap</option>
+                    <option value="teal:light">Teal &mdash; Cerah</option>
+                </optgroup>
+                <optgroup label="Forest">
+                    <option value="forest:dark">Forest &mdash; Gelap</option>
+                    <option value="forest:light">Forest &mdash; Cerah</option>
+                </optgroup>
+                <optgroup label="Royal Blue">
+                    <option value="royal:dark">Royal Blue &mdash; Gelap</option>
+                    <option value="royal:light">Royal Blue &mdash; Cerah</option>
+                </optgroup>
             </select>
             <button class="btn btn-reset" id="appResetBtn" onclick="resetSystem()">Reset</button>
         </div>
@@ -4577,6 +4725,64 @@
             return businessMinutes(close, ops);
         }
 
+        /**
+         * Bug hunt (2026-09-19, H1): client-side mirror of the hard capability
+         * gate call_next_customer() enforces server-side (service_ids <@
+         * capability, NULL = capable of everything). Kept in lockstep with
+         * js/domain/scheduler.js's seatCanPerform()/buildSeatCapabilityMap() so
+         * the differential test can prove parity; the inline copies exist only
+         * because this file still runs its own scheduler rather than importing
+         * the shared module.
+         *
+         * `capability` is one seat's resolved list (null = unrestricted);
+         * `serviceIds` is the ticket's snapshot (null/empty = unknown service,
+         * treated as compatible -- the same fail-open the server applies).
+         */
+        function seatCanPerformInline(capability, serviceIds) {
+            if (capability === null || capability === undefined) return true;
+            if (!Array.isArray(serviceIds) || serviceIds.length === 0) return true;
+            const capable = new Set(capability);
+            return serviceIds.every(id => capable.has(id));
+        }
+
+        /** seatNo -> (sorted capability id array | null). null = unrestricted. */
+        function buildSeatCapabilityMapInline(activeSeats, seatState, staffList) {
+            const map = new Map();
+            if (!seatState || !Array.isArray(staffList) || !staffList.length) return map;
+            const capabilityByStaffId = new Map(
+                staffList
+                    .filter(member => member && member.id != null)
+                    .map(member => [member.id, Array.isArray(member.capabilityServiceIds) ? member.capabilityServiceIds : null])
+            );
+            for (const seat of Object.keys(activeSeats || {}).filter(no => activeSeats[no])) {
+                const seatNo = Number(seat);
+                if (!Number.isFinite(seatNo)) continue;
+                const barberId = seatState[String(seatNo)]?.barberId;
+                if (!barberId || !capabilityByStaffId.has(barberId)) {
+                    map.set(seatNo, null); // unassigned/unknown barber -> unrestricted
+                    continue;
+                }
+                const capability = capabilityByStaffId.get(barberId);
+                map.set(seatNo, capability && capability.length ? [...capability].sort() : null);
+            }
+            return map;
+        }
+
+        /**
+         * The capability map for the estimator, or an EMPTY Map when the data is
+         * not already on this device. Only admin-app's refreshStaffList() ever
+         * populates cachedStaffList (an authenticated, staff-readable call), so
+         * on the staff surfaces this returns a real map and the estimate honours
+         * the gate. On the anon customer surface cachedStaffList is empty, this
+         * returns an empty Map, and getQueueOccupancyIntervals() fails open to
+         * the pre-gate behaviour -- no staff/PII data is ever fetched or leaked
+         * to a signed-out customer just to refine an estimate, and the
+         * authoritative gate stays server-side in call_next_customer().
+         */
+        function resolveSeatCapability(activeSeats) {
+            return buildSeatCapabilityMapInline(activeSeats, seatServerState, cachedStaffList);
+        }
+
         function formatOperationalTimeLabel(timeValue) {
             const [hourText, minuteText] = String(timeValue).split(':');
             const hour = Number.parseInt(hourText, 10);
@@ -4986,10 +5192,33 @@
             });
         }
 
+        // The single source of truth for the theme picker value. 'auto' plus one
+        // 'scheme:mode' entry per scheme (gold/teal/forest/royal x light/dark) --
+        // see the themeSelector <select> and the COLOUR SCHEMES CSS block.
+        const THEME_SCHEMES = ['gold', 'teal', 'forest', 'royal'];
+
         function applyTheme(themeVal) {
             const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const resolvedTheme = themeVal === 'auto' ? (isDark ? 'dark' : 'light') : themeVal;
+            // Split the picker's value into its scheme + mode. 'auto' has no
+            // scheme (it keeps whatever scheme is stored, defaulting to gold)
+            // and resolves its mode from the OS; every other value carries both.
+            let scheme = 'gold';
+            let mode = themeVal;
+            if (themeVal !== 'auto' && themeVal.includes(':')) {
+                const parts = themeVal.split(':');
+                scheme = THEME_SCHEMES.includes(parts[0]) ? parts[0] : 'gold';
+                mode = parts[1] === 'light' ? 'light' : 'dark';
+            } else if (themeVal === 'auto') {
+                scheme = localStorage.getItem('appScheme') || 'gold';
+            } else {
+                // Back-compat: a bare 'dark'/'light' (a stored value from before
+                // schemes existed) keeps the stored scheme, defaulting to gold.
+                scheme = localStorage.getItem('appScheme') || 'gold';
+            }
+            const resolvedTheme = themeVal === 'auto' ? (isDark ? 'dark' : 'light') : mode;
             document.documentElement.setAttribute('data-theme', resolvedTheme);
+            document.documentElement.setAttribute('data-scheme', scheme);
+            localStorage.setItem('appScheme', scheme);
             if(document.getElementById('themeSelector')) document.getElementById('themeSelector').value = themeVal;
             // Root cause of "Cerah tak berfungsi, hanya Gelap sahaja" (reported, reproduced
             // on Samsung Internet / Android, Galaxy Fold 7 -- the <select> control itself
@@ -5305,7 +5534,7 @@
             const ops = getOpHours(today);
             const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
             const appointments = getAppointments().filter(appointment => appointment.date === today && appointment.status === 'upcoming');
-            const interval = getQueueOccupancyIntervals(today, appointments, queues, activeSeats).find(item => item.recordId === ticketId);
+            const interval = getQueueOccupancyIntervals(today, appointments, queues, activeSeats, resolveSeatCapability(activeSeats)).find(item => item.recordId === ticketId);
             return interval ? Math.max(0, Math.ceil(interval.start - nowMinutes)) : null;
         }
 
@@ -5317,7 +5546,7 @@
                 ? appointments.filter(appointment => appointment.date === today && appointment.status === 'upcoming')
                 : getAppointments().filter(appointment => appointment.date === today && appointment.status === 'upcoming');
             const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
-            return new Map(getQueueOccupancyIntervals(today, todayAppointments, queues, activeSeats)
+            return new Map(getQueueOccupancyIntervals(today, todayAppointments, queues, activeSeats, resolveSeatCapability(activeSeats))
                 .map(interval => [interval.recordId, Math.max(0, Math.ceil(interval.start - nowMinutes))]));
         }
 
@@ -7723,10 +7952,23 @@
             return candidate;
         }
 
-        function getQueueOccupancyIntervals(date, appointmentRecords = null, queueRecords = null, activeSeatMap = null) {
+        function getQueueOccupancyIntervals(date, appointmentRecords = null, queueRecords = null, activeSeatMap = null, seatCapability = null) {
             if (date !== getCurrentBusinessDate()) return [];
             const activeSeats = activeSeatMap || getActiveSeats();
-            const seatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
+            const allSeatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
+            // Bug hunt (2026-09-19, H1): only schedule a waiting ticket onto a
+            // seat whose assigned barber can perform every service on it --
+            // the same hard gate call_next_customer() enforces server-side.
+            // Without it the estimate could promise a seat that could never call
+            // this ticket. A missing/empty capability map (the anon customer
+            // surface, which cannot read staff rows) disables the filter and
+            // reproduces the pre-gate behaviour; the authoritative gate stays
+            // server-side.
+            const hasCapability = seatCapability instanceof Map && seatCapability.size > 0;
+            const capableSeatNumbers = ticket =>
+                !hasCapability ? allSeatNumbers
+                : allSeatNumbers.filter(seat => seatCanPerformInline(seatCapability.get(seat), ticket?.serviceIds));
+            const seatNumbers = allSeatNumbers;
             const ops = getOpHours(date);
             const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
             const queues = Array.isArray(queueRecords) ? queueRecords : getQueues();
@@ -7767,7 +8009,12 @@
 
             if (seatNumbers.length) sortWaitingQueue(queues.filter(queue => queue.status === 'waiting')).forEach(queue => {
                 const duration = Number(queue.duration) || AVG_WAIT_MINUTES;
-                const candidates = seatNumbers.map(seat => ({ seat, start: findNextSeatStart(seatSchedules.get(seat), nowMinutes, duration, ops) }));
+                // Only seats whose barber can perform every service on this ticket
+                // (H1). A ticket no capable seat can take is left unscheduled --
+                // exactly as call_next_customer() would refuse to call it.
+                const eligibleSeats = capableSeatNumbers(queue);
+                if (!eligibleSeats.length) return;
+                const candidates = eligibleSeats.map(seat => ({ seat, start: findNextSeatStart(seatSchedules.get(seat), nowMinutes, duration, ops) }));
                 const selected = candidates.reduce((earliest, candidate) => candidate.start < earliest.start ? candidate : earliest, candidates[0]);
                 const start = selected.start;
                 const end = start + duration;
@@ -7780,6 +8027,13 @@
 
         function isAppointmentSlotAvailable(date, time, duration, excludeAppointmentId = '', availabilityContext = null) {
             if (!date || !time || !Number.isFinite(duration) || duration <= 0) return false;
+            // Bug hunt (2026-09-19, M3): timeToMinutes() returns NaN for a
+            // malformed (non-empty) time string -- every comparison below
+            // against a NaN start/end is always false, so a malformed value used
+            // to skip every rejection check and fall through to `return true`.
+            // Mirrors the guard already present in js/domain/scheduler.js's
+            // isSlotAvailable().
+            if (!Number.isFinite(timeToMinutes(time))) return false;
             if (!isOnlineBookingDateAllowed(date)) return false;
 
             const activeSeats = availabilityContext?.activeSeats || getActiveSeats();
@@ -7893,7 +8147,12 @@
                 return (await showAlertDialog("Walk-in tidak dibuka pada waktu ini."));
             }
             const estimateId = '__QUEUECUT_ESTIMATE__';
-            const estimatedWait = estimateQueueWaitMinutes([...queues, { id: estimateId, status: 'waiting', timestamp: getUTCISOString(), duration: dur, queueSource: 'walkin' }], estimateId, activeSeatsObj);
+            // serviceIds rides the preview record so the capability-aware
+            // estimator (staff surfaces) filters it onto a seat that can actually
+            // perform these services -- on the anon surface the estimate fails
+            // open and the server-confirmed backstop below is the real guard.
+            const previewTicket = { id: estimateId, status: 'waiting', timestamp: getUTCISOString(), duration: dur, queueSource: 'walkin', serviceIds };
+            const estimatedWait = estimateQueueWaitMinutes([...queues, previewTicket], estimateId, activeSeatsObj);
             if (estimatedWait === null) return (await showAlertDialog("Masa menunggu belum dapat dianggarkan. Sila pastikan sekurang-kurangnya satu kerusi aktif."));
             if (currentMinutes + estimatedWait + dur > closeMinutes) {
                 // Item 6 (QUEUECUT_HANDOVER.md): a customer who never saw the
@@ -7930,12 +8189,40 @@
             }
 
             requestNotificationPermission();
+
+            // Bug hunt (2026-09-19, H1) -- server-confirmed capability backstop.
+            // The estimate above is best-effort: on the anon customer surface it
+            // cannot read staff capability rows (RLS keeps them authenticated-only),
+            // so it fails open and can still green-light a service combination no
+            // active barber can perform. Now that the ticket really exists, re-run
+            // the capability-aware check against the server's own seat->barber
+            // assignment. If NO capable seat could serve this ticket before closing,
+            // cancel it immediately (we hold its claim token) and tell the customer
+            // -- never leave them waiting in a queue call_next_customer() would
+            // refuse to call. This uses only data this device already has
+            // (seatServerState +, on staff surfaces, cachedStaffList); on the anon
+            // surface resolveSeatCapability() is empty, so the gate below engages
+            // only where capability data is legitimately present -- which is
+            // precisely where the wrong promise could otherwise be made.
+            const confirmedQueues = [...queues, { id: newId, status: 'waiting', timestamp: getUTCISOString(), duration: dur, queueSource: 'walkin', serviceIds }];
+            const confirmedWait = estimateQueueWaitMinutes(confirmedQueues, newId, activeSeatsObj);
+            if (confirmedWait === null || currentMinutes + confirmedWait + dur > closeMinutes) {
+                try {
+                    if (claimToken) await window.QueueRepo.cancelOwn(newId, claimToken);
+                } catch (cancelError) {
+                    console.warn('Tiket yang tidak dapat dilayan gagal dibatalkan secara automatik.', cancelError);
+                }
+                localStorage.removeItem('activeTicketClaimToken');
+                if (await showConfirmDialog("Maaf, tiada tukang gunting yang boleh membuat servis ini sebelum kedai tutup hari ini.", { title: "Tidak Sempat Hari Ini" })) offerNextDayBooking();
+                return;
+            }
+
             // Pushed into the same local queues array either way: the board, the
             // wait-time estimator and the staff "Panggil"/"Selesai" actions all still
             // read this local copy (see the bridge-script comment above for why), so
             // nothing else needs to change for this ticket to behave exactly as
             // before once it exists.
-            queues.push({ id: newId, name, phone, whatsappAuto: true, service: services, duration: dur, price, seat: null, status: 'waiting', timestamp: getUTCISOString(), queueSource: 'walkin', version: 1 });
+            queues.push({ id: newId, name, phone, whatsappAuto: true, service: services, duration: dur, price, seat: null, status: 'waiting', timestamp: getUTCISOString(), queueSource: 'walkin', serviceIds, version: 1 });
             saveQueues(queues);
             // Needed by cancelCustomerWalkin() to prove ownership to
             // cancel_own_ticket() — a walk-in has no account, so this generated

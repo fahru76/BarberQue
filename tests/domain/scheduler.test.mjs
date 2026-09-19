@@ -112,3 +112,54 @@ console.log('\n24-hour shop config (round 21, bug-hunt audit item 4)');
     // A normal (non-24-hour, non-overnight) day must be unaffected by this fix.
     eq('ordinary same-day config is unaffected', S.isSlotAvailable({ time: '15:00', duration: 30, ops: OPS, activeSeats: { 1: true }, nowMinutes: at(9) }), true);
 }
+
+console.log('\nCapability-aware scheduling (bug hunt 2026-09-19, H1)');
+{
+    // Two open seats. Seat 1's barber can only do SVC-A; seat 2's barber is
+    // unrestricted (null). A ticket for [SVC-A, SVC-B] must only ever be
+    // scheduled onto seat 2 -- the server (call_next_customer) would refuse to
+    // call it to seat 1, so the estimate must not promise seat 1 either.
+    const seatState = { '1': { barberId: 'barber-1' }, '2': { barberId: 'barber-2' } };
+    const staff = [
+        { id: 'barber-1', capabilityServiceIds: ['SVC-A'] },
+        { id: 'barber-2', capabilityServiceIds: null } // unrestricted
+    ];
+    const cap = S.buildSeatCapabilityMap({ 1: true, 2: true }, seatState, staff);
+    eq('capability map resolves restricted vs unrestricted seats',
+        [cap.get(1), cap.get(2)], [['SVC-A'], null]);
+
+    eq('seatCanPerform: restricted seat rejects a superset ticket', S.seatCanPerform(['SVC-A'], ['SVC-A', 'SVC-B']), false);
+    eq('seatCanPerform: restricted seat accepts a covered ticket', S.seatCanPerform(['SVC-A'], ['SVC-A']), true);
+    eq('seatCanPerform: unrestricted seat accepts anything', S.seatCanPerform(null, ['SVC-A', 'SVC-B']), true);
+    eq('seatCanPerform: unknown-service ticket is compatible (fail-open)', S.seatCanPerform(['SVC-A'], null), true);
+
+    // Occupy seat 2 (the only capable seat) with a long-running service; the
+    // multi-service ticket must then wait for seat 2, NOT jump onto the free
+    // but incapable seat 1.
+    const queues = [
+        { id: 'SERVING', status: 'serving', seat: 2, duration: 120, calledAt: '2026-08-29T02:00:00.000Z' }, // 10:00
+        { id: 'MULTI', status: 'waiting', duration: 30, timestamp: ts(1), queueSource: 'walkin', serviceIds: ['SVC-A', 'SVC-B'] }
+    ];
+    const now = at(10);
+    const intervals = S.buildOccupancyIntervals({
+        queues, appointments: [], activeSeats: { 1: true, 2: true }, ops: NO_BREAK, nowMinutes: now, seatCapability: cap
+    });
+    const multi = intervals.find(i => i.recordId === 'MULTI');
+    eq('multi-service ticket is scheduled (on the capable seat)', Boolean(multi), true);
+    eq('multi-service ticket waits for the capable seat, not the free incapable one', multi.start >= at(12), true);
+
+    // A ticket NO seat can perform is left unscheduled (estimate null), exactly
+    // as call_next_customer() would raise rather than call it.
+    const impossible = S.buildOccupancyIntervals({
+        queues: [{ id: 'NOPE', status: 'waiting', duration: 30, timestamp: ts(1), queueSource: 'walkin', serviceIds: ['SVC-Z'] }],
+        appointments: [], activeSeats: { 1: true }, ops: NO_BREAK, nowMinutes: now,
+        seatCapability: S.buildSeatCapabilityMap({ 1: true }, { '1': { barberId: 'barber-1' } }, staff)
+    });
+    eq('a ticket no capable seat can perform is unschedulable', impossible.some(i => i.recordId === 'NOPE'), false);
+
+    // No capability map at all (anon surface) reproduces the pre-gate behaviour.
+    const noGate = S.buildOccupancyIntervals({
+        queues, appointments: [], activeSeats: { 1: true, 2: true }, ops: NO_BREAK, nowMinutes: now, seatCapability: null
+    });
+    eq('absent capability map disables the filter (fail-open parity)', noGate.find(i => i.recordId === 'MULTI').start, at(10));
+}
