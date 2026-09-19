@@ -9513,7 +9513,16 @@
         function mergeServerRows(localArray, freshRows) {
             const freshById = new Map(freshRows.map(row => [row.id, row]));
             const localIds = new Set(localArray.map(item => item.id));
-            const merged = localArray.map(item => freshById.has(item.id) ? { ...item, ...freshById.get(item.id) } : item);
+            // The server query is authoritative for active work in its scope.
+            // Do not keep a locally cached waiting/serving row when the server
+            // no longer returns it: that leaves stale customers (for example a
+            // test ticket) rendered on a seat forever. Completed/cancelled
+            // history remains local because the scoped RPC intentionally does
+            // not return all historical rows.
+            const activeStatuses = new Set(['waiting', 'serving']);
+            const merged = localArray
+                .filter(item => !activeStatuses.has(item.status) || freshById.has(item.id))
+                .map(item => freshById.has(item.id) ? { ...item, ...freshById.get(item.id) } : item);
             for (const row of freshRows) if (!localIds.has(row.id)) merged.push(row);
             return merged;
         }
