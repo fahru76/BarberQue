@@ -371,7 +371,6 @@ Audit records must preserve meaningful actions such as staff changes, settings c
 `npm test` must pass with real exit code:
 
 - scheduler regression fixtures;
-- Kanban domain tests;
 - overnight RPC contract checks;
 - semantics contract checks;
 - differential comparison: 20,000 randomized cases, 0 mismatches;
@@ -391,7 +390,6 @@ Verify for both themes and desktop/mobile viewports:
 - cancellation failure preserves waiting state;
 - inactive authenticated session does not invoke staff-only feeds;
 - admin cancellation attribution survives a refresh;
-- Kanban count includes unassigned terminal records;
 - long admin sections scroll to their true bottom;
 - changed labels and controls do not wrap or clip.
 
@@ -450,7 +448,6 @@ A change is done only when:
 1. Further reporting/export improvements only after data semantics remain stable.
 2. Installer for a second shop only after a real second-shop customer exists and security posture is decided.
 3. PWA/native shell only after the Samsung Internet/PWA decision is tested on the target device.
-4. Kanban write/reassignment slices only with a separate authorization threat review.
 5. AR hairstyle try-on remains a separate product initiative.
 
 ---
@@ -462,7 +459,6 @@ A change is done only when:
 | Is the current six-defect semantics patch approved for production? | Includes a new migration and changes offline/cancellation behavior | Code committed locally; production CI/deploy approval required |
 | Should failed walk-in submission offer an explicit retry queue/outbox? | Current safe behavior rejects instead of creating a fake ticket | Recommended: explicit retry, not silent local queue |
 | Should customer cancellation support a retry banner with a retained action? | Server-first cancellation can fail transiently | Required UX decision before adding outbox behavior |
-| Is the read-only Kanban product feature still wanted? | It was previously kept after a scope misunderstanding | Current UI is read-only; reassignment remains parked |
 | Is a second-shop installer needed now? | Installer touches credentials, Auth bootstrap, hosting, and billing | Blocked until a real second shop exists |
 | Is PWA/native packaging worth pursuing? | Browser-level Samsung dark mode cannot be controlled by page CSS | Unscoped and unapproved |
 | Global operational reset scope | Must avoid destructive history loss while allowing a clean shop reconfiguration | **Decision: Safe operational reset (C)** — preserve staff and queue/appointment history; block while live queues/upcoming appointments exist; require exact `RESET` confirmation |

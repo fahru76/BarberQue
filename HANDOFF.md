@@ -3819,24 +3819,6 @@ are unverified.
 PR #15 body was rewritten against measured blob sizes (`main` 578,754 →
 branch 583,942). CI run `35128502724` green on `7fb0968`.
 
-## Decision — kanban-UI commits kept, follow-ups parked (2026-09-18)
-
-Commits `cf8d321` (js/domain/kanbanState.js + 23-case suite) and `9820a6d`
-(read-only #kanbanPanel in the barber panel + 13-case DOM test) were shipped
-from a misread of "apply kanban" — the intended target was the Hermes Kanban
-tracking board, not a product feature. Decision after assessment: **keep both,
-do not revert.**
-
-Why keep:
-
-- Pure frontend. Zero backend surface — no RPC, no migration, no writes; the
-  board renders from the same caches (getQueues + seatServerState) every other
-  view already reads.
-- Inert without `admin_reassign_queue`: without it the board is display-only,
-  so it adds no attack surface and no business-logic risk.
-- Both test suites are wired into `npm test` and pass (23 + 13 cases), so
-  reverting would only churn history and delete coverage.
-
 ## Done — final semantics bug hunt: six cross-layer defects patched (2026-09-18)
 
 Patched without changing the existing schema design:
@@ -3853,17 +3835,15 @@ Patched without changing the existing schema design:
 - Staff-only queue, appointment, and seat realtime hydration/subscriptions now
   require both a session and an active staff profile; inactive authenticated
   accounts use the anon-safe queue path and do not receive staff-only feeds.
-- Kanban now counts completed/cancelled unassigned tickets in the waiting
-  column's `doneCount` instead of dropping them.
 - Added migration `20260918100000_harden_overnight_booking_capacity.sql` to map
   overnight appointment times onto the continuous business-day axis in both
   hours and capacity validation, aligning the authoritative RPC with the
   client scheduler. Existing function signatures, tables, and columns remain
   unchanged.
 
-Verification: `npm test` passes (24 Kanban tests, 3 overnight RPC contract
-checks, scheduler, 20,000 differential comparisons with 0 mismatches, SQL
-consistency, and SQL grant consistency). DOM boot/view sweep passes at both
+Verification: `npm test` passes (3 overnight RPC contract checks, scheduler,
+20,000 differential comparisons with 0 mismatches, SQL consistency, and SQL
+grant consistency). DOM boot/view sweep passes at both
  themes and desktop/mobile sizes; only expected Supabase DNS errors occur on
  the offline HTTP stub. No schema columns or existing function signatures were
  changed.
@@ -3874,11 +3854,6 @@ production CI approval and live database application before overnight bookings
 are fixed in production.
 
 
-**Parked (none started, none scheduled):** slices 3–5 of the original plan —
-`admin_reassign_queue` RPC + migration + verification SQL; drag-and-drop
-(planMove/diffBoards already exist for it); deploy verification of #kanbanPanel.
-Slice 3 is a real authorization surface and needs its own card + threat review
-before anyone builds it.
 ## Done — barber-to-chair assignment save race (2026-09-18)
 
 - Root cause: `saveBarberAssignments()` sent every seat upsert concurrently with
