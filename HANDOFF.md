@@ -4095,6 +4095,26 @@ rendered element is the `<select id="themeSelector">` (now 9 options in 4
   analysis — kimi-k3 rejects image inputs). Harness kept as
   `tests/dom/theme-picker.verify.mjs` for re-checks.
 
+**Theme reflects Admin → Customer within a session (verified 2026-09-19).**
+`tests/dom/theme-reflect.verify.mjs` (hermetic, desktop 1440 + mobile 390) drives
+the real flow: load customer view → fake an admin session → click the admin nav
+→ `changeTheme('teal:dark')` → click back to customer → reload. Results (both
+viewports, zero page errors): the admin view genuinely opens
+(`enteredAdminView=true`); after switching back the customer view is fully teal
+(`data-scheme=teal`, `data-theme=dark`, `--primary-color=#5ec8c0`, teal-tinted
+active nav `rgba(47,185,173,.12)`, teal text-main `rgb(238,247,246)`);
+`customerReflects=true`; the choice **persists across a reload**
+(`persistsAfterReload=true`); no gold leaked (`goldNeverLeaked=true`).
+
+**Scope note (browser-local by design):** the theme is stored in `localStorage`
+(`appTheme` + `appScheme`) only — there is NO server column (`shop_settings` has
+none) and `changeTheme()` performs no RPC. So the theme is **per-browser**, not
+per-shop: it reflects Admin→Customer (and every other view) *within the same
+browser*, but an admin changing it on the counter tablet does **not** change what
+a customer sees on their own phone. If shop-wide theming is wanted, it needs a
+`shop_settings` column + a write-through like the other settings — not done here
+(not requested).
+
 ## Parked — WhatsApp Cloud API notification delivery (implementation soon)
 
 **Status:** Reserved, not implemented. Do not restore the removed browser-local
