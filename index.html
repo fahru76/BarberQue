@@ -1669,7 +1669,7 @@
         #staffLoginBtn { display:none; }
         #staffLogoutBtn { display:none; }
         #appResetBtn { display:none; }
-        #adminGlobalResetBtn { display:none; }
+
         /* Hidden by default (same reasoning as staffLoginBtn/staffLogoutBtn
            above) so it never flashes visible before updateStaffAuthUI() runs
            on page load -- JS reveals it only once a signed-in admin profile
@@ -2236,8 +2236,7 @@
     <main id="admin-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Admin</h2>
-            <button type="button" class="btn btn-reset" id="adminGlobalResetBtn" onclick="openOperationalResetDialog('global')">RESET OPERASI GLOBAL</button>
-            <p class="text-muted fs-82">Reset mengekalkan akaun kakitangan dan sejarah transaksi. Disekat jika masih ada giliran aktif atau tempahan akan datang.</p>
+            <p class="text-muted fs-82">Reset global tersedia pada butang Reset di navigasi atas. Ia mengekalkan akaun kakitangan dan sejarah transaksi serta disekat jika masih ada giliran aktif atau tempahan akan datang.</p>
 
             <div id="adminNoActiveSeatsWarning" class="admin-no-active-seats-warning" role="alert" onclick="setAdminSection('seats')">
                 &#9888; TIADA KERUSI AKTIF &mdash; tempahan online dan giliran walk-in baharu TIDAK BOLEH dibuat sehingga sekurang-kurangnya satu kerusi diaktifkan. Klik untuk pergi ke tab <strong>Kerusi &amp; Giliran</strong>.
@@ -3545,7 +3544,7 @@
             const displayBtn = document.getElementById('navDisplayBtn');
             const customerBtn = document.getElementById('navCustomerBtn');
             const resetBtn = document.getElementById('appResetBtn');
-            const globalResetBtn = document.getElementById('adminGlobalResetBtn');
+
             const activeViewId = document.querySelector('.view-section.active')?.id || 'customer-app';
             const customerSurface = activeViewId === 'customer-app';
             if (!statusEl || !loginBtn || !logoutBtn) return;
@@ -3563,7 +3562,7 @@
                 if (displayBtn) displayBtn.style.display = 'inline-block';
                 if (barberBtn) barberBtn.style.display = 'inline-block';
                 if (adminBtn) adminBtn.style.display = staffProfile.role === 'admin' ? 'inline-block' : 'none';
-                if (globalResetBtn) globalResetBtn.style.display = staffProfile.role === 'admin' && activeViewId === 'admin-app' ? 'inline-block' : 'none';
+
                 // Other nav buttons are visible now, so Pelanggan is a real
                 // tab again (something to switch away from) -- restore its
                 // normal interactive-pill styling. See the .nav-solo CSS
@@ -3578,7 +3577,7 @@
                 if (displayBtn) displayBtn.style.display = 'none';
                 if (barberBtn) barberBtn.style.display = 'none';
                 if (adminBtn) adminBtn.style.display = 'none';
-                if (globalResetBtn) globalResetBtn.style.display = 'none';
+
                 // Pelanggan is now the only visible nav button (design
                 // critique finding: it read as a broken toggle with nothing
                 // to switch to) -- drop the pill styling down to a plain
