@@ -2177,6 +2177,31 @@
     <main id="barber-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Tukang Gunting</h2>
+            <!-- Barber self-service duty (20261008100000): each barber's own
+                 start/end duty + break. The chair grid below stays the shared
+                 overview (Panggil/Selesai per chair). -->
+            <section class="panel-box border-primary mb-15" id="myDutyPanel" aria-labelledby="myDutyTitle" hidden>
+                <h3 class="text-primary mb-15" id="myDutyTitle">TUGASAN SAYA</h3>
+                <p id="myDutyStatus" aria-live="polite"></p>
+                <div id="myDutyOff" class="d-flex gap-8 flex-wrap items-center mt-10">
+                    <select id="myDutySeatSelect" class="flex-1" aria-label="Pilih kerusi untuk bertugas"></select>
+                    <button type="button" class="btn btn-action" id="btnStartDuty" onclick="startMyDuty()">Mula Bertugas</button>
+                </div>
+                <div id="myDutyOn" class="mt-10" hidden>
+                    <div class="d-flex gap-8 flex-wrap items-center" id="myBreakCtrl">
+                        <select id="myBreakMinutes" class="flex-1" aria-label="Tempoh rehat">
+                            <option value="10">10 minit</option>
+                            <option value="15" selected>15 minit</option>
+                            <option value="30">30 minit</option>
+                            <option value="45">45 minit</option>
+                            <option value="60">60 minit</option>
+                        </select>
+                        <button type="button" class="btn btn-reset" id="btnMyBreak" onclick="startMyBreak()">Rehat</button>
+                    </div>
+                    <button type="button" class="btn btn-action w-full mt-10" id="btnMyResume" onclick="endMyBreak()" hidden>Kembali Bertugas</button>
+                    <button type="button" class="btn btn-reset w-full mt-10" id="btnEndDuty" onclick="endMyDuty()">Tamat Bertugas</button>
+                </div>
+            </section>
             <div class="serving-grid" id="barberSeatControls"></div>
             <div class="panel-box mt-30 border-primary">
                 <h3 class="text-primary mb-15">TEMPAHAN KALENDAR HARI INI (<span id="todayDateStr"></span>)</h3>
@@ -2940,7 +2965,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
-        import { listSeats, setSeatAssignment, setSeatBreak, subscribeSeatChanges } from './js/repositories/seatRepository.js';
+        import { listSeats, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
         import {
@@ -2951,7 +2976,7 @@
         import * as AuthRepo from './js/repositories/authRepository.js';
 
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
-        window.SeatRepo = { listSeats, setSeatAssignment, setSeatBreak, subscribeSeatChanges };
+        window.SeatRepo = { listSeats, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState };
         window.AppointmentRepo = {
@@ -3840,7 +3865,9 @@
             for (const seat of getSeatNumbers()) {
                 const serverSeat = seatServerState[String(seat)];
                 if (!serverSeat) continue;
-                nextActiveSeats[seat] = !!serverSeat.active;
+                // A chair opened on an earlier business day has expired
+                // (20261008100000) -- call_next_customer() refuses it too.
+                nextActiveSeats[seat] = !!serverSeat.active && !isSeatDutyStale(serverSeat);
                 nextAssignments[seat] = normalizeBarberName(serverSeat.barberName || '');
             }
             if (JSON.stringify(nextActiveSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(nextActiveSeats);
@@ -8645,6 +8672,104 @@
         // to remove right back — better to show the real error (often "seat
         // not assigned yet" while the team is still being set up) than to
         // pretend it worked.
+        // ---- Barber self-service duty (20261008100000) ----------------------
+        function isSeatDutyStale(serverSeat) {
+            return !!serverSeat?.active && !!serverSeat.dutyDate && serverSeat.dutyDate < getCurrentBusinessDate();
+        }
+
+        function getMyDutySeat() {
+            if (!staffProfile?.id) return null;
+            const seat = Object.values(seatServerState).find(item => item?.active && item.barberId === staffProfile.id && !isSeatDutyStale(item));
+            return seat ? Number(seat.seatNo) : null;
+        }
+
+        // hidden attribute alone loses to classes like .btn/.d-flex that set
+        // display, so both are kept in step.
+        function setShown(element, shown) {
+            if (!element) return;
+            element.hidden = !shown;
+            element.classList.toggle('d-none', !shown);
+        }
+
+        function renderMyDutyPanel(queues) {
+            const panel = document.getElementById('myDutyPanel');
+            if (!panel) return;
+            setShown(panel, !!staffProfile?.id);
+            if (!staffProfile?.id) return;
+            const status = document.getElementById('myDutyStatus');
+            const offBox = document.getElementById('myDutyOff');
+            const onBox = document.getElementById('myDutyOn');
+            const mySeat = getMyDutySeat();
+            setShown(offBox, mySeat === null);
+            setShown(onBox, mySeat !== null);
+            if (mySeat === null) {
+                const select = document.getElementById('myDutySeatSelect');
+                const freeSeats = getSeatNumbers().filter(seat => {
+                    const serverSeat = seatServerState[String(seat)];
+                    return !serverSeat || !serverSeat.active || isSeatDutyStale(serverSeat);
+                });
+                const previous = select.value;
+                select.innerHTML = freeSeats.map(seat => `<option value="${seat}">Kerusi ${seat}</option>`).join('');
+                if (freeSeats.map(String).includes(previous)) select.value = previous;
+                select.disabled = !freeSeats.length;
+                document.getElementById('btnStartDuty').disabled = !freeSeats.length;
+                status.textContent = freeSeats.length
+                    ? 'Anda belum bertugas. Pilih kerusi yang kosong untuk mula.'
+                    : `Semua ${getSeatCount()} kerusi sedang digunakan.`;
+                return;
+            }
+            const serving = (queues || getQueues()).find(q => q.status === 'serving' && Number(q.seat) === mySeat);
+            const breakText = serving ? '' : getSeatBreakUntilText(mySeat);
+            status.textContent = serving
+                ? `Bertugas di Kerusi ${mySeat} — sedang melayan ${getDisplayTicketId(serving)}.`
+                : breakText
+                    ? `Bertugas di Kerusi ${mySeat} — rehat hingga ${breakText}. Giliran dilayan oleh tukang gunting lain.`
+                    : `Bertugas di Kerusi ${mySeat} — sedia menerima pelanggan.`;
+            setShown(document.getElementById('myBreakCtrl'), !serving && !breakText);
+            setShown(document.getElementById('btnMyResume'), !!breakText);
+            document.getElementById('btnEndDuty').disabled = !!serving;
+            document.getElementById('btnEndDuty').title = serving ? "Sila 'Selesai' pelanggan dahulu." : '';
+        }
+
+        async function startMyDuty() {
+            const seat = Number.parseInt(document.getElementById('myDutySeatSelect')?.value, 10);
+            if (!Number.isInteger(seat)) return (await showAlertDialog("Tiada kerusi kosong untuk dipilih."));
+            if (!window.SeatRepo?.startDuty) return (await showAlertDialog("Ciri tugasan belum sedia. Sila muat semula halaman."));
+            const button = document.getElementById('btnStartDuty');
+            button.disabled = true;
+            try {
+                await window.SeatRepo.startDuty(seat);
+            } catch (error) {
+                await showAlertDialog(error.message || "Gagal mula bertugas. Sila cuba lagi.");
+            } finally {
+                button.disabled = false;
+            }
+            await refreshSeatServerState();
+        }
+
+        async function endMyDuty() {
+            const mySeat = getMyDutySeat();
+            if (mySeat === null) return;
+            if (!(await showConfirmDialog(`Tamat bertugas di Kerusi ${mySeat}? Kerusi akan ditutup dan giliran dilayan oleh tukang gunting lain.`))) return;
+            try {
+                await window.SeatRepo.endDuty(mySeat);
+            } catch (error) {
+                await showAlertDialog(error.message || "Gagal tamat bertugas. Sila cuba lagi.");
+            }
+            await refreshSeatServerState();
+        }
+
+        async function startMyBreak() {
+            const mySeat = getMyDutySeat();
+            if (mySeat === null) return;
+            await startSeatBreak(mySeat, Number.parseInt(document.getElementById('myBreakMinutes').value, 10));
+        }
+
+        async function endMyBreak() {
+            const mySeat = getMyDutySeat();
+            if (mySeat !== null) await endSeatBreak(mySeat);
+        }
+
         // Barber break (20261008090000). Returns "HH:MM" (Malaysia time) when
         // the seat's barber is currently on break, else ''. An expired break
         // reads as on duty even before the server row is cleared, so a
@@ -8668,8 +8793,8 @@
             updateUI();
         }
 
-        async function startSeatBreak(seatNum) {
-            const minutes = Number.parseInt(document.getElementById(`breakMinutes${seatNum}`)?.value, 10);
+        async function startSeatBreak(seatNum, explicitMinutes = null) {
+            const minutes = Number.isInteger(explicitMinutes) ? explicitMinutes : Number.parseInt(document.getElementById(`breakMinutes${seatNum}`)?.value, 10);
             if (!Number.isInteger(minutes) || minutes < 1 || minutes > 120) return (await showAlertDialog("Sila pilih tempoh rehat yang sah."));
             if (getQueues().find(q => q.status === 'serving' && q.seat === seatNum)) return (await showAlertDialog("Sila 'Selesai' pelanggan di kerusi ini dahulu."));
             if (!(await showConfirmDialog(`Mula rehat ${minutes} minit? Giliran akan dilayan oleh tukang gunting lain sementara anda berehat.`))) return;
@@ -9328,7 +9453,9 @@
                 // Break controls: only the seat's own barber (or admin) sees
                 // them; "Rehat" only when idle (the server also refuses a break
                 // while serving), "Kembali Bertugas" only while on break.
-                const canManageBreak = !!activeSeats[n] && isMyAssignedSeat && !!assignedBarberName;
+                // Barbers manage their own break from TUGASAN SAYA (myDutyPanel); the
+                // per-chair controls stay as an admin override only.
+                const canManageBreak = !!activeSeats[n] && isAdmin && !!assignedBarberName;
                 if (bBreakCtrl) bBreakCtrl.classList.toggle('d-none', !canManageBreak || !!curr || !!breakUntilText);
                 if (bResume) bResume.classList.toggle('d-none', !canManageBreak || !breakUntilText);
 
@@ -9362,6 +9489,8 @@
                     }
                 }
             });
+
+            renderMyDutyPanel(queues);
 
             document.getElementById('tvUpcoming').innerHTML = waitingList.map(q => `<div class="upcoming-item upcoming-item-accent">${escapeHTML(getDisplayTicketId(q))}<br><span class="fs-90 fw-normal text-muted">${escapeHTML(q.name)}</span></div>`).join('');
             document.getElementById('tv-closed-notice').style.display = isShopOpen ? 'none' : 'block';

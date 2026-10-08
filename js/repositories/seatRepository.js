@@ -38,7 +38,7 @@ function raiseOnError(error) {
 export async function listSeats() {
     const { data, error } = await supabase
         .from('seats')
-        .select('seat_no, active, barber_id, break_until, staff:barber_id ( display_name )')
+        .select('seat_no, active, barber_id, break_until, duty_date, staff:barber_id ( display_name )')
         .order('seat_no', { ascending: true });
     raiseOnError(error);
     return data.map(row => ({
@@ -46,7 +46,8 @@ export async function listSeats() {
         active: row.active,
         barberId: row.barber_id,
         barberName: row.staff?.display_name ?? null,
-        breakUntil: row.break_until ?? null
+        breakUntil: row.break_until ?? null,
+        dutyDate: row.duty_date ?? null
     }));
 }
 
@@ -72,6 +73,28 @@ export async function setSeatAssignment(seatNo, { active, staffId }) {
         .single();
     raiseOnError(error);
     return { seatNo: data.seat_no, active: data.active, barberId: data.barber_id };
+}
+
+/**
+ * Barber self-service duty (migration 20261008100000). Both go through
+ * SECURITY DEFINER RPCs -- a barber never gets a direct UPDATE on seats.
+ * start_duty() only takes a free chair within shop_settings.seat_count for
+ * the caller; end_duty() closes the caller's own chair (or, for an admin,
+ * any chair) and refuses while a customer is being served.
+ *
+ * @param {number} seatNo chair the barber picked.
+ */
+export async function startDuty(seatNo) {
+    const { data, error } = await supabase.rpc('start_duty', { p_seat_no: seatNo });
+    raiseOnError(error);
+    return { seatNo: data.seat_no, active: data.active, barberId: data.barber_id, dutyDate: data.duty_date ?? null };
+}
+
+/** @param {number|null} [seatNo] null = the caller's own chair. */
+export async function endDuty(seatNo = null) {
+    const { data, error } = await supabase.rpc('end_duty', { p_seat_no: seatNo });
+    raiseOnError(error);
+    return { seatNo: data.seat_no, active: data.active };
 }
 
 /**
