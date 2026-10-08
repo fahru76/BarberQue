@@ -70,12 +70,39 @@ export async function getMyStaffProfile() {
     if (!user) return null;
     const { data, error } = await supabase
         .from('staff')
-        .select('id, display_name, role, active')
+        .select('id, display_name, role, active, capability_service_ids, specialty_service_ids')
         .eq('id', user.id)
         .maybeSingle();
     raiseOnError(error);
     if (!data) return null;
-    return { id: data.id, displayName: data.display_name, role: data.role, active: data.active };
+    return {
+        id: data.id, displayName: data.display_name, role: data.role, active: data.active,
+        capabilityServiceIds: data.capability_service_ids || [],
+        specialtyServiceIds: data.specialty_service_ids || []
+    };
+}
+
+/**
+ * Barber self-service skills/services (migration 20261008110000). Goes
+ * through the set_my_services() RPC -- a direct UPDATE of these columns on
+ * the caller's own staff row is still rejected by
+ * enforce_staff_self_update_scope(). Same convention as the admin card:
+ * an empty capability list means "can do every service".
+ *
+ * @param {string[]} capabilityServiceIds services this barber offers.
+ * @param {string[]} specialtyServiceIds  subset marked as skills/priority.
+ */
+export async function setMyServices(capabilityServiceIds, specialtyServiceIds) {
+    const { data, error } = await supabase.rpc('set_my_services', {
+        p_capability: capabilityServiceIds,
+        p_specialty: specialtyServiceIds
+    });
+    raiseOnError(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+        capabilityServiceIds: row?.capability_service_ids || [],
+        specialtyServiceIds: row?.specialty_service_ids || []
+    };
 }
 
 /**

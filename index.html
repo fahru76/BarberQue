@@ -2202,6 +2202,16 @@
                     <button type="button" class="btn btn-reset w-full mt-10" id="btnEndDuty" onclick="endMyDuty()">Tamat Bertugas</button>
                 </div>
             </section>
+            <!-- Barber self-service skills/services (20261008110000): the barber's
+                 own capability (services offered) + specialty (starred skills).
+                 Saved through set_my_services(); custom durations stay admin-only. -->
+            <section class="panel-box mb-15" id="myServicesPanel" aria-labelledby="myServicesTitle" hidden>
+                <h3 class="text-primary mb-15" id="myServicesTitle">KEMAHIRAN &amp; SERVIS SAYA</h3>
+                <p class="text-muted capability-hint">Tanda servis yang anda tawarkan kepada pelanggan. Jika TIADA yang ditanda, anda dianggap boleh buat SEMUA servis. Tanda &#9733; pada kemahiran utama anda -- pelanggan servis itu akan dipanggil kepada anda dahulu.</p>
+                <div id="myServicesRows"></div>
+                <p id="myServicesSummary" class="text-muted mt-10" aria-live="polite"></p>
+                <button type="button" class="btn btn-sm btn-action mt-8" id="btnSaveMyServices" onclick="saveMyServices()">Simpan Kemahiran &amp; Servis</button>
+            </section>
             <div class="serving-grid" id="barberSeatControls"></div>
             <div class="panel-box mt-30 border-primary">
                 <h3 class="text-primary mb-15">TEMPAHAN KALENDAR HARI INI (<span id="todayDateStr"></span>)</h3>
@@ -3786,13 +3796,14 @@
         function onCapabilityCheckboxChange(checkbox) {
             if (checkbox.checked) return;
             const star = checkbox.closest('.capability-row')?.querySelector('.specialty-star');
-            if (star) star.classList.remove('active');
+            if (star) { star.classList.remove('active'); star.setAttribute('aria-pressed', 'false'); }
         }
 
         /** Starring a service auto-checks its capability box for the same reason. */
         function toggleSpecialtyStar(button) {
             const willActivate = !button.classList.contains('active');
             button.classList.toggle('active', willActivate);
+            button.setAttribute('aria-pressed', String(willActivate));
             if (willActivate) {
                 const checkbox = button.closest('.capability-row')?.querySelector('.capability-check');
                 if (checkbox) checkbox.checked = true;
@@ -8731,6 +8742,58 @@
             document.getElementById('btnEndDuty').title = serving ? "Sila 'Selesai' pelanggan dahulu." : '';
         }
 
+        // ---- Barber self-service skills/services (20261008110000) ----------
+        // Rendered only when the service catalogue or the barber's saved
+        // selection changes, so an unsaved tick-box edit is never wiped by the
+        // periodic/realtime updateUI() repaint.
+        let myServicesSignature = '';
+        function renderMyServicesPanel() {
+            const panel = document.getElementById('myServicesPanel');
+            if (!panel) return;
+            const services = getServices().filter(service => service.active);
+            const signedIn = !!staffProfile?.id;
+            setShown(panel, signedIn && services.length > 0);
+            if (!signedIn || !services.length) return;
+            const capability = staffProfile.capabilityServiceIds || [];
+            const specialty = staffProfile.specialtyServiceIds || [];
+            const signature = JSON.stringify([staffProfile.id, services.map(s => [s.id, s.name]), capability, specialty]);
+            if (signature === myServicesSignature) return;
+            myServicesSignature = signature;
+            const capabilitySet = new Set(capability);
+            const specialtySet = new Set(specialty);
+            document.getElementById('myServicesRows').innerHTML = services.map(service => `
+                <label class="capability-row">
+                    <input type="checkbox" class="capability-check" data-service-id="${escapeHTML(service.id)}" ${capabilitySet.has(service.id) ? 'checked' : ''} onchange="onCapabilityCheckboxChange(this)">
+                    <span class="capability-row-name">${escapeHTML(service.name)}</span>
+                    <button type="button" class="specialty-star${specialtySet.has(service.id) ? ' active' : ''}" onclick="toggleSpecialtyStar(this)" aria-pressed="${specialtySet.has(service.id)}" aria-label="Kemahiran utama: ${escapeHTML(service.name)}" title="Jadikan kemahiran utama (diutamakan)">&#9733;</button>
+                </label>`).join('');
+            document.getElementById('myServicesSummary').textContent = capabilitySet.size
+                ? `Disimpan: ${capabilitySet.size} servis ditawarkan, ${specialtySet.size} kemahiran utama.`
+                : 'Disimpan: boleh buat semua servis.';
+        }
+
+        async function saveMyServices() {
+            const panel = document.getElementById('myServicesPanel');
+            if (!panel || !window.AuthRepo?.setMyServices) return (await showAlertDialog("Ciri ini belum sedia. Sila muat semula halaman."));
+            const capabilityServiceIds = Array.from(panel.querySelectorAll('.capability-check:checked')).map(cb => cb.dataset.serviceId);
+            const specialtyServiceIds = Array.from(panel.querySelectorAll('.specialty-star.active'))
+                .map(star => star.closest('.capability-row')?.querySelector('.capability-check')?.dataset.serviceId)
+                .filter(Boolean);
+            const button = document.getElementById('btnSaveMyServices');
+            button.disabled = true;
+            try {
+                const saved = await window.AuthRepo.setMyServices(capabilityServiceIds, specialtyServiceIds);
+                staffProfile = { ...staffProfile, ...saved };
+                myServicesSignature = '';
+                renderMyServicesPanel();
+                await showAlertDialog("Kemahiran dan servis anda telah disimpan.");
+            } catch (error) {
+                await showAlertDialog(error.message || "Gagal menyimpan kemahiran dan servis. Sila cuba lagi.");
+            } finally {
+                button.disabled = false;
+            }
+        }
+
         async function startMyDuty() {
             const seat = Number.parseInt(document.getElementById('myDutySeatSelect')?.value, 10);
             if (!Number.isInteger(seat)) return (await showAlertDialog("Tiada kerusi kosong untuk dipilih."));
@@ -9491,6 +9554,7 @@
             });
 
             renderMyDutyPanel(queues);
+            renderMyServicesPanel();
 
             document.getElementById('tvUpcoming').innerHTML = waitingList.map(q => `<div class="upcoming-item upcoming-item-accent">${escapeHTML(getDisplayTicketId(q))}<br><span class="fs-90 fw-normal text-muted">${escapeHTML(q.name)}</span></div>`).join('');
             document.getElementById('tv-closed-notice').style.display = isShopOpen ? 'none' : 'block';
