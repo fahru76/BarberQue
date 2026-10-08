@@ -70,7 +70,7 @@ export async function getMyStaffProfile() {
     if (!user) return null;
     const { data, error } = await supabase
         .from('staff')
-        .select('id, display_name, role, active, capability_service_ids, specialty_service_ids')
+        .select('id, display_name, role, active, capability_service_ids, specialty_service_ids, service_durations')
         .eq('id', user.id)
         .maybeSingle();
     raiseOnError(error);
@@ -78,7 +78,8 @@ export async function getMyStaffProfile() {
     return {
         id: data.id, displayName: data.display_name, role: data.role, active: data.active,
         capabilityServiceIds: data.capability_service_ids || [],
-        specialtyServiceIds: data.specialty_service_ids || []
+        specialtyServiceIds: data.specialty_service_ids || [],
+        serviceDurations: data.service_durations || {}
     };
 }
 
@@ -91,17 +92,20 @@ export async function getMyStaffProfile() {
  *
  * @param {string[]} capabilityServiceIds services this barber offers.
  * @param {string[]} specialtyServiceIds  subset marked as skills/priority.
+ * @param {Object<string, number>} [serviceDurations] the barber's own
+ *   minutes per service (migration 20261008130000); {} clears back to shop
+ *   defaults, undefined leaves them unchanged.
  */
-export async function setMyServices(capabilityServiceIds, specialtyServiceIds) {
-    const { data, error } = await supabase.rpc('set_my_services', {
-        p_capability: capabilityServiceIds,
-        p_specialty: specialtyServiceIds
-    });
+export async function setMyServices(capabilityServiceIds, specialtyServiceIds, serviceDurations) {
+    const params = { p_capability: capabilityServiceIds, p_specialty: specialtyServiceIds };
+    if (serviceDurations !== undefined) params.p_durations = serviceDurations ?? {};
+    const { data, error } = await supabase.rpc('set_my_services', params);
     raiseOnError(error);
     const row = Array.isArray(data) ? data[0] : data;
     return {
         capabilityServiceIds: row?.capability_service_ids || [],
-        specialtyServiceIds: row?.specialty_service_ids || []
+        specialtyServiceIds: row?.specialty_service_ids || [],
+        serviceDurations: row?.service_durations || {}
     };
 }
 

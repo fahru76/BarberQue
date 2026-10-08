@@ -2208,7 +2208,7 @@
                  Saved through set_my_services(); custom durations stay admin-only. -->
             <section class="panel-box mb-15" id="myServicesPanel" aria-labelledby="myServicesTitle" hidden>
                 <h3 class="text-primary mb-15" id="myServicesTitle">KEMAHIRAN &amp; SERVIS SAYA</h3>
-                <p class="text-muted capability-hint">Tanda servis yang anda tawarkan kepada pelanggan. Jika TIADA yang ditanda, anda dianggap boleh buat SEMUA servis. Tanda &#9733; pada kemahiran utama anda -- pelanggan servis itu akan dipanggil kepada anda dahulu.</p>
+                <p class="text-muted capability-hint">Tanda servis yang anda tawarkan kepada pelanggan. Jika TIADA yang ditanda, anda dianggap boleh buat SEMUA servis. Tanda &#9733; pada kemahiran utama anda -- pelanggan servis itu akan dipanggil kepada anda dahulu. Masukkan purata masa anda (minit) bagi setiap servis -- kosongkan untuk guna masa lalai kedai.</p>
                 <div id="myServicesRows"></div>
                 <p id="myServicesSummary" class="text-muted mt-10" aria-live="polite"></p>
                 <button type="button" class="btn btn-sm btn-action mt-8" id="btnSaveMyServices" onclick="saveMyServices()">Simpan Kemahiran &amp; Servis</button>
@@ -8770,7 +8770,8 @@
             if (!signedIn || !services.length) return;
             const capability = staffProfile.capabilityServiceIds || [];
             const specialty = staffProfile.specialtyServiceIds || [];
-            const signature = JSON.stringify([staffProfile.id, services.map(s => [s.id, s.name]), capability, specialty]);
+            const durations = staffProfile.serviceDurations || {};
+            const signature = JSON.stringify([staffProfile.id, services.map(s => [s.id, s.name, s.duration]), capability, specialty, durations]);
             if (signature === myServicesSignature) return;
             myServicesSignature = signature;
             const capabilitySet = new Set(capability);
@@ -8779,11 +8780,13 @@
                 <label class="capability-row">
                     <input type="checkbox" class="capability-check" data-service-id="${escapeHTML(service.id)}" ${capabilitySet.has(service.id) ? 'checked' : ''} onchange="onCapabilityCheckboxChange(this)">
                     <span class="capability-row-name">${escapeHTML(service.name)}</span>
+                    <input type="number" class="capability-duration-input" data-service-id="${escapeHTML(service.id)}" min="1" max="480" step="1" inputmode="numeric" placeholder="${escapeHTML(String(service.duration))}" value="${Number.isInteger(durations[service.id]) ? durations[service.id] : ''}" aria-label="Purata masa anda (minit): ${escapeHTML(service.name)}" title="Purata masa anda (minit). Kosongkan untuk guna lalai kedai (${escapeHTML(String(service.duration))} minit).">
                     <button type="button" class="specialty-star${specialtySet.has(service.id) ? ' active' : ''}" onclick="toggleSpecialtyStar(this)" aria-pressed="${specialtySet.has(service.id)}" aria-label="Kemahiran utama: ${escapeHTML(service.name)}" title="Jadikan kemahiran utama (diutamakan)">&#9733;</button>
                 </label>`).join('');
-            document.getElementById('myServicesSummary').textContent = capabilitySet.size
-                ? `Disimpan: ${capabilitySet.size} servis ditawarkan, ${specialtySet.size} kemahiran utama.`
-                : 'Disimpan: boleh buat semua servis.';
+            const customTimes = Object.keys(durations).length;
+            document.getElementById('myServicesSummary').textContent = (capabilitySet.size
+                ? `Disimpan: ${capabilitySet.size} servis ditawarkan, ${specialtySet.size} kemahiran utama`
+                : 'Disimpan: boleh buat semua servis') + (customTimes ? `, ${customTimes} masa servis sendiri.` : '.');
         }
 
         async function saveMyServices() {
@@ -8793,10 +8796,27 @@
             const specialtyServiceIds = Array.from(panel.querySelectorAll('.specialty-star.active'))
                 .map(star => star.closest('.capability-row')?.querySelector('.capability-check')?.dataset.serviceId)
                 .filter(Boolean);
+            // Own average time per service (20261008130000). Blank = shop
+            // default. When the barber restricts his services, a time on a
+            // service he no longer offers is dropped -- the server would
+            // reject it, and it could never be used anyway.
+            const offered = new Set(capabilityServiceIds);
+            const serviceDurations = {};
+            for (const input of panel.querySelectorAll('.capability-duration-input')) {
+                const raw = input.value.trim();
+                if (!raw) continue;
+                if (offered.size && !offered.has(input.dataset.serviceId)) continue;
+                const minutes = Number(raw);
+                if (!Number.isInteger(minutes) || minutes < 1 || minutes > 480) {
+                    input.focus();
+                    return (await showAlertDialog('Masa servis mesti nombor bulat antara 1 hingga 480 minit.'));
+                }
+                serviceDurations[input.dataset.serviceId] = minutes;
+            }
             const button = document.getElementById('btnSaveMyServices');
             button.disabled = true;
             try {
-                const saved = await window.AuthRepo.setMyServices(capabilityServiceIds, specialtyServiceIds);
+                const saved = await window.AuthRepo.setMyServices(capabilityServiceIds, specialtyServiceIds, serviceDurations);
                 staffProfile = { ...staffProfile, ...saved };
                 myServicesSignature = '';
                 renderMyServicesPanel();
