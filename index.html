@@ -1849,6 +1849,7 @@
         .fs-180 { font-size:1.8rem; }
         .text-main { color:var(--text-main); }
         .text-success { color:var(--success); }
+        .text-warning { color:var(--warning); }
         .text-white { color:var(--on-success); }
         .bg-success { background:var(--success); }
         .border-success { border-color:var(--success); }
@@ -3785,11 +3786,24 @@
                 </label>`).join('');
             return `
                 <details class="staff-capability-panel" data-staff-id="${member.id}">
-                    <summary>Kebolehan &amp; Keutamaan Servis${capabilitySet.size ? ` (dihadkan kepada ${capabilitySet.size})` : ' (tiada had -- boleh semua)'}</summary>
+                    <summary>Kebolehan &amp; Keutamaan Servis${capabilitySet.size ? ` (dihadkan kepada ${capabilitySet.size})` : ' (tiada had -- boleh semua)'}${member.servicesUpdatedBy && member.servicesUpdatedBy === member.id ? ' <span class="text-warning fw-bold">&bull; diubah sendiri</span>' : ''}</summary>
+                    ${renderServicesChangeNote(member)}
                     <p class="text-muted capability-hint">Jika TIADA servis ditanda "Boleh", tukang gunting ini dianggap boleh buat SEMUA servis (lalai, sama seperti sekarang). Tanda &#9733; untuk jadikan servis itu keutamaan -- pelanggan servis tersebut akan dipanggil dahulu oleh tukang gunting ini. Masukkan tempoh (minit) untuk tetapkan tempoh tersuai tukang gunting ini bagi servis tersebut -- kosongkan untuk guna tempoh lalai kedai.</p>
                     ${rows}
                     <button type="button" class="btn btn-sm btn-action mt-8" onclick="saveStaffCapabilities('${member.id}')">Simpan Kebolehan</button>
                 </details>`;
+        }
+
+        // "Last changed by" note on the admin card (20261008120000). A change
+        // by the barber himself is highlighted so admin can review it.
+        function renderServicesChangeNote(member) {
+            if (!member.servicesUpdatedAt) return '';
+            const when = formatMalaysiaDateTime(member.servicesUpdatedAt);
+            if (member.servicesUpdatedBy && member.servicesUpdatedBy === member.id) {
+                return `<p class="capability-hint text-warning fw-bold">Terakhir diubah oleh tukang gunting sendiri &bull; ${escapeHTML(when)}</p>`;
+            }
+            const byName = member.servicesUpdatedBy ? getStaffDisplayName(member.servicesUpdatedBy) : '';
+            return `<p class="capability-hint text-muted">Terakhir diubah oleh ${byName ? `admin ${escapeHTML(byName)}` : 'sistem'} &bull; ${escapeHTML(when)}</p>`;
         }
 
         /** Unchecking capability also un-stars that row -- a specialty always implies capability. */

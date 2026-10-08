@@ -114,7 +114,7 @@ export async function setMyServices(capabilityServiceIds, specialtyServiceIds) {
 export async function listStaff() {
     const { data, error } = await supabase
         .from('staff')
-        .select('id, display_name, role, active, created_at, capability_service_ids, specialty_service_ids, service_durations')
+        .select('id, display_name, role, active, created_at, capability_service_ids, specialty_service_ids, service_durations, services_updated_at, services_updated_by')
         .order('created_at', { ascending: true });
     raiseOnError(error);
     return data.map(row => ({
@@ -128,7 +128,11 @@ export async function listStaff() {
         // Per-service duration override in minutes, keyed by services.id —
         // see 20260908130000_barber_service_durations.sql. NULL normalised
         // to {} for the same reason as above.
-        serviceDurations: row.service_durations || {}
+        serviceDurations: row.service_durations || {},
+        // "Last changed by" (20261008120000): trigger-maintained, so these
+        // reflect both barber self-service and admin edits.
+        servicesUpdatedAt: row.services_updated_at ?? null,
+        servicesUpdatedBy: row.services_updated_by ?? null
     }));
 }
 
