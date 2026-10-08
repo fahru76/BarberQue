@@ -2940,7 +2940,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
-        import { listSeats, setSeatAssignment, subscribeSeatChanges } from './js/repositories/seatRepository.js';
+        import { listSeats, setSeatAssignment, setSeatBreak, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
         import {
@@ -2951,7 +2951,7 @@
         import * as AuthRepo from './js/repositories/authRepository.js';
 
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
-        window.SeatRepo = { listSeats, setSeatAssignment, subscribeSeatChanges };
+        window.SeatRepo = { listSeats, setSeatAssignment, setSeatBreak, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState };
         window.AppointmentRepo = {
@@ -6634,6 +6634,17 @@
                     <div class="fs-180 text-primary my-15" id="bSeat${seat}Num">---</div>
                     <button class="btn btn-action w-full" id="btnCall${seat}" onclick="callNextToSeat(${seat})">Panggil</button>
                     <button class="btn d-none w-full bg-success text-white border-success" id="btnDone${seat}" onclick="markSeatDone(${seat})">Selesai</button>
+                    <div class="d-flex gap-8 mt-10" id="bBreakCtrl${seat}">
+                        <select id="breakMinutes${seat}" class="flex-1" aria-label="Tempoh rehat kerusi ${seat}">
+                            <option value="10">10 minit</option>
+                            <option value="15" selected>15 minit</option>
+                            <option value="30">30 minit</option>
+                            <option value="45">45 minit</option>
+                            <option value="60">60 minit</option>
+                        </select>
+                        <button type="button" class="btn btn-reset" id="btnBreak${seat}" onclick="startSeatBreak(${seat})">Rehat</button>
+                    </div>
+                    <button type="button" class="btn btn-action w-full d-none mt-10" id="btnResume${seat}" onclick="endSeatBreak(${seat})">Kembali Bertugas</button>
                 </div>`).join('');
             adminControls.innerHTML = seatNumbers.map(seat => `<button class="btn" id="btnToggleSeat${seat}" onclick="toggleSeatStatus(${seat})">Kerusi ${seat}</button>`).join('');
             seatContainers.forEach(container => { container.dataset.seatCount = String(seatCount); });
@@ -7908,6 +7919,21 @@
             const seatSchedules = new Map(seatNumbers.map(seat => [seat, []]));
             const intervals = [];
 
+            // Barber break (20261008090000): a seat whose barber is on a short
+            // break is blocked from now until the break ends, so waiting
+            // tickets are projected onto the other seats meanwhile and flow
+            // back to this seat once the break is over. Uses remaining
+            // wall-clock minutes (not a clock-time conversion) so it is safe
+            // across the overnight business-day boundary. Surfaces that never
+            // load seatServerState (anon/TV) simply see no breaks.
+            const seatStateForBreaks = typeof seatServerState === 'object' && seatServerState ? seatServerState : {};
+            seatNumbers.forEach(seat => {
+                const breakMillis = timestampToMillis(seatStateForBreaks[String(seat)]?.breakUntil);
+                if (!Number.isFinite(breakMillis)) return;
+                const remaining = Math.ceil((breakMillis - Date.now()) / 60000);
+                if (remaining > 0) seatSchedules.get(seat).push({ start: nowMinutes, end: nowMinutes + remaining });
+            });
+
             queues.filter(queue => queue.status === 'serving').forEach(queue => {
                 const seatNumber = Number(queue.seat);
                 let schedule = seatSchedules.get(seatNumber);
@@ -8619,6 +8645,41 @@
         // to remove right back — better to show the real error (often "seat
         // not assigned yet" while the team is still being set up) than to
         // pretend it worked.
+        // Barber break (20261008090000). Returns "HH:MM" (Malaysia time) when
+        // the seat's barber is currently on break, else ''. An expired break
+        // reads as on duty even before the server row is cleared, so a
+        // forgotten "Kembali Bertugas" never strands a chair.
+        function getSeatBreakUntilText(seatNum) {
+            const millis = timestampToMillis(seatServerState[String(seatNum)]?.breakUntil);
+            if (!Number.isFinite(millis) || millis <= Date.now()) return '';
+            const parts = getMalaysiaDateTimeParts(millis);
+            return parts ? `${String(parts.hour % 24).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}` : '';
+        }
+
+        async function applySeatBreak(seatNum, minutes) {
+            if (!window.SeatRepo?.setSeatBreak) return (await showAlertDialog("Ciri rehat belum sedia. Sila muat semula halaman."));
+            try {
+                const updated = await window.SeatRepo.setSeatBreak(seatNum, minutes);
+                const key = String(seatNum);
+                seatServerState = { ...seatServerState, [key]: { ...(seatServerState[key] || {}), breakUntil: updated.breakUntil } };
+            } catch (error) {
+                return (await showAlertDialog(error.message || "Status rehat gagal dikemas kini. Sila cuba lagi."));
+            }
+            updateUI();
+        }
+
+        async function startSeatBreak(seatNum) {
+            const minutes = Number.parseInt(document.getElementById(`breakMinutes${seatNum}`)?.value, 10);
+            if (!Number.isInteger(minutes) || minutes < 1 || minutes > 120) return (await showAlertDialog("Sila pilih tempoh rehat yang sah."));
+            if (getQueues().find(q => q.status === 'serving' && q.seat === seatNum)) return (await showAlertDialog("Sila 'Selesai' pelanggan di kerusi ini dahulu."));
+            if (!(await showConfirmDialog(`Mula rehat ${minutes} minit? Giliran akan dilayan oleh tukang gunting lain sementara anda berehat.`))) return;
+            await applySeatBreak(seatNum, minutes);
+        }
+
+        async function endSeatBreak(seatNum) {
+            await applySeatBreak(seatNum, 0);
+        }
+
         async function callNextToSeat(seatNum) {
             if (localStorage.getItem('shopStatus') !== 'open') return (await showAlertDialog("Kedai sedang ditutup."));
             if (!getActiveSeats()[seatNum]) return (await showAlertDialog(`Kerusi ${seatNum} sedang ditutup.`));
@@ -9215,9 +9276,10 @@
             // TV & Barber UI logic
             getSeatNumbers().forEach(n => {
                 let curr = queues.find(q => q.status === 'serving' && q.seat === n);
+                const breakUntilText = activeSeats[n] && !curr ? getSeatBreakUntilText(n) : '';
                 // TV View
                 let tvNum = document.getElementById(`tvSeat${n}Num`);
-                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span class="fs-120 ls-normal">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : '---');
+                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span class="fs-120 ls-normal">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : (breakUntilText ? `<span class="fs-120 ls-normal">REHAT</span><br><span class="cust-name-label">hingga ${escapeHTML(breakUntilText)}</span>` : '---'));
                 let tvBox = document.getElementById(`tvSeat${n}Box`);
                 if (tvBox) tvBox.style.borderColor = curr ? 'var(--primary-color)' : 'rgba(255,255,255,0.1)';
                 
@@ -9227,6 +9289,8 @@
                 let bDone = document.getElementById(`btnDone${n}`);
                 let bCtrl = document.getElementById(`bControl${n}`);
                 let bBarber = document.getElementById(`bBarber${n}Name`);
+                let bBreakCtrl = document.getElementById(`bBreakCtrl${n}`);
+                let bResume = document.getElementById(`btnResume${n}`);
                 // seatServerState[n].barberName is the real staff.display_name
                 // (SeatRepo.listSeats() joins it server-side) -- preferred over
                 // the localStorage-only getBarberAssignments() cache, which can
@@ -9261,6 +9325,13 @@
                     bBarber.textContent = displayedBarberName || (activeSeats[n] ? 'Nama tidak direkodkan' : 'Tiada tukang gunting ditetapkan');
                 }
 
+                // Break controls: only the seat's own barber (or admin) sees
+                // them; "Rehat" only when idle (the server also refuses a break
+                // while serving), "Kembali Bertugas" only while on break.
+                const canManageBreak = !!activeSeats[n] && isMyAssignedSeat && !!assignedBarberName;
+                if (bBreakCtrl) bBreakCtrl.classList.toggle('d-none', !canManageBreak || !!curr || !!breakUntilText);
+                if (bResume) bResume.classList.toggle('d-none', !canManageBreak || !breakUntilText);
+
                 if(!activeSeats[n]) {
                     if(bCtrl) bCtrl.style.opacity = '0.5';
                     if(bSeat) bSeat.innerHTML = '<span class="fs-150">DITUTUP</span>';
@@ -9276,6 +9347,10 @@
                             bDone.disabled = !isMyServingSeat;
                             bDone.title = isMyServingSeat ? '' : notMyAssignedSeatTitle;
                         }
+                    } else if (breakUntilText) {
+                        if(bSeat) bSeat.innerHTML = `<span class="fs-150">REHAT</span><br><span class="fs-100 text-main">hingga ${escapeHTML(breakUntilText)}</span>`;
+                        if(bCall) bCall.style.display='none';
+                        if(bDone) bDone.style.display='none';
                     } else {
                         if(bSeat) bSeat.innerHTML = '---';
                         if(bCall) {
@@ -9493,6 +9568,16 @@
         });
         window.setInterval(processCustomerNotifications, 30000);
         window.setInterval(refreshTimeSensitiveUI, 15000);
+        // Barber break (20261008090000): repaint seat cards/TV the moment a
+        // break expires, without waiting for an unrelated realtime event.
+        let lastSeatBreakSignature = '';
+        window.setInterval(() => {
+            const signature = getSeatNumbers().map(seat => getSeatBreakUntilText(seat)).join('|');
+            if (signature !== lastSeatBreakSignature) {
+                lastSeatBreakSignature = signature;
+                updateUI();
+            }
+        }, 15000);
 
         // Step 7 (see HANDOFF.md): cross-device live updates. The `storage` listener
         // above only ever fires between tabs of the SAME browser (a plain

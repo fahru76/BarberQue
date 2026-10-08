@@ -38,14 +38,15 @@ function raiseOnError(error) {
 export async function listSeats() {
     const { data, error } = await supabase
         .from('seats')
-        .select('seat_no, active, barber_id, staff:barber_id ( display_name )')
+        .select('seat_no, active, barber_id, break_until, staff:barber_id ( display_name )')
         .order('seat_no', { ascending: true });
     raiseOnError(error);
     return data.map(row => ({
         seatNo: row.seat_no,
         active: row.active,
         barberId: row.barber_id,
-        barberName: row.staff?.display_name ?? null
+        barberName: row.staff?.display_name ?? null,
+        breakUntil: row.break_until ?? null
     }));
 }
 
@@ -71,6 +72,22 @@ export async function setSeatAssignment(seatNo, { active, staffId }) {
         .single();
     raiseOnError(error);
     return { seatNo: data.seat_no, active: data.active, barberId: data.barber_id };
+}
+
+/**
+ * Barber short break (migration 20261008090000). Goes through the
+ * set_seat_break() SECURITY DEFINER RPC -- barbers have no direct UPDATE
+ * right on public.seats; the RPC only lets a seat's own barber (or an admin)
+ * touch break_until, and refuses a break while a customer is being served.
+ *
+ * @param {number} seatNo
+ * @param {number} minutes 1-120 to start a break, 0 to end it now.
+ * @returns {Promise<{seatNo:number, breakUntil:string|null}>}
+ */
+export async function setSeatBreak(seatNo, minutes) {
+    const { data, error } = await supabase.rpc('set_seat_break', { p_seat_no: seatNo, p_minutes: minutes });
+    raiseOnError(error);
+    return { seatNo: data.seat_no, breakUntil: data.break_until ?? null };
 }
 
 /**
