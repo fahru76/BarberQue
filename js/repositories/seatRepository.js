@@ -76,6 +76,26 @@ export async function setSeatAssignment(seatNo, { active, staffId }) {
 }
 
 /**
+ * Per-chair data for the wait estimator (migration 20261008140000), readable
+ * on every surface incl. anon: on duty today, break end, and the barber's
+ * capability + own service times. Deliberately carries no barber id/name.
+ *
+ * @returns {Promise<Array<{seatNo:number, onDuty:boolean, breakUntil:string|null,
+ *           capabilityServiceIds:string[]|null, serviceDurations:Object|null}>>}
+ */
+export async function listSeatProfiles() {
+    const { data, error } = await supabase.rpc('list_seat_profiles');
+    raiseOnError(error);
+    return (data ?? []).map(row => ({
+        seatNo: row.seat_no,
+        onDuty: !!row.on_duty,
+        breakUntil: row.break_until ?? null,
+        capabilityServiceIds: Array.isArray(row.capability_service_ids) ? row.capability_service_ids : null,
+        serviceDurations: row.service_durations && typeof row.service_durations === 'object' ? row.service_durations : null
+    }));
+}
+
+/**
  * Barber self-service duty (migration 20261008100000). Both go through
  * SECURITY DEFINER RPCs -- a barber never gets a direct UPDATE on seats.
  * start_duty() only takes a free chair within shop_settings.seat_count for

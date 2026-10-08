@@ -75,9 +75,11 @@ const stubbedGlobals = `
         return Object.fromEntries(parts.filter(p => p.type !== 'literal').map(p => [p.type, Number(p.value)]));
     }
     var seatServerState = {};
+    var seatProfiles = {};
     var cachedStaffList = [];
     function __syncState() {
         seatServerState = STATE.seatServerState;
+        seatProfiles = STATE.seatProfiles || {};
         cachedStaffList = STATE.cachedStaffList;
     }
 `;
@@ -98,44 +100,44 @@ const factory = new Function('STATE', `
     return {
         seatCanPerformInline, buildSeatCapabilityMapInline, resolveSeatCapability,
         getQueueOccupancyIntervals, estimateQueueWaitMinutes, buildWaitByRecordId,
-        getSeatBreakUntilText, __syncState
+        getSeatBreakUntilText, resolveSeatDurations, __syncState
     };
 `);
 const inline = factory(STATE);
 
-// ---- barber break contract (migration 20261008090000) ---------------------
+// ---- barber-aware estimate contract (migration 20261008140000) -----------
 const OPS = { open: '10:00', close: '22:00', break1Start: '', break1End: '', break2Start: '', break2End: '' };
 const NOW = 15 * 60;
-const waiting = (id, i) => ({ id, status: 'waiting', duration: 30, queueSource: 'walkin', timestamp: new Date(Date.UTC(2026, 9, 8, 5, i)).toISOString() });
-const queues = [waiting('T1', 0), waiting('T2', 1), waiting('T3', 2)];
+const t = (id, i, serviceIds) => ({ id, status: 'waiting', duration: 30, queueSource: 'walkin', serviceIds,
+    timestamp: new Date(Date.UTC(2026, 9, 8, 5, i)).toISOString() });
 const activeSeats = { 1: true, 2: true };
-const run = seatState => {
-    Object.assign(STATE, { queues, appointments: [], activeSeats, ops: OPS, today: '2026-10-08', nowMinutes: NOW, seatServerState: seatState, cachedStaffList: [] });
+const run = (queues, seatProfiles = {}, extra = {}) => {
+    Object.assign(STATE, { queues, appointments: [], activeSeats, ops: OPS, today: '2026-10-08', nowMinutes: NOW,
+        seatServerState: extra.seatServerState || {}, cachedStaffList: extra.cachedStaffList || [], seatProfiles });
     inline.__syncState();
-    return Object.fromEntries(inline.getQueueOccupancyIntervals('2026-10-08', [], queues, activeSeats).map(iv => [iv.recordId, iv.start - NOW]));
+    return Object.fromEntries(inline.buildWaitByRecordId(queues, activeSeats, []));
 };
 let passed = 0, failed = 0;
-const check = (label, ok) => { console.log(`  ${ok ? 'pass' : 'FAIL'}  ${label}`); ok ? passed++ : failed++; };
-const inMin = m => new Date(Date.now() + m * 60000).toISOString();
+const check = (label, ok, got) => { console.log(`  ${ok ? 'pass' : 'FAIL'}  ${label}${ok ? '' : '  got ' + JSON.stringify(got)}`); ok ? passed++ : failed++; };
+const fades = [t('T1', 0, ['fade']), t('T2', 1, ['fade']), t('T3', 2, ['fade'])];
+const fast = { 1: { seatNo: 1, onDuty: true, serviceDurations: { fade: 15 } }, 2: { seatNo: 2, onDuty: true } };
 
-const onDuty = run({ 1: { barberId: 'a' }, 2: { barberId: 'b' } });
-check('both on duty: T1,T2 start now, T3 after 30', onDuty.T1 === 0 && onDuty.T2 === 0 && onDuty.T3 === 30);
-
-const onBreak = run({ 1: { barberId: 'a', breakUntil: inMin(45) }, 2: { barberId: 'b' } });
-check('seat 1 on 45-min break: T1 now, T2 at 30 (seat 2 absorbs)', onBreak.T1 === 0 && onBreak.T2 === 30);
-check('seat 1 on 45-min break: T3 at ~45 (flows back to seat 1 after break)', onBreak.T3 >= 45 && onBreak.T3 <= 46);
-
-const expired = run({ 1: { barberId: 'a', breakUntil: inMin(-5) }, 2: { barberId: 'b' } });
-check('expired break is ignored (auto back on duty)', JSON.stringify(expired) === JSON.stringify(onDuty));
-
-const noState = run(undefined);
-check('surface without seatServerState (anon/TV) unchanged', JSON.stringify(noState) === JSON.stringify(onDuty));
-
-STATE.seatServerState = { 1: { breakUntil: inMin(20) }, 2: { breakUntil: inMin(-1) } };
-inline.__syncState();
-check('getSeatBreakUntilText: active break -> HH:MM', /^\d{2}:\d{2}$/.test(inline.getSeatBreakUntilText(1)));
-check('getSeatBreakUntilText: expired break -> empty', inline.getSeatBreakUntilText(2) === '');
-check('getSeatBreakUntilText: no state -> empty', inline.getSeatBreakUntilText(3) === '');
+let r = run(fades);
+check('no barber times: T3 waits 30 (shop default)', r.T3 === 30, r);
+r = run(fades, fast);
+check('chair 1 barber does fade in 15: T3 waits 15', r.T1 === 0 && r.T2 === 0 && r.T3 === 15, r);
+r = run([...fades, t('T4', 3, ['fade'])], fast);
+check('T4 goes to the chair free earliest (chair 1 again at 30)', r.T4 === 30, r);
+r = run([t('T1', 0, ['fade']), t('T2', 1, ['fade']), t('T3', 2, ['fade', 'beard'])], fast);
+check('ticket with a service the barber has no time for uses its own duration', r.T3 === 15, r);
+r = run([t('T1', 0, undefined), t('T2', 1, undefined), t('T3', 2, undefined)], fast);
+check('tickets without service ids are unaffected', r.T3 === 30, r);
+r = run(fades, { 1: { seatNo: 1, onDuty: true, serviceDurations: { fade: 0 } }, 2: { seatNo: 2, onDuty: true } });
+check('invalid override (0) ignored', r.T3 === 30, r);
+r = run(fades, {}, { seatServerState: { 1: { barberId: 'a' } }, cachedStaffList: [{ id: 'a', capabilityServiceIds: [], serviceDurations: { fade: 15 } }] });
+check('admin surface: staff list times used when no profiles', r.T3 === 15, r);
+r = run(fades, { 1: { seatNo: 1, onDuty: true, serviceDurations: { fade: 15 }, breakUntil: new Date(Date.now() + 40 * 60000).toISOString() }, 2: { seatNo: 2, onDuty: true } });
+check('break from seat profiles honoured on anon surface (T1 to chair 2, chair 1 back at ~40)', r.T1 === 0 && r.T2 >= 30 && r.T2 <= 41, r);
 
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

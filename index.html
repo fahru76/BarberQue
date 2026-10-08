@@ -2976,7 +2976,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
-        import { listSeats, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
+        import { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
         import {
@@ -2987,7 +2987,7 @@
         import * as AuthRepo from './js/repositories/authRepository.js';
 
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
-        window.SeatRepo = { listSeats, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges };
+        window.SeatRepo = { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState };
         window.AppointmentRepo = {
@@ -3343,6 +3343,10 @@
         // seats.barber_id is the actual source of truth for this, not any local
         // key, since call_next_customer() checks that table directly.
         let seatServerState = {};
+        // Barber-aware estimates (20261008140000): per-chair on-duty/break/
+        // capability/own-service-times from list_seat_profiles(), loaded on
+        // EVERY surface (anon included -- it carries no barber id or name).
+        let seatProfiles = {};
 
         // ============= PER-VIEW URLs (?view=customer|display|barber|<admin slug>) =============
         // See VIEW_SLUGS below for the actual admin-app slug -- deliberately
@@ -3472,6 +3476,9 @@
             // earlier, at the classic script's own top level, would run before the
             // module has set window.QueueRepo at all.
             if (!queueChannelUnsubscribe) {
+                // 20261008140000: first per-chair profile load on every surface,
+                // at the same "bridge module is ready" point.
+                refreshSeatProfiles();
                 queueChannelUnsubscribe = window.QueueRepo.subscribeQueueChanges(scheduleQueueRefresh);
                 // Step 7 follow-up (see HANDOFF.md -- "no initial hydration for
                 // queues/appointments on page load"): the channel above only ever
@@ -3864,6 +3871,33 @@
          * (readable by any signed-in staff, and even anon -- "seats readable
          * by all") -- listStaff() stays admin-app-only, same as before.
          */
+        // Barber-aware estimates (20261008140000). Also brings a customer's
+        // phone/TV in line with which chairs are really on duty today -- the
+        // same local activeSeats sync reconcileLocalSeatStateFromServer()
+        // already does on staff devices (a seat with no server row keeps its
+        // local value, as there).
+        let seatProfilesSignature = '';
+        async function refreshSeatProfiles() {
+            if (!window.SeatRepo?.listSeatProfiles) return;
+            try {
+                const profiles = await window.SeatRepo.listSeatProfiles();
+                seatProfiles = Object.fromEntries(profiles.map(profile => [String(profile.seatNo), profile]));
+                const nextActiveSeats = { ...getActiveSeats() };
+                for (const seat of getSeatNumbers()) {
+                    const profile = seatProfiles[String(seat)];
+                    if (profile) nextActiveSeats[seat] = profile.onDuty;
+                }
+                if (JSON.stringify(nextActiveSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(nextActiveSeats);
+                const signature = JSON.stringify(profiles);
+                if (signature !== seatProfilesSignature) {
+                    seatProfilesSignature = signature;
+                    updateUI();
+                }
+            } catch (error) {
+                console.warn('Memuatkan profil kerusi gagal.', error);
+            }
+        }
+
         async function refreshSeatServerState() {
             try {
                 const seats = await window.SeatRepo.listSeats();
@@ -3873,6 +3907,7 @@
             } catch (error) {
                 console.warn('Memuatkan status kerusi gagal.', error);
             }
+            refreshSeatProfiles();
         }
 
         // public.seats is the single source of truth for which seats are open
@@ -4805,7 +4840,41 @@
          * authoritative gate stays server-side in call_next_customer().
          */
         function resolveSeatCapability(activeSeats) {
-            return buildSeatCapabilityMapInline(activeSeats, seatServerState, cachedStaffList);
+            const fromStaff = buildSeatCapabilityMapInline(activeSeats, seatServerState, cachedStaffList);
+            if (fromStaff.size) return fromStaff;
+            // 20261008140000: every surface now has per-chair capability via
+            // list_seat_profiles(), so the estimate honours the same hard gate
+            // as call_next_customer() even on a customer's phone. Still an
+            // empty Map (fail open) until that data has loaded.
+            const profiles = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
+            const map = new Map();
+            for (const seat of Object.keys(activeSeats || {}).filter(no => activeSeats[no])) {
+                const profile = profiles[String(seat)];
+                if (!profile) continue;
+                const capability = profile.capabilityServiceIds;
+                map.set(Number(seat), Array.isArray(capability) && capability.length ? [...capability].sort() : null);
+            }
+            return map;
+        }
+
+        /**
+         * seatNo -> that chair's barber's own service times ({service_id:
+         * minutes}) for the estimator (20261008140000). Seat profiles first
+         * (every surface); else the admin's staff list. Empty Map = use each
+         * ticket's own duration everywhere (the previous behaviour).
+         */
+        function resolveSeatDurations(activeSeats) {
+            const map = new Map();
+            const profiles = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
+            const staffById = new Map((Array.isArray(cachedStaffList) ? cachedStaffList : []).map(member => [member?.id, member]));
+            for (const seat of Object.keys(activeSeats || {}).filter(no => activeSeats[no])) {
+                const fromProfile = profiles[String(seat)]?.serviceDurations;
+                const barberId = seatServerState?.[String(seat)]?.barberId;
+                const fromStaff = barberId ? staffById.get(barberId)?.serviceDurations : null;
+                const durations = fromProfile || fromStaff;
+                if (durations && typeof durations === 'object' && Object.keys(durations).length) map.set(Number(seat), durations);
+            }
+            return map;
         }
 
         function formatOperationalTimeLabel(timeValue) {
@@ -5559,7 +5628,7 @@
             const ops = getOpHours(today);
             const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
             const appointments = getAppointments().filter(appointment => appointment.date === today && appointment.status === 'upcoming');
-            const interval = getQueueOccupancyIntervals(today, appointments, queues, activeSeats, resolveSeatCapability(activeSeats)).find(item => item.recordId === ticketId);
+            const interval = getQueueOccupancyIntervals(today, appointments, queues, activeSeats, resolveSeatCapability(activeSeats), resolveSeatDurations(activeSeats)).find(item => item.recordId === ticketId);
             return interval ? Math.max(0, Math.ceil(interval.start - nowMinutes)) : null;
         }
 
@@ -5571,7 +5640,7 @@
                 ? appointments.filter(appointment => appointment.date === today && appointment.status === 'upcoming')
                 : getAppointments().filter(appointment => appointment.date === today && appointment.status === 'upcoming');
             const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
-            return new Map(getQueueOccupancyIntervals(today, todayAppointments, queues, activeSeats, resolveSeatCapability(activeSeats))
+            return new Map(getQueueOccupancyIntervals(today, todayAppointments, queues, activeSeats, resolveSeatCapability(activeSeats), resolveSeatDurations(activeSeats))
                 .map(interval => [interval.recordId, Math.max(0, Math.ceil(interval.start - nowMinutes))]));
         }
 
@@ -7828,7 +7897,9 @@
                 status: 'waiting',
                 timestamp: WALKIN_PREVIEW_TIMESTAMP,
                 duration: getSelectedWalkinDuration(),
-                queueSource: 'walkin'
+                queueSource: 'walkin',
+                serviceIds: Array.from(document.querySelectorAll('input[name="walkinServices"]:checked'))
+                    .map(checkbox => checkbox.dataset.serviceId).filter(Boolean)
             };
         }
 
@@ -7948,7 +8019,7 @@
             return candidate;
         }
 
-        function getQueueOccupancyIntervals(date, appointmentRecords = null, queueRecords = null, activeSeatMap = null, seatCapability = null) {
+        function getQueueOccupancyIntervals(date, appointmentRecords = null, queueRecords = null, activeSeatMap = null, seatCapability = null, seatDurations = null) {
             if (date !== getCurrentBusinessDate()) return [];
             const activeSeats = activeSeatMap || getActiveSeats();
             const allSeatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
@@ -7979,8 +8050,9 @@
             // across the overnight business-day boundary. Surfaces that never
             // load seatServerState (anon/TV) simply see no breaks.
             const seatStateForBreaks = typeof seatServerState === 'object' && seatServerState ? seatServerState : {};
+            const seatProfilesForBreaks = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
             seatNumbers.forEach(seat => {
-                const breakMillis = timestampToMillis(seatStateForBreaks[String(seat)]?.breakUntil);
+                const breakMillis = timestampToMillis(seatStateForBreaks[String(seat)]?.breakUntil ?? seatProfilesForBreaks[String(seat)]?.breakUntil);
                 if (!Number.isFinite(breakMillis)) return;
                 const remaining = Math.ceil((breakMillis - Date.now()) / 60000);
                 if (remaining > 0) seatSchedules.get(seat).push({ start: nowMinutes, end: nowMinutes + remaining });
@@ -8025,10 +8097,32 @@
                 // exactly as call_next_customer() would refuse to call it.
                 const eligibleSeats = capableSeatNumbers(queue);
                 if (!eligibleSeats.length) return;
-                const candidates = eligibleSeats.map(seat => ({ seat, start: findNextSeatStart(seatSchedules.get(seat), nowMinutes, duration, ops) }));
+                // Barber-aware (20261008140000): on each chair use that chair's
+                // barber's own time for this ticket -- same rule as
+                // call_next_customer(): every service on the ticket must have a
+                // valid 1-999 override and the total must be 1-480, otherwise
+                // the ticket's own duration. The chair that can START it
+                // earliest still wins (dispatch is pull-based: whoever frees up
+                // first calls the next customer).
+                const durationOnSeat = seat => {
+                    const overrides = seatDurations instanceof Map ? seatDurations.get(seat) : null;
+                    const ids = Array.isArray(queue.serviceIds) ? queue.serviceIds : [];
+                    if (!overrides || !ids.length) return duration;
+                    let total = 0;
+                    for (const id of ids) {
+                        const minutes = overrides[id];
+                        if (!Number.isInteger(minutes) || minutes < 1 || minutes > 999) return duration;
+                        total += minutes;
+                    }
+                    return total >= 1 && total <= 480 ? total : duration;
+                };
+                const candidates = eligibleSeats.map(seat => {
+                    const seatDuration = durationOnSeat(seat);
+                    return { seat, duration: seatDuration, start: findNextSeatStart(seatSchedules.get(seat), nowMinutes, seatDuration, ops) };
+                });
                 const selected = candidates.reduce((earliest, candidate) => candidate.start < earliest.start ? candidate : earliest, candidates[0]);
                 const start = selected.start;
-                const end = start + duration;
+                const end = start + selected.duration;
                 const queueInterval = { start, end, recordId: queue.id };
                 intervals.push(queueInterval);
                 seatSchedules.get(selected.seat).push(queueInterval);
@@ -8820,6 +8914,7 @@
                 staffProfile = { ...staffProfile, ...saved };
                 myServicesSignature = '';
                 renderMyServicesPanel();
+                refreshSeatProfiles();
                 await showAlertDialog("Kemahiran dan servis anda telah disimpan.");
             } catch (error) {
                 await showAlertDialog(error.message || "Gagal menyimpan kemahiran dan servis. Sila cuba lagi.");
@@ -9797,6 +9892,10 @@
         window.setInterval(refreshTimeSensitiveUI, 15000);
         // Barber break (20261008090000): repaint seat cards/TV the moment a
         // break expires, without waiting for an unrelated realtime event.
+        // Every surface: keep per-chair profiles (barber-aware estimates) fresh.
+        // The first load happens once the bridge module is ready -- see the
+        // queues realtime arming above.
+        window.setInterval(refreshSeatProfiles, 60000);
         let lastSeatBreakSignature = '';
         window.setInterval(() => {
             const signature = getSeatNumbers().map(seat => getSeatBreakUntilText(seat)).join('|');

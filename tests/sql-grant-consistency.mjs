@@ -48,7 +48,8 @@ const INTENTIONALLY_ANON_CALLABLE = new Set([
     'cancel_own_appointment',             // claim-token verified inside
     'reschedule_own_appointment',         // claim-token verified inside
     'convert_walkin_to_appointment',      // claim-token verified inside
-    'list_today_queues'                   // anon-safe column subset only
+    'list_today_queues',                  // anon-safe column subset only
+    'list_seat_profiles'                  // per-chair duty/break/capability/times, no barber id or name
 ]);
 
 // ---- function definitions (last definition of a name wins) ---------------

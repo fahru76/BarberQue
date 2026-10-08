@@ -87,7 +87,7 @@ const INLINE_FNS = [
     'resolveCloseMinutes', 'getQueuePriority', 'sortWaitingQueue',
     'getConfiguredBreaks', 'intervalOverlapsBreak', 'moveServicePastBreak',
     'getServiceEnd', 'intervalsOverlap', 'findNextSeatStart',
-    'seatCanPerformInline', 'buildSeatCapabilityMapInline', 'resolveSeatCapability',
+    'seatCanPerformInline', 'buildSeatCapabilityMapInline', 'resolveSeatCapability', 'resolveSeatDurations',
     'getQueueOccupancyIntervals', 'estimateQueueWaitMinutes', 'buildWaitByRecordId'
 ].map(extractFunction).join('\n\n');
 
