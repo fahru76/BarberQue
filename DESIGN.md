@@ -150,7 +150,7 @@ A warm-neutral palette tinted toward brown, with a gold primary and an orange ac
 - **Display** (Cormorant Garamond 600): shop identity and large headings.
 - **Body** (Manrope 500, 1rem): forms, lists, descriptions.
 - **Label** (Manrope 700, .78rem, +0.055em, uppercase): buttons and small controls.
-- **Caption / Small / Lead / Title / Heading** (Manrope, .75 / .85 / 1.25 / 1.5 / 2rem): the target ramp around Body. Floor for any visible text is 12px (.75rem). Many older admin and barber rules still use in-between sizes (.64rem to 1.4rem); they are legacy and should snap to this ramp when those screens are next edited, not in a blanket restyle.
+- **Caption / Small / Lead / Title / Heading** (Manrope, .75 / .85 / 1.25 / 1.5 / 2rem): the target ramp around Body. Floor for any visible text is 12px (.75rem). Plain rem sizes in the stylesheet are snapped to this ramp plus the .78rem label; fluid clamp() display sizes are deliberate and stay as they are.
 - **Ticket Number** (Manrope 500, clamp(3rem, 12vw, 5.2rem), line-height 1, -0.04em): the queue number, the largest thing on the customer screen and legible on the shop TV.
 
 ### Named Rules
