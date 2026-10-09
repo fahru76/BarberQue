@@ -171,8 +171,8 @@ Tonal layering first: page, surface, and elevated surface step lighter in dark m
 
 Softly rounded: 8px for small controls, 14px for buttons and cards, 22px for large containers, and a full pill (999px) for toggles and badges. Borders are hairline, low-contrast tints of the text colour. The ticket uses a 2px brass border with a gradient wash of ember and brass tints.
 
-### Legacy colours
-Older admin and barber rules still contain a handful of one-off colours (for example #aaa, #555, #f39c12, #e83e8c, #6f42c1, #495057, and several tinted rgba fills). They are legacy: do not copy them into new work, and replace them with the tokens above when those screens are next touched.
+### Semantic palettes outside the core tokens
+Some colours are deliberate, contrast-tuned values, not leftovers: the barber ranking medals (gold #e0bd7a, silver #c7c7c7, bronze #c78a52 with dark text #241a06, #242424 and #2a1608), the service-category badges (orange #f39c12, pink #e83e8c, purple #6f42c1, neutral #495057 with the dark badge text #241a06), the fast-pass approve button (#b57900 dark, #9a6a00 light) and the light-theme closed-notice reds and ambers (#964a44, #7a5f12). Their contrast ratios are recorded in comments beside the rules in index.html. Do not change them without re-measuring. Only the disabled-button greys (#555 fill, #d6d6d6 text) are generic leftovers.
 
 ## Components
 
