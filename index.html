@@ -2022,6 +2022,11 @@
         #customer-app .mode-btn, #customer-app .service-category-tab, #navCustomerBtn, #themeSelector { min-height: 44px; }
         #customer-app label, #customer-app .mode-btn, #customer-app .service-category-tab, #customer-app .customer-queue-metric span { font-size: max(.75rem, 12px); }
         #customer-app .service-tab-badge { font-size: .75rem; }
+        /* Language switch: BM | EN. Sits at the start of the customer view; right-aligned on desktop. */
+        #customer-app .lang-toggle { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: var(--space-3); border: 1px solid var(--border-color); border-radius: 999px; background: color-mix(in srgb, var(--surface-elevated) 70%, transparent); }
+        #customer-app .lang-toggle button { min-width: 48px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--text-muted); font: inherit; font-size: .8rem; font-weight: 700; letter-spacing: .06em; cursor: pointer; }
+        #customer-app .lang-toggle button[aria-pressed="true"] { background: var(--primary-color); color: var(--on-primary); }
+        #customer-app .lang-toggle button:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
         /* Full-width primary action, kept in the flow so it never covers form fields. */
         #customer-app #btnBookTicket { width: 100%; }
         /* A disabled action must not take the hover fill (grey text on gold failed contrast). */
@@ -2099,6 +2104,10 @@
 
     <!-- ================= 1. PAPARAN PELANGGAN ================= -->
     <main id="customer-app" class="view-section active">
+            <div class="lang-toggle" role="group" aria-label="Bahasa / Language">
+                <button type="button" data-lang-option="ms" aria-pressed="true" lang="ms">BM</button>
+                <button type="button" data-lang-option="en" aria-pressed="false" lang="en">EN</button>
+            </div>
         <div class="customer-container">
             <!-- Header Teks Customer -->
             <div id="customer-header-text">
@@ -3139,6 +3148,7 @@
          project's dependency policy; nothing else in the app touches it. -->
     <script src="js/vendor/qrcode.js"></script>
     <script src="js/pass.js"></script>
+    <script src="js/i18n.js"></script>
     <!-- xlsx.full.min.js is loaded on demand by loadXlsxLibrary() so customers never download it. -->
     <script type="module">
         import { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
