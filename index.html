@@ -857,7 +857,7 @@
             --space-6: 30px;
             --ease: cubic-bezier(.2,.8,.2,1);
             --warning: #c99a4b;
-            --danger: #c76e68;
+            --danger: #d4807a;
             --success: #68a77a;
             --info: #77a5ad;
             --nav-border: rgba(242, 239, 232, 0.1);
@@ -953,7 +953,7 @@
             --card-bg: rgba(255,255,255,.028); --card-hover: rgba(47,185,173,.075);
             --ticket-gradient: linear-gradient(145deg, rgba(47,185,173,.10), rgba(94,200,192,.055) 52%, rgba(255,255,255,.02));
             --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
-            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #6fb3c9;
+            --warning: #c9a24b; --danger: #d4807a; --success: #6cb08a; --info: #6fb3c9;
             --nav-border: rgba(240,247,246,.1); --on-primary: #0b1514; --on-success: #0b1514;
             --bg-glow: rgba(47,185,173,.16); --bg-glow-2: rgba(94,200,192,.09); --selection-bg: rgba(47,185,173,.34);
         }
@@ -989,7 +989,7 @@
             --card-bg: rgba(255,255,255,.028); --card-hover: rgba(76,175,85,.075);
             --ticket-gradient: linear-gradient(145deg, rgba(76,175,85,.10), rgba(124,201,127,.055) 52%, rgba(255,255,255,.02));
             --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
-            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #7fb3c4;
+            --warning: #c9a24b; --danger: #d4807a; --success: #6cb08a; --info: #7fb3c4;
             --nav-border: rgba(240,246,240,.1); --on-primary: #0d170d; --on-success: #0d170d;
             --bg-glow: rgba(76,175,85,.16); --bg-glow-2: rgba(124,201,127,.09); --selection-bg: rgba(76,175,85,.34);
         }
@@ -1025,7 +1025,7 @@
             --card-bg: rgba(255,255,255,.028); --card-hover: rgba(91,127,214,.075);
             --ticket-gradient: linear-gradient(145deg, rgba(91,127,214,.10), rgba(138,168,232,.055) 52%, rgba(255,255,255,.02));
             --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
-            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #7fa8c9;
+            --warning: #c9a24b; --danger: #d4807a; --success: #6cb08a; --info: #7fa8c9;
             --nav-border: rgba(240,242,250,.1); --on-primary: #0d1220; --on-success: #0d1220;
             --bg-glow: rgba(91,127,214,.16); --bg-glow-2: rgba(138,168,232,.09); --selection-bg: rgba(91,127,214,.34);
         }
@@ -2013,13 +2013,15 @@
         #customer-app #customer-header-text p { margin: 12px 0 0 !important; max-width: 46ch; text-wrap: pretty; }
         #customer-app .ticket-box { padding: clamp(28px, 7vw, 44px) 24px; }
         #customer-app .ticket-number { text-shadow: 0 10px 36px color-mix(in srgb, var(--primary-color) 38%, transparent); }
-        /* Thumb-reachable primary action: pinned to the bottom of the viewport while the form is on screen. */
-        #customer-app #btnBookTicket {
-            position: sticky;
-            bottom: 14px;
-            z-index: 5;
-            width: 100%;
-            box-shadow: 0 14px 36px rgba(0,0,0,.38);
+        /* Full-width primary action, kept in the flow so it never covers form fields. */
+        #customer-app #btnBookTicket { width: 100%; }
+        /* A disabled action must not take the hover fill (grey text on gold failed contrast). */
+        .btn-action:disabled:hover { background: #555; border-color: #555; color: #d6d6d6; transform: none; box-shadow: none; }
+        .btn-action:disabled { color: #d6d6d6; }
+        /* Wide screens: centred header; phones keep the left edge. */
+        @media (min-width: 900px) {
+            #customer-app #customer-header-text { text-align: center; }
+            #customer-app #customer-header-text p { margin-inline: auto !important; }
         }
         #customer-app .pass-open-row .btn { border-radius: var(--radius-md); }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
