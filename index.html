@@ -739,6 +739,30 @@
         .app-dialog::backdrop { background: rgba(3,5,4,.72); backdrop-filter: blur(8px); }
         .app-dialog-content { padding: 28px; }
 
+        /* Customer pass (QR ticket) */
+        .pass-open-row { margin-top: var(--space-3); }
+        .pass-open-row .btn { width: 100%; }
+        .pass-dialog { width: min(94vw, 440px); max-height: 94dvh; overflow-y: auto; overscroll-behavior: contain; }
+        .pass-dialog .app-dialog-content { padding: 20px; }
+        .pass-dialog-title { margin: 0 0 var(--space-3); font-size: 1rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+        .pass-card { position: relative; padding: 22px 20px 20px; border: 1px solid rgba(199,166,106,.5); border-radius: var(--radius-lg); background: var(--ticket-gradient); overflow: hidden; }
+        .pass-head { display: flex; justify-content: space-between; gap: var(--space-2); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+        .pass-shop { color: var(--primary-color); }
+        .pass-kind { color: var(--text-muted); text-align: right; }
+        .pass-ref { margin: var(--space-2) 0; font-family: 'Manrope', sans-serif; font-size: clamp(2.6rem, 14vw, 3.8rem); font-weight: 500; letter-spacing: -.04em; line-height: 1; color: var(--primary-strong); overflow-wrap: anywhere; }
+        .pass-details { margin: 0; display: grid; gap: var(--space-2); }
+        .pass-row dt { font-size: .66rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+        .pass-row dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+        .pass-perforation { margin: var(--space-4) -20px; border-top: 2px dashed var(--border-color); }
+        .pass-qr { width: min(240px, 70%); margin: 0 auto; border-radius: var(--radius-md); overflow: hidden; background: #fff; }
+        .pass-qr svg { display: block; width: 100%; height: auto; }
+        .pass-hint { margin: var(--space-3) 0 0; text-align: center; font-size: .8rem; color: var(--text-muted); }
+        .pass-status { min-height: 1.2em; margin: var(--space-2) 0; font-size: .85rem; color: var(--text-muted); }
+        .pass-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+        .pass-actions .btn { padding-inline: 10px; }
+        .pass-actions [data-pass-calendar] { grid-column: 1 / -1; }
+        .pass-actions [hidden] { display: none; }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
         }
@@ -2080,6 +2104,7 @@
                         <p id="myQueueContext" class="text-muted"></p>
                         <p id="mySeatDir">SILA KE KERUSI <span id="myTargetSeat"></span></p>
                     </div>
+                    <div class="pass-open-row"><button type="button" class="btn btn-action" onclick="openWalkinPass()">LIHAT PAS &amp; QR</button></div>
                     <div id="walkinWaitingActions">
                         <button class="btn btn-reset flex-1" onclick="cancelCustomerWalkin()">BATAL WALK-IN</button>
                         <button class="btn btn-info flex-1" onclick="startWalkinConversion()">TUKAR KE TEMPAHAN ONLINE</button>
@@ -2822,6 +2847,20 @@
         </div>
     </main>
 
+    <dialog id="customerPassDialog" class="app-dialog pass-dialog" aria-labelledby="customerPassDialogTitle">
+        <div class="app-dialog-content">
+            <h2 id="customerPassDialogTitle" class="pass-dialog-title">Pas Anda</h2>
+            <div data-pass-body></div>
+            <p class="pass-status" data-pass-status role="status" aria-live="polite"></p>
+            <div class="pass-actions">
+                <button type="button" class="btn btn-action" data-pass-share>KONGSI</button>
+                <button type="button" class="btn" data-pass-save>SIMPAN IMEJ</button>
+                <button type="button" class="btn btn-info" data-pass-calendar hidden>TAMBAH KE KALENDAR</button>
+                <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">TUTUP</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="adminCancelDialog" class="app-dialog" aria-labelledby="adminCancelDialogTitle">
         <div class="app-dialog-content">
             <h3 id="adminCancelDialogTitle">Sahkan Pembatalan</h3>
@@ -2973,6 +3012,8 @@
          build the admin sales report's .xlsx download (buildReportExcelWorkbook()/
          exportReportToExcel() below). Pinned to an exact version per this
          project's dependency policy; nothing else in the app touches it. -->
+    <script src="js/vendor/qrcode.js"></script>
+    <script src="js/pass.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
@@ -9349,6 +9390,18 @@
             XLSX.writeFile(workbook, `QueueCut_Laporan_${label}_${getCurrentBusinessDate()}.xlsx`);
         }
 
+        function openWalkinPass() {
+            const ticket = window.latestCustomerTicketRecord;
+            if (!ticket || !window.CustomerPass) return;
+            window.CustomerPass.openDialog(ticket, 'walkin', getShopName());
+        }
+
+        function openBookingPass(appointmentId) {
+            const appointment = (window.latestCustomerAppointments || []).find(a => a.id === appointmentId);
+            if (!appointment || !window.CustomerPass) return;
+            window.CustomerPass.openDialog(appointment, 'booking', getShopName());
+        }
+
         function renderCustomerTicket(queues, activeSeats, isWalkin, isShopOpen, waitByRecordId = null) {
             const takeView = document.getElementById('customer-take-ticket');
             const ticketView = document.getElementById('customer-my-ticket');
@@ -9374,6 +9427,7 @@
 
             if (takeView) takeView.style.display = 'none';
             if (ticketView) ticketView.style.display = 'block';
+            window.latestCustomerTicketRecord = ticket;
             document.getElementById('myQueueNum').innerText = getDisplayTicketId(ticket);
             document.getElementById('myTicketName').innerText = ticket.name;
             document.getElementById('myTicketServices').innerText = ticket.service;
@@ -9701,11 +9755,13 @@
                 <div class="admin-list-item"><strong>${index + 1}. ${escapeHTML(getDisplayTicketId(q))} - ${escapeHTML(q.name)}</strong><span class="text-muted">${escapeHTML(q.service)} &bull; Anggaran <span data-wait-record-id="${escapeHTML(q.id)}">${formatWaitMinutes(waitByRecordId.get(q.id))}</span></span></div>`
             ).join('') || (queuesHaveResolvedOnce ? '<div class="text-muted">Tiada pelanggan menunggu.</div>' : '');
 
+            window.latestCustomerAppointments = myAppointments;
             document.getElementById('customer-my-appointments').style.display = myAppointments.length ? 'block' : 'none';
             document.getElementById('myBookingListContainer').innerHTML = myAppointments.map(a => `
                 <div class="booking-list-item">
                     <div><strong>${escapeHTML(a.date)} ${escapeHTML(a.time)} GMT+8</strong><br>${escapeHTML(a.name)}<br><span class="text-muted">${escapeHTML(a.service)} (${escapeHTML(getDisplayTicketId(a))})</span></div>
                     <div class="d-flex gap-8 flex-wrap">
+                        <button class="btn btn-sm btn-action" onclick="openBookingPass(${toInlineJSString(a.id)})">Pas &amp; QR</button>
                         <button class="btn btn-sm btn-info" onclick="startRescheduleAppointment(${toInlineJSString(a.id)})">Tukar Masa</button>
                         <button class="btn btn-sm btn-reset" onclick="cancelCustomerAppointment(${toInlineJSString(a.id)})">Batal</button>
                     </div>
