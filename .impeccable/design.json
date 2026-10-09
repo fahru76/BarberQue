@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-09T12:45:00Z",
+  "title": "Design System: C-Cutz Barber (QueueCut)",
+  "extensions": {
+    "colorMeta": {
+      "brass": { "role": "primary", "displayName": "Brass", "canonical": "#d8b06b" },
+      "ember": { "role": "secondary", "displayName": "Ember", "canonical": "#ff671d" },
+      "espresso-bg": { "role": "neutral", "displayName": "Espresso", "canonical": "#0d0a09" },
+      "paper-bg": { "role": "neutral", "displayName": "Paper", "canonical": "#f2eee9" }
+    },
+    "typographyMeta": {
+      "ticket-number": { "displayName": "Ticket Number", "purpose": "The queue number; hero element on customer and display surfaces." }
+    },
+    "shadows": [
+      { "name": "shadow-sm", "value": "0 12px 34px rgba(0,0,0,.24)", "purpose": "Raised cards and panels." },
+      { "name": "shadow-lg", "value": "0 30px 90px rgba(0,0,0,.46)", "purpose": "Overlays and the ticket." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(.2,.8,.2,1)", "purpose": "Default easing for hover, press and colour transitions (about 180ms)." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "680px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "900px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Brass-filled main action.",
+      "html": "<button class=\"ds-btn-primary\">Join queue</button>",
+      "css": ".ds-btn-primary{min-height:46px;padding:11px 18px;border:1px solid #d8b06b;border-radius:14px;background:#d8b06b;color:#11130f;font-family:Manrope,sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.055em;text-transform:uppercase;transition:transform .18s cubic-bezier(.2,.8,.2,1),background .18s}.ds-btn-primary:hover{background:#f0c77e;transform:translateY(-1px)}.ds-btn-primary:focus-visible{outline:2px solid #f0c77e;outline-offset:3px}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action with a brass-tinted border.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline{min-height:46px;padding:11px 18px;border:1px solid rgba(199,166,106,.5);border-radius:14px;background:transparent;color:#f7f1e9;font-family:Manrope,sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.055em;text-transform:uppercase;transition:transform .18s,background .18s}.ds-btn-outline:hover{background:rgba(255,103,29,.075);border-color:#d8b06b;transform:translateY(-1px)}.ds-btn-outline:focus-visible{outline:2px solid #f0c77e;outline-offset:3px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Dark input well with a brass focus border.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Your name\">",
+      "css": ".ds-input{width:100%;height:48px;padding:12px 15px;box-sizing:border-box;border:1px solid rgba(247,241,233,.12);background:#120f0d;color:#f7f1e9;font-size:1rem;outline:none}.ds-input:focus{border-color:#d8b06b}.ds-input:focus-visible{outline:2px solid #f0c77e;outline-offset:3px}"
+    },
+    {
+      "name": "Ticket",
+      "kind": "custom",
+      "description": "Queue ticket with the number as the focal element.",
+      "html": "<div class=\"ds-ticket\"><div class=\"ds-ticket-no\">A12</div><div>Aiman</div></div>",
+      "css": ".ds-ticket{border:2px solid #d8b06b;padding:40px;text-align:center;color:#f7f1e9;background:linear-gradient(145deg,rgba(255,103,29,.10),rgba(216,176,107,.055) 52%,rgba(255,255,255,.02))}.ds-ticket-no{font-family:Manrope,sans-serif;font-size:clamp(3rem,12vw,5.2rem);font-weight:500;letter-spacing:-.04em;line-height:1;color:#f0c77e}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Hipster Barbershop",
+    "overview": "A modern, characterful take on the neighbourhood barbershop: a dim, warm room, brass fixtures, one hot ember of orange, and a frosted-glass interface layer floating over it. Glass is the stated direction; today it exists only in the nav and dialog backdrop.",
+    "keyCharacteristics": [
+      "Dark espresso default with a warm light paper theme",
+      "Brass for primary actions, ember orange as rare accent",
+      "Tonal layering with large diffuse shadows",
+      "Teal is an optional alternate scheme"
+    ],
+    "rules": [
+      { "name": "The One Ember Rule", "body": "Orange is a glow and a signal, not a fill.", "section": "colors" },
+      { "name": "The Both Modes Rule", "body": "Every colour decision is made twice, dark and light, with contrast verified in both.", "section": "colors" },
+      { "name": "The Number First Rule", "body": "On customer and display surfaces the queue number is the hero.", "section": "typography" },
+      { "name": "The Diffuse Only Rule", "body": "Shadows spread wide and soft; no tight dark offsets.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Brass for primary actions and Ember sparingly for glow and selection.",
+      "Do verify contrast in both dark and light themes.",
+      "Do keep the ticket number the largest element on customer and display surfaces.",
+      "Do extend glass (blur plus translucent tint) deliberately on floating layers.",
+      "Do honour prefers-reduced-motion."
+    ],
+    "donts": [
+      "Don't fill large areas with orange.",
+      "Don't use tight, hard drop shadows.",
+      "Don't treat the teal scheme as canonical.",
+      "Don't hard-code the shop name or palette in new components."
+    ]
+  }
+}
