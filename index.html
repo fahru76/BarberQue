@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QueueCut · Syam Barber Shop</title>
-    <meta name="description" content="Sertai giliran atau tempah slot Syam Barber Shop dengan QueueCut—jelas, pantas dan tanpa menunggu tanpa kepastian.">
+    <title>QueueCut · C-Cutz Barber</title>
+    <meta name="description" content="Sertai giliran atau tempah slot C-Cutz Barber dengan QueueCut—jelas, pantas dan tanpa menunggu tanpa kepastian.">
     <meta name="theme-color" content="#0a0c0b">
     <!-- Round 3 (see applyTheme()'s comment for the full history): "light dark" here
          and bare "light"/"dark" elsewhere only ever told the browser this page CAN
@@ -78,7 +78,7 @@
 
         .customer-container { max-width: 500px; margin: 0 auto; }
         .customer-announcement { display: none; margin: 0 0 22px; padding: 18px var(--space-4); border: 1px solid color-mix(in srgb, var(--warning) 70%, var(--border-color)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--warning) 12%, var(--surface-color)); }
-        .customer-announcement h3 { margin: 0 0 7px; color: var(--warning); font-size: 0.95rem; letter-spacing: .04em; text-transform: uppercase; }
+        .customer-announcement h2 { margin: 0 0 7px; color: var(--warning); font-size: 0.95rem; letter-spacing: .04em; text-transform: uppercase; }
         .customer-announcement p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
         .customer-announcement .announcement-content { line-height: 1.65; overflow-wrap: anywhere; }
         .customer-announcement .announcement-content img { max-width: 100%; height: auto; border-radius: var(--radius-sm); }
@@ -725,7 +725,7 @@
             box-shadow: var(--shadow-lg);
         }
         #display-app > div::before {
-            content: 'SYAM BARBER SHOP · LIVE';
+            content: 'C-CUTZ BARBER · LIVE';
             display: block;
             margin-bottom: 28px;
             color: var(--text-muted);
@@ -1176,7 +1176,7 @@
             border-color: rgba(255,103,29,.20);
             box-shadow: 0 28px 90px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.035);
         }
-        #customer-take-ticket > h3,
+        #customer-take-ticket > h2,
         #bookingFormTitle {
             color: var(--text-main) !important;
             font-size: 1.18rem;
@@ -2053,9 +2053,9 @@
 <body>
     <header>
     <nav id="appNavigation" class="app-nav" aria-label="Navigasi aplikasi QueueCut">
-        <div id="appBrand" class="app-brand" aria-label="QueueCut oleh Syam Barber Shop">
+        <div id="appBrand" class="app-brand" aria-label="QueueCut oleh C-Cutz Barber">
             <span id="brandMonogram" class="brand-monogram" aria-hidden="true">QC</span>
-            <span class="brand-copy"><strong id="navAppName">QueueCut</strong><span id="navShopName">Syam Barber Shop</span></span>
+            <span class="brand-copy"><strong id="navAppName">QueueCut</strong><span id="navShopName">C-Cutz Barber</span></span>
         </div>
         <button class="btn active" id="navCustomerBtn" data-view="customer-app" aria-pressed="true" onclick="switchView('customer-app', this)">Pelanggan</button>
         <button class="btn" id="navDisplayBtn" data-view="display-app" aria-pressed="false" onclick="switchView('display-app', this)">Layar Kedai</button>
@@ -2097,12 +2097,12 @@
         <div class="customer-container">
             <!-- Header Teks Customer -->
             <div id="customer-header-text">
-                <h1 id="customerShopName">SYAM BARBER SHOP</h1>
+                <h1 id="customerShopName">C-CUTZ BARBER</h1>
                 <p class="text-muted" id="customerTagline">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai: jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
             </div>
 
             <section id="customerAnnouncement" class="customer-announcement" aria-labelledby="customerAnnouncementTitle" aria-live="polite">
-                <h3 id="customerAnnouncementTitle">Pengumuman Kedai</h3>
+                <h2 id="customerAnnouncementTitle">Pengumuman Kedai</h2>
                 <div id="customerAnnouncementText" class="announcement-content"></div>
             </section>
 
@@ -2139,7 +2139,7 @@
             <!-- MOD: WALK-IN -->
             <div id="walkin-section" role="tabpanel" aria-labelledby="btnModeWalkin">
                 <div id="customer-take-ticket" class="panel-box">
-                    <h3 class="text-center mb-10">Sertai Giliran Hari Ini</h3>
+                    <h2 class="text-center mb-10">Sertai Giliran Hari Ini</h2>
                     <div id="walkinQueueStatus" class="customer-queue-progress" aria-live="polite">
                         <div class="customer-queue-metric">
                             <strong id="walkinQueueCount">0/10</strong>
@@ -2224,12 +2224,12 @@
             <!-- MOD: BOOKING -->
             <div id="booking-section" role="tabpanel" aria-labelledby="btnModeBooking" style="display: none;">
                 <div class="panel-box" id="bookingFormBox">
-                    <h3 id="bookingFormTitle">Tempahan Kalendar</h3>
+                    <h2 id="bookingFormTitle">Tempahan Kalendar</h2>
                     <form id="bookingForm" onsubmit="event.preventDefault(); submitAppointment()">
                     <div id="customerMapInfoBox">
                         <strong class="d-block text-primary mb-8">Lokasi Kedai</strong>
                         <div class="fs-90 mb-10">Alamat / Lokasi: <strong id="customerMapQuery">FCQQ+X6 Kerteh, Terengganu</strong></div>
-                        <iframe id="customerMapFrame" title="Lokasi Syam Barber Shop" src="https://www.google.com/maps?q=FCQQ%2BX6%20Kerteh%2C%20Terengganu&amp;output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+                        <iframe id="customerMapFrame" title="Lokasi C-Cutz Barber" src="https://www.google.com/maps?q=FCQQ%2BX6%20Kerteh%2C%20Terengganu&amp;output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
                         <a id="customerMapLink" class="btn btn-outline" href="https://www.google.com/maps/search/?api=1&amp;query=FCQQ%2BX6%20Kerteh%2C%20Terengganu" target="_blank" rel="noopener noreferrer">BUKA GOOGLE MAPS</a>
                     </div>
                     <div class="input-group">
@@ -3322,7 +3322,7 @@
     <script>
         const AVG_WAIT_MINUTES = 25;
         const DEFAULT_APP_NAME = 'QueueCut';
-        const DEFAULT_SHOP_NAME = 'Syam Barber Shop';
+        const DEFAULT_SHOP_NAME = 'C-Cutz Barber';
         const DEFAULT_SHOP_LOCATION = 'Kerteh';
         const DEFAULT_MAP_QUERY = 'FCQQ+X6 Kerteh, Terengganu';
 
