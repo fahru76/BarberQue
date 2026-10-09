@@ -3134,7 +3134,7 @@
          project's dependency policy; nothing else in the app touches it. -->
     <script src="js/vendor/qrcode.js"></script>
     <script src="js/pass.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+    <!-- xlsx.full.min.js is loaded on demand by loadXlsxLibrary() so customers never download it. -->
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
         import { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
@@ -9496,7 +9496,24 @@
             return workbook;
         }
 
+        const XLSX_LIBRARY_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        let xlsxLoadPromise = null;
+        function loadXlsxLibrary() {
+            if (typeof XLSX !== 'undefined') return Promise.resolve(true);
+            if (!xlsxLoadPromise) {
+                xlsxLoadPromise = new Promise(resolve => {
+                    const script = document.createElement('script');
+                    script.src = XLSX_LIBRARY_URL;
+                    script.onload = () => resolve(typeof XLSX !== 'undefined');
+                    script.onerror = () => { script.remove(); resolve(false); };
+                    document.head.appendChild(script);
+                }).then(ok => { if (!ok) xlsxLoadPromise = null; return ok; });
+            }
+            return xlsxLoadPromise;
+        }
+
         async function exportReportToExcel() {
+            await loadXlsxLibrary();
             if (typeof XLSX === 'undefined') {
                 (await showAlertDialog('Pustaka Excel gagal dimuatkan. Sila semak sambungan internet dan cuba lagi.'));
                 return;
