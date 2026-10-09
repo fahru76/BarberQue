@@ -22,7 +22,7 @@ colors:
   ink-muted: "#726862"
   success: "#68a77a"
   warning: "#c99a4b"
-  danger: "#c76e68"
+  danger: "#d4807a"
   info: "#77a5ad"
 typography:
   display:
@@ -112,7 +112,7 @@ A warm-neutral palette tinted toward brown, with a gold primary and an orange ac
 - Borders are the text colour at about 12% (5.5% for dividers), not solid colours.
 
 ### Status
-- Success #68a77a, Warning #c99a4b, Danger #c76e68, Info #77a5ad (darker variants in the light theme). The source documents contrast checks for text and primary-on-background in both modes.
+- Success #68a77a, Warning #c99a4b, Danger #d4807a (5.3:1 on the tinted danger surface), Info #77a5ad (darker variants in the light theme). The source documents contrast checks for text and primary-on-background in both modes.
 
 ### Named Rules
 **The One Ember Rule.** Orange is a glow and a signal, not a fill. If a large share of a screen is orange, it has stopped meaning anything.

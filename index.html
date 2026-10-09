@@ -1112,7 +1112,7 @@
             border-radius: var(--radius-md);
             color: var(--on-primary);
             background: linear-gradient(145deg, var(--sleek-accent-strong), var(--sleek-accent));
-            box-shadow: 0 8px 24px var(--glow-accent-20);
+            box-shadow: 0 8px 24px rgba(0,0,0,.28);
             font-family: 'Manrope', sans-serif;
             font-size: .78rem;
             font-weight: 800;
@@ -1189,7 +1189,7 @@
             border-color: var(--sleek-accent);
             background: linear-gradient(135deg, var(--sleek-accent-strong), var(--sleek-accent));
             color: var(--on-primary);
-            box-shadow: 0 12px 30px var(--glow-accent-20);
+            box-shadow: 0 12px 30px rgba(0,0,0,.30);
         }
         .btn-action:hover {
             border-color: var(--sleek-accent-strong);
@@ -1197,7 +1197,7 @@
                theme and unpassable at any foreground. The growing box-shadow
                below already carries the hover affordance. */
             background: linear-gradient(135deg, var(--sleek-accent-strong), var(--sleek-accent));
-            box-shadow: 0 16px 38px var(--glow-accent-28);
+            box-shadow: 0 16px 38px rgba(0,0,0,.36);
         }
         #btnBookTicket, #btnSubmitApp {
             min-height: 56px;
@@ -1653,9 +1653,9 @@
         .ticket-box {
             border-color: rgba(255,103,29,.42);
             border-radius: var(--radius-lg);
-            box-shadow: 0 32px 100px rgba(0,0,0,.46), 0 0 70px var(--glow-accent-07);
+            box-shadow: 0 32px 100px rgba(0,0,0,.46);
         }
-        .ticket-number { color: var(--primary-strong); text-shadow: 0 12px 40px rgba(216,176,107,.16); }
+        .ticket-number { color: var(--primary-strong); text-shadow: 0 8px 28px rgba(0,0,0,.30); }
 
         #display-app > div { background: linear-gradient(150deg, var(--surface-elevated), var(--surface-color)); }
         #display-app > div::before { color: var(--sleek-accent-strong); }
@@ -2012,7 +2012,7 @@
         #customer-app #customer-header-text h1 { font-size: clamp(2.4rem, 9vw, 3.6rem) !important; line-height: .95; text-wrap: balance; }
         #customer-app #customer-header-text p { margin: 12px 0 0 !important; max-width: 46ch; text-wrap: pretty; }
         #customer-app .ticket-box { padding: clamp(28px, 7vw, 44px) 24px; }
-        #customer-app .ticket-number { text-shadow: 0 10px 36px color-mix(in srgb, var(--primary-color) 38%, transparent); }
+        #customer-app .ticket-number { text-shadow: 0 8px 28px rgba(0,0,0,.30); }
         /* 44px touch targets and a 12px floor for labels (audit P2). */
         #customer-app .mode-btn, #customer-app .service-category-tab, #navCustomerBtn, #themeSelector { min-height: 44px; }
         #customer-app label, #customer-app .mode-btn, #customer-app .service-category-tab, #customer-app .customer-queue-metric span { font-size: max(.75rem, 12px); }
@@ -2098,7 +2098,7 @@
             <!-- Header Teks Customer -->
             <div id="customer-header-text">
                 <h1 id="customerShopName">SYAM BARBER SHOP</h1>
-                <p class="text-muted" id="customerTagline">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai—jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
+                <p class="text-muted" id="customerTagline">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai: jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
             </div>
 
             <section id="customerAnnouncement" class="customer-announcement" aria-labelledby="customerAnnouncementTitle" aria-live="polite">
