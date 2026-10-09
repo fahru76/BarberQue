@@ -319,6 +319,20 @@ export async function callNext(seatNo) {
     return mapQueueRow(data);
 }
 
+/**
+ * Call one chosen `waiting` ticket to `seatNo` (call_specific_customer, added
+ * 20261009130000). Same guards as callNext(): active staff, open seat on duty,
+ * caller owns the seat (or is admin), seat not already serving, and the
+ * ticket inside the seat barber's capability. Throws with the server's
+ * Bahasa Melayu message when refused, including a ticket that was called or
+ * cancelled a moment earlier.
+ */
+export async function callSpecific(seatNo, queueId) {
+    const { data, error } = await supabase.rpc('call_specific_customer', { p_seat_no: seatNo, p_queue_id: queueId });
+    raiseOnError(error);
+    return mapQueueRow(data);
+}
+
 /** Mark a `serving` ticket `done`. Requires an authenticated, active-staff session. */
 export async function completeService(id) {
     const { data, error } = await supabase.rpc('complete_service', { p_id: id });
