@@ -70,12 +70,43 @@ export async function getMyStaffProfile() {
     if (!user) return null;
     const { data, error } = await supabase
         .from('staff')
-        .select('id, display_name, role, active')
+        .select('id, display_name, role, active, capability_service_ids, specialty_service_ids, service_durations')
         .eq('id', user.id)
         .maybeSingle();
     raiseOnError(error);
     if (!data) return null;
-    return { id: data.id, displayName: data.display_name, role: data.role, active: data.active };
+    return {
+        id: data.id, displayName: data.display_name, role: data.role, active: data.active,
+        capabilityServiceIds: data.capability_service_ids || [],
+        specialtyServiceIds: data.specialty_service_ids || [],
+        serviceDurations: data.service_durations || {}
+    };
+}
+
+/**
+ * Barber self-service skills/services (migration 20261008110000). Goes
+ * through the set_my_services() RPC -- a direct UPDATE of these columns on
+ * the caller's own staff row is still rejected by
+ * enforce_staff_self_update_scope(). Same convention as the admin card:
+ * an empty capability list means "can do every service".
+ *
+ * @param {string[]} capabilityServiceIds services this barber offers.
+ * @param {string[]} specialtyServiceIds  subset marked as skills/priority.
+ * @param {Object<string, number>} [serviceDurations] the barber's own
+ *   minutes per service (migration 20261008130000); {} clears back to shop
+ *   defaults, undefined leaves them unchanged.
+ */
+export async function setMyServices(capabilityServiceIds, specialtyServiceIds, serviceDurations) {
+    const params = { p_capability: capabilityServiceIds, p_specialty: specialtyServiceIds };
+    if (serviceDurations !== undefined) params.p_durations = serviceDurations ?? {};
+    const { data, error } = await supabase.rpc('set_my_services', params);
+    raiseOnError(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+        capabilityServiceIds: row?.capability_service_ids || [],
+        specialtyServiceIds: row?.specialty_service_ids || [],
+        serviceDurations: row?.service_durations || {}
+    };
 }
 
 /**
@@ -87,7 +118,7 @@ export async function getMyStaffProfile() {
 export async function listStaff() {
     const { data, error } = await supabase
         .from('staff')
-        .select('id, display_name, role, active, created_at, capability_service_ids, specialty_service_ids, service_durations')
+        .select('id, display_name, role, active, created_at, capability_service_ids, specialty_service_ids, service_durations, services_updated_at, services_updated_by')
         .order('created_at', { ascending: true });
     raiseOnError(error);
     return data.map(row => ({
@@ -101,7 +132,11 @@ export async function listStaff() {
         // Per-service duration override in minutes, keyed by services.id —
         // see 20260908130000_barber_service_durations.sql. NULL normalised
         // to {} for the same reason as above.
-        serviceDurations: row.service_durations || {}
+        serviceDurations: row.service_durations || {},
+        // "Last changed by" (20261008120000): trigger-maintained, so these
+        // reflect both barber self-service and admin edits.
+        servicesUpdatedAt: row.services_updated_at ?? null,
+        servicesUpdatedBy: row.services_updated_by ?? null
     }));
 }
 

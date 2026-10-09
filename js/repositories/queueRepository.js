@@ -88,7 +88,10 @@ function mapQueueRow(row) {
         // includes it (its query filters to status in waiting/serving, and
         // completed_at is null for both anyway), so this is simply undefined
         // there, which mapQueueRow's callers already treat as "not set".
-        completedAt: row.completed_at
+        completedAt: row.completed_at,
+        // Barber-aware estimates (20261008140000): the ticket's service ids,
+        // so the wait projection can apply each barber's own service times.
+        serviceIds: Array.isArray(row.service_ids) ? row.service_ids : null
     };
 }
 
@@ -183,7 +186,8 @@ function mapQueueRowFull(row) {
         cancelledBy: row.cancelled_by,
         cancelledByAdmin: Boolean(row.cancelled_by && row.cancelled_by !== 'customer'),
         cancelReason: row.cancel_reason,
-        version: row.version
+        version: row.version,
+        serviceIds: Array.isArray(row.service_ids) ? row.service_ids : null
     };
 }
 

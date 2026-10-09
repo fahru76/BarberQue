@@ -38,14 +38,16 @@ function raiseOnError(error) {
 export async function listSeats() {
     const { data, error } = await supabase
         .from('seats')
-        .select('seat_no, active, barber_id, staff:barber_id ( display_name )')
+        .select('seat_no, active, barber_id, break_until, duty_date, staff:barber_id ( display_name )')
         .order('seat_no', { ascending: true });
     raiseOnError(error);
     return data.map(row => ({
         seatNo: row.seat_no,
         active: row.active,
         barberId: row.barber_id,
-        barberName: row.staff?.display_name ?? null
+        barberName: row.staff?.display_name ?? null,
+        breakUntil: row.break_until ?? null,
+        dutyDate: row.duty_date ?? null
     }));
 }
 
@@ -71,6 +73,64 @@ export async function setSeatAssignment(seatNo, { active, staffId }) {
         .single();
     raiseOnError(error);
     return { seatNo: data.seat_no, active: data.active, barberId: data.barber_id };
+}
+
+/**
+ * Per-chair data for the wait estimator (migration 20261008140000), readable
+ * on every surface incl. anon: on duty today, break end, and the barber's
+ * capability + own service times. Deliberately carries no barber id/name.
+ *
+ * @returns {Promise<Array<{seatNo:number, onDuty:boolean, breakUntil:string|null,
+ *           capabilityServiceIds:string[]|null, serviceDurations:Object|null}>>}
+ */
+export async function listSeatProfiles() {
+    const { data, error } = await supabase.rpc('list_seat_profiles');
+    raiseOnError(error);
+    return (data ?? []).map(row => ({
+        seatNo: row.seat_no,
+        onDuty: !!row.on_duty,
+        breakUntil: row.break_until ?? null,
+        capabilityServiceIds: Array.isArray(row.capability_service_ids) ? row.capability_service_ids : null,
+        serviceDurations: row.service_durations && typeof row.service_durations === 'object' ? row.service_durations : null
+    }));
+}
+
+/**
+ * Barber self-service duty (migration 20261008100000). Both go through
+ * SECURITY DEFINER RPCs -- a barber never gets a direct UPDATE on seats.
+ * start_duty() only takes a free chair within shop_settings.seat_count for
+ * the caller; end_duty() closes the caller's own chair (or, for an admin,
+ * any chair) and refuses while a customer is being served.
+ *
+ * @param {number} seatNo chair the barber picked.
+ */
+export async function startDuty(seatNo) {
+    const { data, error } = await supabase.rpc('start_duty', { p_seat_no: seatNo });
+    raiseOnError(error);
+    return { seatNo: data.seat_no, active: data.active, barberId: data.barber_id, dutyDate: data.duty_date ?? null };
+}
+
+/** @param {number|null} [seatNo] null = the caller's own chair. */
+export async function endDuty(seatNo = null) {
+    const { data, error } = await supabase.rpc('end_duty', { p_seat_no: seatNo });
+    raiseOnError(error);
+    return { seatNo: data.seat_no, active: data.active };
+}
+
+/**
+ * Barber short break (migration 20261008090000). Goes through the
+ * set_seat_break() SECURITY DEFINER RPC -- barbers have no direct UPDATE
+ * right on public.seats; the RPC only lets a seat's own barber (or an admin)
+ * touch break_until, and refuses a break while a customer is being served.
+ *
+ * @param {number} seatNo
+ * @param {number} minutes 1-120 to start a break, 0 to end it now.
+ * @returns {Promise<{seatNo:number, breakUntil:string|null}>}
+ */
+export async function setSeatBreak(seatNo, minutes) {
+    const { data, error } = await supabase.rpc('set_seat_break', { p_seat_no: seatNo, p_minutes: minutes });
+    raiseOnError(error);
+    return { seatNo: data.seat_no, breakUntil: data.break_until ?? null };
 }
 
 /**

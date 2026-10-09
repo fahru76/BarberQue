@@ -1849,6 +1849,7 @@
         .fs-180 { font-size:1.8rem; }
         .text-main { color:var(--text-main); }
         .text-success { color:var(--success); }
+        .text-warning { color:var(--warning); }
         .text-white { color:var(--on-success); }
         .bg-success { background:var(--success); }
         .border-success { border-color:var(--success); }
@@ -2177,6 +2178,41 @@
     <main id="barber-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Tukang Gunting</h2>
+            <!-- Barber self-service duty (20261008100000): each barber's own
+                 start/end duty + break. The chair grid below stays the shared
+                 overview (Panggil/Selesai per chair). -->
+            <section class="panel-box border-primary mb-15" id="myDutyPanel" aria-labelledby="myDutyTitle" hidden>
+                <h3 class="text-primary mb-15" id="myDutyTitle">TUGASAN SAYA</h3>
+                <p id="myDutyStatus" aria-live="polite"></p>
+                <div id="myDutyOff" class="d-flex gap-8 flex-wrap items-center mt-10">
+                    <select id="myDutySeatSelect" class="flex-1" aria-label="Pilih kerusi untuk bertugas"></select>
+                    <button type="button" class="btn btn-action" id="btnStartDuty" onclick="startMyDuty()">Mula Bertugas</button>
+                </div>
+                <div id="myDutyOn" class="mt-10" hidden>
+                    <div class="d-flex gap-8 flex-wrap items-center" id="myBreakCtrl">
+                        <select id="myBreakMinutes" class="flex-1" aria-label="Tempoh rehat">
+                            <option value="10">10 minit</option>
+                            <option value="15" selected>15 minit</option>
+                            <option value="30">30 minit</option>
+                            <option value="45">45 minit</option>
+                            <option value="60">60 minit</option>
+                        </select>
+                        <button type="button" class="btn btn-reset" id="btnMyBreak" onclick="startMyBreak()">Rehat</button>
+                    </div>
+                    <button type="button" class="btn btn-action w-full mt-10" id="btnMyResume" onclick="endMyBreak()" hidden>Kembali Bertugas</button>
+                    <button type="button" class="btn btn-reset w-full mt-10" id="btnEndDuty" onclick="endMyDuty()">Tamat Bertugas</button>
+                </div>
+            </section>
+            <!-- Barber self-service skills/services (20261008110000): the barber's
+                 own capability (services offered) + specialty (starred skills).
+                 Saved through set_my_services(); custom durations stay admin-only. -->
+            <section class="panel-box mb-15" id="myServicesPanel" aria-labelledby="myServicesTitle" hidden>
+                <h3 class="text-primary mb-15" id="myServicesTitle">KEMAHIRAN &amp; SERVIS SAYA</h3>
+                <p class="text-muted capability-hint">Tanda servis yang anda tawarkan kepada pelanggan. Jika TIADA yang ditanda, anda dianggap boleh buat SEMUA servis. Tanda &#9733; pada kemahiran utama anda -- pelanggan servis itu akan dipanggil kepada anda dahulu. Masukkan purata masa anda (minit) bagi setiap servis -- kosongkan untuk guna masa lalai kedai.</p>
+                <div id="myServicesRows"></div>
+                <p id="myServicesSummary" class="text-muted mt-10" aria-live="polite"></p>
+                <button type="button" class="btn btn-sm btn-action mt-8" id="btnSaveMyServices" onclick="saveMyServices()">Simpan Kemahiran &amp; Servis</button>
+            </section>
             <div class="serving-grid" id="barberSeatControls"></div>
             <div class="panel-box mt-30 border-primary">
                 <h3 class="text-primary mb-15">TEMPAHAN KALENDAR HARI INI (<span id="todayDateStr"></span>)</h3>
@@ -2940,7 +2976,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <script type="module">
         import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
-        import { listSeats, setSeatAssignment, subscribeSeatChanges } from './js/repositories/seatRepository.js';
+        import { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
         import {
@@ -2951,7 +2987,7 @@
         import * as AuthRepo from './js/repositories/authRepository.js';
 
         window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
-        window.SeatRepo = { listSeats, setSeatAssignment, subscribeSeatChanges };
+        window.SeatRepo = { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState };
         window.AppointmentRepo = {
@@ -3307,6 +3343,10 @@
         // seats.barber_id is the actual source of truth for this, not any local
         // key, since call_next_customer() checks that table directly.
         let seatServerState = {};
+        // Barber-aware estimates (20261008140000): per-chair on-duty/break/
+        // capability/own-service-times from list_seat_profiles(), loaded on
+        // EVERY surface (anon included -- it carries no barber id or name).
+        let seatProfiles = {};
 
         // ============= PER-VIEW URLs (?view=customer|display|barber|<admin slug>) =============
         // See VIEW_SLUGS below for the actual admin-app slug -- deliberately
@@ -3436,6 +3476,9 @@
             // earlier, at the classic script's own top level, would run before the
             // module has set window.QueueRepo at all.
             if (!queueChannelUnsubscribe) {
+                // 20261008140000: first per-chair profile load on every surface,
+                // at the same "bridge module is ready" point.
+                refreshSeatProfiles();
                 queueChannelUnsubscribe = window.QueueRepo.subscribeQueueChanges(scheduleQueueRefresh);
                 // Step 7 follow-up (see HANDOFF.md -- "no initial hydration for
                 // queues/appointments on page load"): the channel above only ever
@@ -3750,24 +3793,38 @@
                 </label>`).join('');
             return `
                 <details class="staff-capability-panel" data-staff-id="${member.id}">
-                    <summary>Kebolehan &amp; Keutamaan Servis${capabilitySet.size ? ` (dihadkan kepada ${capabilitySet.size})` : ' (tiada had -- boleh semua)'}</summary>
+                    <summary>Kebolehan &amp; Keutamaan Servis${capabilitySet.size ? ` (dihadkan kepada ${capabilitySet.size})` : ' (tiada had -- boleh semua)'}${member.servicesUpdatedBy && member.servicesUpdatedBy === member.id ? ' <span class="text-warning fw-bold">&bull; diubah sendiri</span>' : ''}</summary>
+                    ${renderServicesChangeNote(member)}
                     <p class="text-muted capability-hint">Jika TIADA servis ditanda "Boleh", tukang gunting ini dianggap boleh buat SEMUA servis (lalai, sama seperti sekarang). Tanda &#9733; untuk jadikan servis itu keutamaan -- pelanggan servis tersebut akan dipanggil dahulu oleh tukang gunting ini. Masukkan tempoh (minit) untuk tetapkan tempoh tersuai tukang gunting ini bagi servis tersebut -- kosongkan untuk guna tempoh lalai kedai.</p>
                     ${rows}
                     <button type="button" class="btn btn-sm btn-action mt-8" onclick="saveStaffCapabilities('${member.id}')">Simpan Kebolehan</button>
                 </details>`;
         }
 
+        // "Last changed by" note on the admin card (20261008120000). A change
+        // by the barber himself is highlighted so admin can review it.
+        function renderServicesChangeNote(member) {
+            if (!member.servicesUpdatedAt) return '';
+            const when = formatMalaysiaDateTime(member.servicesUpdatedAt);
+            if (member.servicesUpdatedBy && member.servicesUpdatedBy === member.id) {
+                return `<p class="capability-hint text-warning fw-bold">Terakhir diubah oleh tukang gunting sendiri &bull; ${escapeHTML(when)}</p>`;
+            }
+            const byName = member.servicesUpdatedBy ? getStaffDisplayName(member.servicesUpdatedBy) : '';
+            return `<p class="capability-hint text-muted">Terakhir diubah oleh ${byName ? `admin ${escapeHTML(byName)}` : 'sistem'} &bull; ${escapeHTML(when)}</p>`;
+        }
+
         /** Unchecking capability also un-stars that row -- a specialty always implies capability. */
         function onCapabilityCheckboxChange(checkbox) {
             if (checkbox.checked) return;
             const star = checkbox.closest('.capability-row')?.querySelector('.specialty-star');
-            if (star) star.classList.remove('active');
+            if (star) { star.classList.remove('active'); star.setAttribute('aria-pressed', 'false'); }
         }
 
         /** Starring a service auto-checks its capability box for the same reason. */
         function toggleSpecialtyStar(button) {
             const willActivate = !button.classList.contains('active');
             button.classList.toggle('active', willActivate);
+            button.setAttribute('aria-pressed', String(willActivate));
             if (willActivate) {
                 const checkbox = button.closest('.capability-row')?.querySelector('.capability-check');
                 if (checkbox) checkbox.checked = true;
@@ -3814,6 +3871,33 @@
          * (readable by any signed-in staff, and even anon -- "seats readable
          * by all") -- listStaff() stays admin-app-only, same as before.
          */
+        // Barber-aware estimates (20261008140000). Also brings a customer's
+        // phone/TV in line with which chairs are really on duty today -- the
+        // same local activeSeats sync reconcileLocalSeatStateFromServer()
+        // already does on staff devices (a seat with no server row keeps its
+        // local value, as there).
+        let seatProfilesSignature = '';
+        async function refreshSeatProfiles() {
+            if (!window.SeatRepo?.listSeatProfiles) return;
+            try {
+                const profiles = await window.SeatRepo.listSeatProfiles();
+                seatProfiles = Object.fromEntries(profiles.map(profile => [String(profile.seatNo), profile]));
+                const nextActiveSeats = { ...getActiveSeats() };
+                for (const seat of getSeatNumbers()) {
+                    const profile = seatProfiles[String(seat)];
+                    if (profile) nextActiveSeats[seat] = profile.onDuty;
+                }
+                if (JSON.stringify(nextActiveSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(nextActiveSeats);
+                const signature = JSON.stringify(profiles);
+                if (signature !== seatProfilesSignature) {
+                    seatProfilesSignature = signature;
+                    updateUI();
+                }
+            } catch (error) {
+                console.warn('Memuatkan profil kerusi gagal.', error);
+            }
+        }
+
         async function refreshSeatServerState() {
             try {
                 const seats = await window.SeatRepo.listSeats();
@@ -3823,6 +3907,7 @@
             } catch (error) {
                 console.warn('Memuatkan status kerusi gagal.', error);
             }
+            refreshSeatProfiles();
         }
 
         // public.seats is the single source of truth for which seats are open
@@ -3840,7 +3925,9 @@
             for (const seat of getSeatNumbers()) {
                 const serverSeat = seatServerState[String(seat)];
                 if (!serverSeat) continue;
-                nextActiveSeats[seat] = !!serverSeat.active;
+                // A chair opened on an earlier business day has expired
+                // (20261008100000) -- call_next_customer() refuses it too.
+                nextActiveSeats[seat] = !!serverSeat.active && !isSeatDutyStale(serverSeat);
                 nextAssignments[seat] = normalizeBarberName(serverSeat.barberName || '');
             }
             if (JSON.stringify(nextActiveSeats) !== JSON.stringify(getActiveSeats())) saveActiveSeats(nextActiveSeats);
@@ -4753,7 +4840,41 @@
          * authoritative gate stays server-side in call_next_customer().
          */
         function resolveSeatCapability(activeSeats) {
-            return buildSeatCapabilityMapInline(activeSeats, seatServerState, cachedStaffList);
+            const fromStaff = buildSeatCapabilityMapInline(activeSeats, seatServerState, cachedStaffList);
+            if (fromStaff.size) return fromStaff;
+            // 20261008140000: every surface now has per-chair capability via
+            // list_seat_profiles(), so the estimate honours the same hard gate
+            // as call_next_customer() even on a customer's phone. Still an
+            // empty Map (fail open) until that data has loaded.
+            const profiles = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
+            const map = new Map();
+            for (const seat of Object.keys(activeSeats || {}).filter(no => activeSeats[no])) {
+                const profile = profiles[String(seat)];
+                if (!profile) continue;
+                const capability = profile.capabilityServiceIds;
+                map.set(Number(seat), Array.isArray(capability) && capability.length ? [...capability].sort() : null);
+            }
+            return map;
+        }
+
+        /**
+         * seatNo -> that chair's barber's own service times ({service_id:
+         * minutes}) for the estimator (20261008140000). Seat profiles first
+         * (every surface); else the admin's staff list. Empty Map = use each
+         * ticket's own duration everywhere (the previous behaviour).
+         */
+        function resolveSeatDurations(activeSeats) {
+            const map = new Map();
+            const profiles = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
+            const staffById = new Map((Array.isArray(cachedStaffList) ? cachedStaffList : []).map(member => [member?.id, member]));
+            for (const seat of Object.keys(activeSeats || {}).filter(no => activeSeats[no])) {
+                const fromProfile = profiles[String(seat)]?.serviceDurations;
+                const barberId = seatServerState?.[String(seat)]?.barberId;
+                const fromStaff = barberId ? staffById.get(barberId)?.serviceDurations : null;
+                const durations = fromProfile || fromStaff;
+                if (durations && typeof durations === 'object' && Object.keys(durations).length) map.set(Number(seat), durations);
+            }
+            return map;
         }
 
         function formatOperationalTimeLabel(timeValue) {
@@ -5507,7 +5628,7 @@
             const ops = getOpHours(today);
             const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
             const appointments = getAppointments().filter(appointment => appointment.date === today && appointment.status === 'upcoming');
-            const interval = getQueueOccupancyIntervals(today, appointments, queues, activeSeats, resolveSeatCapability(activeSeats)).find(item => item.recordId === ticketId);
+            const interval = getQueueOccupancyIntervals(today, appointments, queues, activeSeats, resolveSeatCapability(activeSeats), resolveSeatDurations(activeSeats)).find(item => item.recordId === ticketId);
             return interval ? Math.max(0, Math.ceil(interval.start - nowMinutes)) : null;
         }
 
@@ -5519,7 +5640,7 @@
                 ? appointments.filter(appointment => appointment.date === today && appointment.status === 'upcoming')
                 : getAppointments().filter(appointment => appointment.date === today && appointment.status === 'upcoming');
             const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
-            return new Map(getQueueOccupancyIntervals(today, todayAppointments, queues, activeSeats, resolveSeatCapability(activeSeats))
+            return new Map(getQueueOccupancyIntervals(today, todayAppointments, queues, activeSeats, resolveSeatCapability(activeSeats), resolveSeatDurations(activeSeats))
                 .map(interval => [interval.recordId, Math.max(0, Math.ceil(interval.start - nowMinutes))]));
         }
 
@@ -6634,6 +6755,17 @@
                     <div class="fs-180 text-primary my-15" id="bSeat${seat}Num">---</div>
                     <button class="btn btn-action w-full" id="btnCall${seat}" onclick="callNextToSeat(${seat})">Panggil</button>
                     <button class="btn d-none w-full bg-success text-white border-success" id="btnDone${seat}" onclick="markSeatDone(${seat})">Selesai</button>
+                    <div class="d-flex gap-8 mt-10" id="bBreakCtrl${seat}">
+                        <select id="breakMinutes${seat}" class="flex-1" aria-label="Tempoh rehat kerusi ${seat}">
+                            <option value="10">10 minit</option>
+                            <option value="15" selected>15 minit</option>
+                            <option value="30">30 minit</option>
+                            <option value="45">45 minit</option>
+                            <option value="60">60 minit</option>
+                        </select>
+                        <button type="button" class="btn btn-reset" id="btnBreak${seat}" onclick="startSeatBreak(${seat})">Rehat</button>
+                    </div>
+                    <button type="button" class="btn btn-action w-full d-none mt-10" id="btnResume${seat}" onclick="endSeatBreak(${seat})">Kembali Bertugas</button>
                 </div>`).join('');
             adminControls.innerHTML = seatNumbers.map(seat => `<button class="btn" id="btnToggleSeat${seat}" onclick="toggleSeatStatus(${seat})">Kerusi ${seat}</button>`).join('');
             seatContainers.forEach(container => { container.dataset.seatCount = String(seatCount); });
@@ -7765,7 +7897,9 @@
                 status: 'waiting',
                 timestamp: WALKIN_PREVIEW_TIMESTAMP,
                 duration: getSelectedWalkinDuration(),
-                queueSource: 'walkin'
+                queueSource: 'walkin',
+                serviceIds: Array.from(document.querySelectorAll('input[name="walkinServices"]:checked'))
+                    .map(checkbox => checkbox.dataset.serviceId).filter(Boolean)
             };
         }
 
@@ -7885,7 +8019,7 @@
             return candidate;
         }
 
-        function getQueueOccupancyIntervals(date, appointmentRecords = null, queueRecords = null, activeSeatMap = null, seatCapability = null) {
+        function getQueueOccupancyIntervals(date, appointmentRecords = null, queueRecords = null, activeSeatMap = null, seatCapability = null, seatDurations = null) {
             if (date !== getCurrentBusinessDate()) return [];
             const activeSeats = activeSeatMap || getActiveSeats();
             const allSeatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
@@ -7907,6 +8041,22 @@
             const queues = Array.isArray(queueRecords) ? queueRecords : getQueues();
             const seatSchedules = new Map(seatNumbers.map(seat => [seat, []]));
             const intervals = [];
+
+            // Barber break (20261008090000): a seat whose barber is on a short
+            // break is blocked from now until the break ends, so waiting
+            // tickets are projected onto the other seats meanwhile and flow
+            // back to this seat once the break is over. Uses remaining
+            // wall-clock minutes (not a clock-time conversion) so it is safe
+            // across the overnight business-day boundary. Surfaces that never
+            // load seatServerState (anon/TV) simply see no breaks.
+            const seatStateForBreaks = typeof seatServerState === 'object' && seatServerState ? seatServerState : {};
+            const seatProfilesForBreaks = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
+            seatNumbers.forEach(seat => {
+                const breakMillis = timestampToMillis(seatStateForBreaks[String(seat)]?.breakUntil ?? seatProfilesForBreaks[String(seat)]?.breakUntil);
+                if (!Number.isFinite(breakMillis)) return;
+                const remaining = Math.ceil((breakMillis - Date.now()) / 60000);
+                if (remaining > 0) seatSchedules.get(seat).push({ start: nowMinutes, end: nowMinutes + remaining });
+            });
 
             queues.filter(queue => queue.status === 'serving').forEach(queue => {
                 const seatNumber = Number(queue.seat);
@@ -7947,10 +8097,32 @@
                 // exactly as call_next_customer() would refuse to call it.
                 const eligibleSeats = capableSeatNumbers(queue);
                 if (!eligibleSeats.length) return;
-                const candidates = eligibleSeats.map(seat => ({ seat, start: findNextSeatStart(seatSchedules.get(seat), nowMinutes, duration, ops) }));
+                // Barber-aware (20261008140000): on each chair use that chair's
+                // barber's own time for this ticket -- same rule as
+                // call_next_customer(): every service on the ticket must have a
+                // valid 1-999 override and the total must be 1-480, otherwise
+                // the ticket's own duration. The chair that can START it
+                // earliest still wins (dispatch is pull-based: whoever frees up
+                // first calls the next customer).
+                const durationOnSeat = seat => {
+                    const overrides = seatDurations instanceof Map ? seatDurations.get(seat) : null;
+                    const ids = Array.isArray(queue.serviceIds) ? queue.serviceIds : [];
+                    if (!overrides || !ids.length) return duration;
+                    let total = 0;
+                    for (const id of ids) {
+                        const minutes = overrides[id];
+                        if (!Number.isInteger(minutes) || minutes < 1 || minutes > 999) return duration;
+                        total += minutes;
+                    }
+                    return total >= 1 && total <= 480 ? total : duration;
+                };
+                const candidates = eligibleSeats.map(seat => {
+                    const seatDuration = durationOnSeat(seat);
+                    return { seat, duration: seatDuration, start: findNextSeatStart(seatSchedules.get(seat), nowMinutes, seatDuration, ops) };
+                });
                 const selected = candidates.reduce((earliest, candidate) => candidate.start < earliest.start ? candidate : earliest, candidates[0]);
                 const start = selected.start;
-                const end = start + duration;
+                const end = start + selected.duration;
                 const queueInterval = { start, end, recordId: queue.id };
                 intervals.push(queueInterval);
                 seatSchedules.get(selected.seat).push(queueInterval);
@@ -8619,6 +8791,212 @@
         // to remove right back — better to show the real error (often "seat
         // not assigned yet" while the team is still being set up) than to
         // pretend it worked.
+        // ---- Barber self-service duty (20261008100000) ----------------------
+        function isSeatDutyStale(serverSeat) {
+            return !!serverSeat?.active && !!serverSeat.dutyDate && serverSeat.dutyDate < getCurrentBusinessDate();
+        }
+
+        function getMyDutySeat() {
+            if (!staffProfile?.id) return null;
+            const seat = Object.values(seatServerState).find(item => item?.active && item.barberId === staffProfile.id && !isSeatDutyStale(item));
+            return seat ? Number(seat.seatNo) : null;
+        }
+
+        // hidden attribute alone loses to classes like .btn/.d-flex that set
+        // display, so both are kept in step.
+        function setShown(element, shown) {
+            if (!element) return;
+            element.hidden = !shown;
+            element.classList.toggle('d-none', !shown);
+        }
+
+        function renderMyDutyPanel(queues) {
+            const panel = document.getElementById('myDutyPanel');
+            if (!panel) return;
+            setShown(panel, !!staffProfile?.id);
+            if (!staffProfile?.id) return;
+            const status = document.getElementById('myDutyStatus');
+            const offBox = document.getElementById('myDutyOff');
+            const onBox = document.getElementById('myDutyOn');
+            const mySeat = getMyDutySeat();
+            setShown(offBox, mySeat === null);
+            setShown(onBox, mySeat !== null);
+            if (mySeat === null) {
+                const select = document.getElementById('myDutySeatSelect');
+                const freeSeats = getSeatNumbers().filter(seat => {
+                    const serverSeat = seatServerState[String(seat)];
+                    return !serverSeat || !serverSeat.active || isSeatDutyStale(serverSeat);
+                });
+                const previous = select.value;
+                select.innerHTML = freeSeats.map(seat => `<option value="${seat}">Kerusi ${seat}</option>`).join('');
+                if (freeSeats.map(String).includes(previous)) select.value = previous;
+                select.disabled = !freeSeats.length;
+                document.getElementById('btnStartDuty').disabled = !freeSeats.length;
+                status.textContent = freeSeats.length
+                    ? 'Anda belum bertugas. Pilih kerusi yang kosong untuk mula.'
+                    : `Semua ${getSeatCount()} kerusi sedang digunakan.`;
+                return;
+            }
+            const serving = (queues || getQueues()).find(q => q.status === 'serving' && Number(q.seat) === mySeat);
+            const breakText = serving ? '' : getSeatBreakUntilText(mySeat);
+            status.textContent = serving
+                ? `Bertugas di Kerusi ${mySeat} — sedang melayan ${getDisplayTicketId(serving)}.`
+                : breakText
+                    ? `Bertugas di Kerusi ${mySeat} — rehat hingga ${breakText}. Giliran dilayan oleh tukang gunting lain.`
+                    : `Bertugas di Kerusi ${mySeat} — sedia menerima pelanggan.`;
+            setShown(document.getElementById('myBreakCtrl'), !serving && !breakText);
+            setShown(document.getElementById('btnMyResume'), !!breakText);
+            document.getElementById('btnEndDuty').disabled = !!serving;
+            document.getElementById('btnEndDuty').title = serving ? "Sila 'Selesai' pelanggan dahulu." : '';
+        }
+
+        // ---- Barber self-service skills/services (20261008110000) ----------
+        // Rendered only when the service catalogue or the barber's saved
+        // selection changes, so an unsaved tick-box edit is never wiped by the
+        // periodic/realtime updateUI() repaint.
+        let myServicesSignature = '';
+        function renderMyServicesPanel() {
+            const panel = document.getElementById('myServicesPanel');
+            if (!panel) return;
+            const services = getServices().filter(service => service.active);
+            const signedIn = !!staffProfile?.id;
+            setShown(panel, signedIn && services.length > 0);
+            if (!signedIn || !services.length) return;
+            const capability = staffProfile.capabilityServiceIds || [];
+            const specialty = staffProfile.specialtyServiceIds || [];
+            const durations = staffProfile.serviceDurations || {};
+            const signature = JSON.stringify([staffProfile.id, services.map(s => [s.id, s.name, s.duration]), capability, specialty, durations]);
+            if (signature === myServicesSignature) return;
+            myServicesSignature = signature;
+            const capabilitySet = new Set(capability);
+            const specialtySet = new Set(specialty);
+            document.getElementById('myServicesRows').innerHTML = services.map(service => `
+                <label class="capability-row">
+                    <input type="checkbox" class="capability-check" data-service-id="${escapeHTML(service.id)}" ${capabilitySet.has(service.id) ? 'checked' : ''} onchange="onCapabilityCheckboxChange(this)">
+                    <span class="capability-row-name">${escapeHTML(service.name)}</span>
+                    <input type="number" class="capability-duration-input" data-service-id="${escapeHTML(service.id)}" min="1" max="480" step="1" inputmode="numeric" placeholder="${escapeHTML(String(service.duration))}" value="${Number.isInteger(durations[service.id]) ? durations[service.id] : ''}" aria-label="Purata masa anda (minit): ${escapeHTML(service.name)}" title="Purata masa anda (minit). Kosongkan untuk guna lalai kedai (${escapeHTML(String(service.duration))} minit).">
+                    <button type="button" class="specialty-star${specialtySet.has(service.id) ? ' active' : ''}" onclick="toggleSpecialtyStar(this)" aria-pressed="${specialtySet.has(service.id)}" aria-label="Kemahiran utama: ${escapeHTML(service.name)}" title="Jadikan kemahiran utama (diutamakan)">&#9733;</button>
+                </label>`).join('');
+            const customTimes = Object.keys(durations).length;
+            document.getElementById('myServicesSummary').textContent = (capabilitySet.size
+                ? `Disimpan: ${capabilitySet.size} servis ditawarkan, ${specialtySet.size} kemahiran utama`
+                : 'Disimpan: boleh buat semua servis') + (customTimes ? `, ${customTimes} masa servis sendiri.` : '.');
+        }
+
+        async function saveMyServices() {
+            const panel = document.getElementById('myServicesPanel');
+            if (!panel || !window.AuthRepo?.setMyServices) return (await showAlertDialog("Ciri ini belum sedia. Sila muat semula halaman."));
+            const capabilityServiceIds = Array.from(panel.querySelectorAll('.capability-check:checked')).map(cb => cb.dataset.serviceId);
+            const specialtyServiceIds = Array.from(panel.querySelectorAll('.specialty-star.active'))
+                .map(star => star.closest('.capability-row')?.querySelector('.capability-check')?.dataset.serviceId)
+                .filter(Boolean);
+            // Own average time per service (20261008130000). Blank = shop
+            // default. When the barber restricts his services, a time on a
+            // service he no longer offers is dropped -- the server would
+            // reject it, and it could never be used anyway.
+            const offered = new Set(capabilityServiceIds);
+            const serviceDurations = {};
+            for (const input of panel.querySelectorAll('.capability-duration-input')) {
+                const raw = input.value.trim();
+                if (!raw) continue;
+                if (offered.size && !offered.has(input.dataset.serviceId)) continue;
+                const minutes = Number(raw);
+                if (!Number.isInteger(minutes) || minutes < 1 || minutes > 480) {
+                    input.focus();
+                    return (await showAlertDialog('Masa servis mesti nombor bulat antara 1 hingga 480 minit.'));
+                }
+                serviceDurations[input.dataset.serviceId] = minutes;
+            }
+            const button = document.getElementById('btnSaveMyServices');
+            button.disabled = true;
+            try {
+                const saved = await window.AuthRepo.setMyServices(capabilityServiceIds, specialtyServiceIds, serviceDurations);
+                staffProfile = { ...staffProfile, ...saved };
+                myServicesSignature = '';
+                renderMyServicesPanel();
+                refreshSeatProfiles();
+                await showAlertDialog("Kemahiran dan servis anda telah disimpan.");
+            } catch (error) {
+                await showAlertDialog(error.message || "Gagal menyimpan kemahiran dan servis. Sila cuba lagi.");
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function startMyDuty() {
+            const seat = Number.parseInt(document.getElementById('myDutySeatSelect')?.value, 10);
+            if (!Number.isInteger(seat)) return (await showAlertDialog("Tiada kerusi kosong untuk dipilih."));
+            if (!window.SeatRepo?.startDuty) return (await showAlertDialog("Ciri tugasan belum sedia. Sila muat semula halaman."));
+            const button = document.getElementById('btnStartDuty');
+            button.disabled = true;
+            try {
+                await window.SeatRepo.startDuty(seat);
+            } catch (error) {
+                await showAlertDialog(error.message || "Gagal mula bertugas. Sila cuba lagi.");
+            } finally {
+                button.disabled = false;
+            }
+            await refreshSeatServerState();
+        }
+
+        async function endMyDuty() {
+            const mySeat = getMyDutySeat();
+            if (mySeat === null) return;
+            if (!(await showConfirmDialog(`Tamat bertugas di Kerusi ${mySeat}? Kerusi akan ditutup dan giliran dilayan oleh tukang gunting lain.`))) return;
+            try {
+                await window.SeatRepo.endDuty(mySeat);
+            } catch (error) {
+                await showAlertDialog(error.message || "Gagal tamat bertugas. Sila cuba lagi.");
+            }
+            await refreshSeatServerState();
+        }
+
+        async function startMyBreak() {
+            const mySeat = getMyDutySeat();
+            if (mySeat === null) return;
+            await startSeatBreak(mySeat, Number.parseInt(document.getElementById('myBreakMinutes').value, 10));
+        }
+
+        async function endMyBreak() {
+            const mySeat = getMyDutySeat();
+            if (mySeat !== null) await endSeatBreak(mySeat);
+        }
+
+        // Barber break (20261008090000). Returns "HH:MM" (Malaysia time) when
+        // the seat's barber is currently on break, else ''. An expired break
+        // reads as on duty even before the server row is cleared, so a
+        // forgotten "Kembali Bertugas" never strands a chair.
+        function getSeatBreakUntilText(seatNum) {
+            const millis = timestampToMillis(seatServerState[String(seatNum)]?.breakUntil);
+            if (!Number.isFinite(millis) || millis <= Date.now()) return '';
+            const parts = getMalaysiaDateTimeParts(millis);
+            return parts ? `${String(parts.hour % 24).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}` : '';
+        }
+
+        async function applySeatBreak(seatNum, minutes) {
+            if (!window.SeatRepo?.setSeatBreak) return (await showAlertDialog("Ciri rehat belum sedia. Sila muat semula halaman."));
+            try {
+                const updated = await window.SeatRepo.setSeatBreak(seatNum, minutes);
+                const key = String(seatNum);
+                seatServerState = { ...seatServerState, [key]: { ...(seatServerState[key] || {}), breakUntil: updated.breakUntil } };
+            } catch (error) {
+                return (await showAlertDialog(error.message || "Status rehat gagal dikemas kini. Sila cuba lagi."));
+            }
+            updateUI();
+        }
+
+        async function startSeatBreak(seatNum, explicitMinutes = null) {
+            const minutes = Number.isInteger(explicitMinutes) ? explicitMinutes : Number.parseInt(document.getElementById(`breakMinutes${seatNum}`)?.value, 10);
+            if (!Number.isInteger(minutes) || minutes < 1 || minutes > 120) return (await showAlertDialog("Sila pilih tempoh rehat yang sah."));
+            if (getQueues().find(q => q.status === 'serving' && q.seat === seatNum)) return (await showAlertDialog("Sila 'Selesai' pelanggan di kerusi ini dahulu."));
+            if (!(await showConfirmDialog(`Mula rehat ${minutes} minit? Giliran akan dilayan oleh tukang gunting lain sementara anda berehat.`))) return;
+            await applySeatBreak(seatNum, minutes);
+        }
+
+        async function endSeatBreak(seatNum) {
+            await applySeatBreak(seatNum, 0);
+        }
+
         async function callNextToSeat(seatNum) {
             if (localStorage.getItem('shopStatus') !== 'open') return (await showAlertDialog("Kedai sedang ditutup."));
             if (!getActiveSeats()[seatNum]) return (await showAlertDialog(`Kerusi ${seatNum} sedang ditutup.`));
@@ -9215,9 +9593,10 @@
             // TV & Barber UI logic
             getSeatNumbers().forEach(n => {
                 let curr = queues.find(q => q.status === 'serving' && q.seat === n);
+                const breakUntilText = activeSeats[n] && !curr ? getSeatBreakUntilText(n) : '';
                 // TV View
                 let tvNum = document.getElementById(`tvSeat${n}Num`);
-                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span class="fs-120 ls-normal">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : '---');
+                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span class="fs-120 ls-normal">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : (breakUntilText ? `<span class="fs-120 ls-normal">REHAT</span><br><span class="cust-name-label">hingga ${escapeHTML(breakUntilText)}</span>` : '---'));
                 let tvBox = document.getElementById(`tvSeat${n}Box`);
                 if (tvBox) tvBox.style.borderColor = curr ? 'var(--primary-color)' : 'rgba(255,255,255,0.1)';
                 
@@ -9227,6 +9606,8 @@
                 let bDone = document.getElementById(`btnDone${n}`);
                 let bCtrl = document.getElementById(`bControl${n}`);
                 let bBarber = document.getElementById(`bBarber${n}Name`);
+                let bBreakCtrl = document.getElementById(`bBreakCtrl${n}`);
+                let bResume = document.getElementById(`btnResume${n}`);
                 // seatServerState[n].barberName is the real staff.display_name
                 // (SeatRepo.listSeats() joins it server-side) -- preferred over
                 // the localStorage-only getBarberAssignments() cache, which can
@@ -9261,6 +9642,15 @@
                     bBarber.textContent = displayedBarberName || (activeSeats[n] ? 'Nama tidak direkodkan' : 'Tiada tukang gunting ditetapkan');
                 }
 
+                // Break controls: only the seat's own barber (or admin) sees
+                // them; "Rehat" only when idle (the server also refuses a break
+                // while serving), "Kembali Bertugas" only while on break.
+                // Barbers manage their own break from TUGASAN SAYA (myDutyPanel); the
+                // per-chair controls stay as an admin override only.
+                const canManageBreak = !!activeSeats[n] && isAdmin && !!assignedBarberName;
+                if (bBreakCtrl) bBreakCtrl.classList.toggle('d-none', !canManageBreak || !!curr || !!breakUntilText);
+                if (bResume) bResume.classList.toggle('d-none', !canManageBreak || !breakUntilText);
+
                 if(!activeSeats[n]) {
                     if(bCtrl) bCtrl.style.opacity = '0.5';
                     if(bSeat) bSeat.innerHTML = '<span class="fs-150">DITUTUP</span>';
@@ -9276,6 +9666,10 @@
                             bDone.disabled = !isMyServingSeat;
                             bDone.title = isMyServingSeat ? '' : notMyAssignedSeatTitle;
                         }
+                    } else if (breakUntilText) {
+                        if(bSeat) bSeat.innerHTML = `<span class="fs-150">REHAT</span><br><span class="fs-100 text-main">hingga ${escapeHTML(breakUntilText)}</span>`;
+                        if(bCall) bCall.style.display='none';
+                        if(bDone) bDone.style.display='none';
                     } else {
                         if(bSeat) bSeat.innerHTML = '---';
                         if(bCall) {
@@ -9287,6 +9681,9 @@
                     }
                 }
             });
+
+            renderMyDutyPanel(queues);
+            renderMyServicesPanel();
 
             document.getElementById('tvUpcoming').innerHTML = waitingList.map(q => `<div class="upcoming-item upcoming-item-accent">${escapeHTML(getDisplayTicketId(q))}<br><span class="fs-90 fw-normal text-muted">${escapeHTML(q.name)}</span></div>`).join('');
             document.getElementById('tv-closed-notice').style.display = isShopOpen ? 'none' : 'block';
@@ -9493,6 +9890,20 @@
         });
         window.setInterval(processCustomerNotifications, 30000);
         window.setInterval(refreshTimeSensitiveUI, 15000);
+        // Barber break (20261008090000): repaint seat cards/TV the moment a
+        // break expires, without waiting for an unrelated realtime event.
+        // Every surface: keep per-chair profiles (barber-aware estimates) fresh.
+        // The first load happens once the bridge module is ready -- see the
+        // queues realtime arming above.
+        window.setInterval(refreshSeatProfiles, 60000);
+        let lastSeatBreakSignature = '';
+        window.setInterval(() => {
+            const signature = getSeatNumbers().map(seat => getSeatBreakUntilText(seat)).join('|');
+            if (signature !== lastSeatBreakSignature) {
+                lastSeatBreakSignature = signature;
+                updateUI();
+            }
+        }, 15000);
 
         // Step 7 (see HANDOFF.md): cross-device live updates. The `storage` listener
         // above only ever fires between tabs of the SAME browser (a plain
