@@ -37,6 +37,26 @@ typography:
     fontSize: ".78rem"
     fontWeight: 700
     letterSpacing: ".055em"
+  caption:
+    fontFamily: "Manrope, sans-serif"
+    fontSize: ".75rem"
+    fontWeight: 600
+  small:
+    fontFamily: "Manrope, sans-serif"
+    fontSize: ".85rem"
+    fontWeight: 500
+  lead:
+    fontFamily: "Manrope, sans-serif"
+    fontSize: "1.25rem"
+    fontWeight: 600
+  title:
+    fontFamily: "Manrope, sans-serif"
+    fontSize: "1.5rem"
+    fontWeight: 700
+  heading:
+    fontFamily: "Manrope, sans-serif"
+    fontSize: "2rem"
+    fontWeight: 700
   ticket-number:
     fontFamily: "Manrope, sans-serif"
     fontSize: "clamp(3rem, 12vw, 5.2rem)"
@@ -47,6 +67,7 @@ rounded:
   sm: "8px"
   md: "14px"
   lg: "22px"
+  pill: "999px"
 spacing:
   "1": "5px"
   "2": "10px"
@@ -129,6 +150,7 @@ A warm-neutral palette tinted toward brown, with a gold primary and an orange ac
 - **Display** (Cormorant Garamond 600): shop identity and large headings.
 - **Body** (Manrope 500, 1rem): forms, lists, descriptions.
 - **Label** (Manrope 700, .78rem, +0.055em, uppercase): buttons and small controls.
+- **Caption / Small / Lead / Title / Heading** (Manrope, .75 / .85 / 1.25 / 1.5 / 2rem): the target ramp around Body. Floor for any visible text is 12px (.75rem). Many older admin and barber rules still use in-between sizes (.64rem to 1.4rem); they are legacy and should snap to this ramp when those screens are next edited, not in a blanket restyle.
 - **Ticket Number** (Manrope 500, clamp(3rem, 12vw, 5.2rem), line-height 1, -0.04em): the queue number, the largest thing on the customer screen and legible on the shop TV.
 
 ### Named Rules
@@ -140,14 +162,17 @@ Single-column, phone-first flow that widens for tablet, admin, and the TV displa
 
 ## Elevation & Depth
 
-Tonal layering first: page, surface, and elevated surface step lighter in dark mode and use white-on-paper in the light theme. Shadows are large and diffuse: small `0 12px 34px rgba(0,0,0,.24)` and large `0 30px 90px rgba(0,0,0,.46)` (light theme: warm brown at 9% and 16%). The ticket may carry a soft brass glow. Frosted glass (backdrop blur with a translucent tint) is the stated direction for floating layers such as navigation and overlays.
+Tonal layering first: page, surface, and elevated surface step lighter in dark mode and use white-on-paper in the light theme. Shadows are large and diffuse: small `0 12px 34px rgba(0,0,0,.24)` and large `0 30px 90px rgba(0,0,0,.46)` (light theme: warm brown at 9% and 16%). Coloured glows are not used: elevation is neutral (the ticket number and primary button use soft dark shadows; focus rings are the only coloured halo). Frosted glass (backdrop blur with a translucent tint) is the stated direction for floating layers such as navigation and overlays.
 
 ### Named Rules
 **The Diffuse Only Rule.** Shadows spread wide and soft. No tight, dark offset shadows.
 
 ## Shapes
 
-Softly rounded: 8px for small controls, 14px for buttons and cards, 22px for large containers. Borders are hairline, low-contrast tints of the text colour. The ticket uses a 2px brass border with a gradient wash of ember and brass tints.
+Softly rounded: 8px for small controls, 14px for buttons and cards, 22px for large containers, and a full pill (999px) for toggles and badges. Borders are hairline, low-contrast tints of the text colour. The ticket uses a 2px brass border with a gradient wash of ember and brass tints.
+
+### Legacy colours
+Older admin and barber rules still contain a handful of one-off colours (for example #aaa, #555, #f39c12, #e83e8c, #6f42c1, #495057, and several tinted rgba fills). They are legacy: do not copy them into new work, and replace them with the tokens above when those screens are next touched.
 
 ## Components
 
