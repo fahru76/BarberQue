@@ -343,7 +343,7 @@
             margin: var(--space-2) 0 34px !important;
             padding: 28px var(--space-4) 18px;
         }
-        #customer-header-text h2 {
+        #customer-header-text h1 {
             color: var(--text-main) !important;
             font-family: 'Cormorant Garamond', serif;
             font-size: clamp(2.8rem, 10vw, 5rem) !important;
@@ -857,7 +857,7 @@
             --space-6: 30px;
             --ease: cubic-bezier(.2,.8,.2,1);
             --warning: #c99a4b;
-            --danger: #c76e68;
+            --danger: #d4807a;
             --success: #68a77a;
             --info: #77a5ad;
             --nav-border: rgba(242, 239, 232, 0.1);
@@ -953,7 +953,7 @@
             --card-bg: rgba(255,255,255,.028); --card-hover: rgba(47,185,173,.075);
             --ticket-gradient: linear-gradient(145deg, rgba(47,185,173,.10), rgba(94,200,192,.055) 52%, rgba(255,255,255,.02));
             --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
-            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #6fb3c9;
+            --warning: #c9a24b; --danger: #d4807a; --success: #6cb08a; --info: #6fb3c9;
             --nav-border: rgba(240,247,246,.1); --on-primary: #0b1514; --on-success: #0b1514;
             --bg-glow: rgba(47,185,173,.16); --bg-glow-2: rgba(94,200,192,.09); --selection-bg: rgba(47,185,173,.34);
         }
@@ -989,7 +989,7 @@
             --card-bg: rgba(255,255,255,.028); --card-hover: rgba(76,175,85,.075);
             --ticket-gradient: linear-gradient(145deg, rgba(76,175,85,.10), rgba(124,201,127,.055) 52%, rgba(255,255,255,.02));
             --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
-            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #7fb3c4;
+            --warning: #c9a24b; --danger: #d4807a; --success: #6cb08a; --info: #7fb3c4;
             --nav-border: rgba(240,246,240,.1); --on-primary: #0d170d; --on-success: #0d170d;
             --bg-glow: rgba(76,175,85,.16); --bg-glow-2: rgba(124,201,127,.09); --selection-bg: rgba(76,175,85,.34);
         }
@@ -1025,7 +1025,7 @@
             --card-bg: rgba(255,255,255,.028); --card-hover: rgba(91,127,214,.075);
             --ticket-gradient: linear-gradient(145deg, rgba(91,127,214,.10), rgba(138,168,232,.055) 52%, rgba(255,255,255,.02));
             --shadow-sm: 0 12px 34px rgba(0,0,0,.24); --shadow-lg: 0 30px 90px rgba(0,0,0,.46);
-            --warning: #c9a24b; --danger: #cd7d77; --success: #6cb08a; --info: #7fa8c9;
+            --warning: #c9a24b; --danger: #d4807a; --success: #6cb08a; --info: #7fa8c9;
             --nav-border: rgba(240,242,250,.1); --on-primary: #0d1220; --on-success: #0d1220;
             --bg-glow: rgba(91,127,214,.16); --bg-glow-2: rgba(138,168,232,.09); --selection-bg: rgba(91,127,214,.34);
         }
@@ -1131,7 +1131,7 @@
             margin-bottom: 38px !important;
             padding-top: 34px;
         }
-        #customer-header-text h2 {
+        #customer-header-text h1 {
             max-width: 760px;
             margin-inline: auto;
             font-family: 'Manrope', system-ui, sans-serif;
@@ -1670,7 +1670,7 @@
         @media (max-width: 680px) {
             .app-nav { margin-bottom: 34px; border-radius: var(--radius-md); }
             #customer-header-text { padding-top: 24px; margin-bottom: var(--space-6) !important; }
-            #customer-header-text h2 { font-size: clamp(2.55rem, 15vw, 4.1rem) !important; }
+            #customer-header-text h1 { font-size: clamp(2.55rem, 15vw, 4.1rem) !important; }
             .panel-box { border-radius: var(--radius-lg); }
             #customer-take-ticket, #bookingFormBox { padding: 22px 17px; }
             #adminServicesList .service-sort-item { padding: var(--space-3) !important; }
@@ -2009,17 +2009,23 @@
         }
         /* Hero: the shop name and the ticket number carry the screen. */
         #customer-app #customer-header-text { text-align: left; padding: 6px 4px 0; margin-bottom: 22px !important; }
-        #customer-app #customer-header-text h2 { font-size: clamp(2.4rem, 9vw, 3.6rem) !important; line-height: .95; text-wrap: balance; }
+        #customer-app #customer-header-text h1 { font-size: clamp(2.4rem, 9vw, 3.6rem) !important; line-height: .95; text-wrap: balance; }
         #customer-app #customer-header-text p { margin: 12px 0 0 !important; max-width: 46ch; text-wrap: pretty; }
         #customer-app .ticket-box { padding: clamp(28px, 7vw, 44px) 24px; }
         #customer-app .ticket-number { text-shadow: 0 10px 36px color-mix(in srgb, var(--primary-color) 38%, transparent); }
-        /* Thumb-reachable primary action: pinned to the bottom of the viewport while the form is on screen. */
-        #customer-app #btnBookTicket {
-            position: sticky;
-            bottom: 14px;
-            z-index: 5;
-            width: 100%;
-            box-shadow: 0 14px 36px rgba(0,0,0,.38);
+        /* 44px touch targets and a 12px floor for labels (audit P2). */
+        #customer-app .mode-btn, #customer-app .service-category-tab, #navCustomerBtn, #themeSelector { min-height: 44px; }
+        #customer-app label, #customer-app .mode-btn, #customer-app .service-category-tab, #customer-app .customer-queue-metric span { font-size: max(.75rem, 12px); }
+        #customer-app .service-tab-badge { font-size: .75rem; }
+        /* Full-width primary action, kept in the flow so it never covers form fields. */
+        #customer-app #btnBookTicket { width: 100%; }
+        /* A disabled action must not take the hover fill (grey text on gold failed contrast). */
+        .btn-action:disabled:hover { background: #555; border-color: #555; color: #d6d6d6; transform: none; box-shadow: none; }
+        .btn-action:disabled { color: #d6d6d6; }
+        /* Wide screens: centred header; phones keep the left edge. */
+        @media (min-width: 900px) {
+            #customer-app #customer-header-text { text-align: center; }
+            #customer-app #customer-header-text p { margin-inline: auto !important; }
         }
         #customer-app .pass-open-row .btn { border-radius: var(--radius-md); }
         @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -2091,7 +2097,7 @@
         <div class="customer-container">
             <!-- Header Teks Customer -->
             <div id="customer-header-text">
-                <h2 id="customerShopName">SYAM BARBER SHOP</h2>
+                <h1 id="customerShopName">SYAM BARBER SHOP</h1>
                 <p class="text-muted" id="customerTagline">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai—jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
             </div>
 
@@ -2289,7 +2295,7 @@
     </main>
 
     <!-- ================= 2. PAPARAN TV ================= -->
-    <main id="display-app" class="view-section">
+    <section id="display-app" class="view-section">
         <div id="tvDisplayCard">
             <h2 id="tvServingHeading">SEDANG DILAYAN</h2>
             <div class="serving-grid" id="tvServingGrid"></div>
@@ -2299,10 +2305,10 @@
                 OPERASI KEDAI TELAH DITUTUP
             </div>
         </div>
-    </main>
+    </section>
 
     <!-- ================= 3. PANEL BARBER ================= -->
-    <main id="barber-app" class="view-section">
+    <section id="barber-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Tukang Gunting</h2>
             <!-- Barber self-service duty (20261008100000): each barber's own
@@ -2393,10 +2399,10 @@
                 <div id="barberOwnSummaryEmpty"></div>
             </div>
         </div>
-    </main>
+    </section>
 
     <!-- ================= 4. PANEL ADMIN ================= -->
-    <main id="admin-app" class="view-section">
+    <section id="admin-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Admin</h2>
             <p class="text-muted fs-82">Reset global tersedia pada butang Reset di navigasi atas. Ia mengekalkan akaun kakitangan dan sejarah transaksi serta disekat jika masih ada giliran aktif atau tempahan akan datang.</p>
@@ -2947,7 +2953,7 @@
                 </div>
             </div>
         </div>
-    </main>
+    </section>
 
     <dialog id="staffRefDialog" class="app-dialog" aria-labelledby="staffRefDialogTitle">
         <div class="app-dialog-content">
@@ -3063,7 +3069,7 @@
     <dialog id="stylePhotoDialog" class="app-dialog style-photo-dialog" aria-labelledby="stylePhotoDialogTitle">
         <div class="app-dialog-content">
             <h3 id="stylePhotoDialogTitle"></h3>
-            <div class="style-photo-viewer"><img id="stylePhotoDialogImg" src="" alt=""></div>
+            <div class="style-photo-viewer"><img id="stylePhotoDialogImg" alt=""></div>
             <div class="style-photo-toggle" id="stylePhotoDialogToggle">
                 <button type="button" class="btn btn-sm" data-side="front" onclick="setStylePhotoSide('front')">Depan</button>
                 <button type="button" class="btn btn-sm" data-side="back" onclick="setStylePhotoSide('back')">Belakang</button>
