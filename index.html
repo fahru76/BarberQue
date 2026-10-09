@@ -3141,7 +3141,7 @@
     <script src="js/pass.js"></script>
     <!-- xlsx.full.min.js is loaded on demand by loadXlsxLibrary() so customers never download it. -->
     <script type="module">
-        import { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
+        import { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
         import { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
@@ -3152,7 +3152,7 @@
         } from './js/repositories/appointmentRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
 
-        window.QueueRepo = { takeTicket, cancelOwn, callNext, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
+        window.QueueRepo = { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
         window.SeatRepo = { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState };
@@ -9177,6 +9177,11 @@
                 return;
             }
 
+            applyCalledRecord(served, seatNum);
+        }
+
+        // Shared by "Panggil" (next in line) and "Panggil tiket ini" (a chosen ticket).
+        function applyCalledRecord(served, seatNum) {
             let queues = getQueues();
             const idx = queues.findIndex(q => q.id === served.id);
             // Prefer the server-authoritative name (staff.display_name via
@@ -9204,6 +9209,27 @@
             saveQueues(queues);
             updateUI();
             processCustomerNotifications();
+        }
+
+        async function callSpecificTicket(ticketId) {
+            if (localStorage.getItem('shopStatus') !== 'open') return (await showAlertDialog("Kedai sedang ditutup."));
+            if (!window.QueueRepo?.callSpecific) return (await showAlertDialog("Ciri panggil tiket belum sedia. Sila muat semula halaman."));
+            // The seat is the caller's own free, open seat; the server re-checks all of this.
+            const myId = staffProfile?.id;
+            const freeSeat = getSeatNumbers().find(seat =>
+                getActiveSeats()[seat]
+                && seatServerState[String(seat)]?.barberId === myId
+                && !getQueues().some(q => q.status === 'serving' && q.seat === seat));
+            if (!freeSeat) return (await showAlertDialog("Tiada kerusi kosong yang ditugaskan kepada anda. Sila 'Selesai' pelanggan semasa atau 'Mula Bertugas' dahulu."));
+
+            let served;
+            try {
+                served = await window.QueueRepo.callSpecific(freeSeat, ticketId);
+            } catch (error) {
+                (await showAlertDialog(error.message || "Panggil tiket gagal. Sila cuba lagi."));
+                return;
+            }
+            applyCalledRecord(served, freeSeat);
         }
 
         async function markSeatDone(seatNum) {
@@ -9973,7 +9999,7 @@
                 </div>`).join('') || (appointmentsHaveResolvedOnce ? '<div class="text-muted">Tiada tempahan hari ini.</div>' : '');
 
             document.getElementById('barberWaitingList').innerHTML = waitingList.map((q, index) => `
-                <div class="admin-list-item"><strong>${index + 1}. ${escapeHTML(getDisplayTicketId(q))} - ${escapeHTML(q.name)}</strong><span class="text-muted">${escapeHTML(q.service)} &bull; Anggaran <span data-wait-record-id="${escapeHTML(q.id)}">${formatWaitMinutes(waitByRecordId.get(q.id))}</span></span></div>`
+                <div class="admin-list-item"><strong>${index + 1}. ${escapeHTML(getDisplayTicketId(q))} - ${escapeHTML(q.name)}</strong><span class="text-muted">${escapeHTML(q.service)} &bull; Anggaran <span data-wait-record-id="${escapeHTML(q.id)}">${formatWaitMinutes(waitByRecordId.get(q.id))}</span></span><button type="button" class="btn btn-sm btn-action mt-10" onclick="callSpecificTicket(${toInlineJSString(q.id)})">Panggil tiket ini</button></div>`
             ).join('') || (queuesHaveResolvedOnce ? '<div class="text-muted">Tiada pelanggan menunggu.</div>' : '');
 
             window.latestCustomerAppointments = myAppointments;
