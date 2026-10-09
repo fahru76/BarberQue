@@ -662,6 +662,11 @@
         .kpi-card { position: relative; text-align: left; }
         .kpi-card-icon { display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: var(--space-2); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--primary-color) 16%, transparent); color: var(--primary-strong); }
         .kpi-card-highlight { border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color)); background: linear-gradient(160deg, color-mix(in srgb, var(--primary-color) 10%, var(--card-bg)), var(--card-bg)); }
+        /* Icon sits inline with the label instead of a tile stacked above it. */
+        .kpi-card { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; }
+        .kpi-card .kpi-card-icon { width: 18px; height: 18px; margin: 0; background: none; border-radius: 0; color: var(--primary-color); }
+        .kpi-card h4 { margin: 0; }
+        .kpi-card .report-val { grid-column: 1 / -1; margin-top: var(--space-2); }
         .report-val-name { font-size: 1.25rem !important; line-height: 1.25; }
         .kpi-sub { margin-top: 4px; font-size: .72rem; color: var(--text-muted); }
         .report-section-heading { margin-top: 6px; }
