@@ -2847,6 +2847,18 @@
         </div>
     </main>
 
+    <dialog id="staffRefDialog" class="app-dialog" aria-labelledby="staffRefDialogTitle">
+        <div class="app-dialog-content">
+            <h2 id="staffRefDialogTitle" class="pass-dialog-title">Semakan Pas</h2>
+            <div id="staffRefBody"></div>
+            <p class="pass-status" id="staffRefStatus" role="status" aria-live="polite"></p>
+            <div class="pass-actions">
+                <button type="button" class="btn btn-action" id="staffRefCheckinBtn" hidden>DAFTAR TIBA</button>
+                <button type="button" class="btn btn-outline" id="staffRefCloseBtn">TUTUP</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="customerPassDialog" class="app-dialog pass-dialog" aria-labelledby="customerPassDialogTitle">
         <div class="app-dialog-content">
             <h2 id="customerPassDialogTitle" class="pass-dialog-title">Pas Anda</h2>
@@ -9509,7 +9521,86 @@
         }
 
         // MASTER UI RENDERER
+        // Staff scan lookup: the customer pass QR opens "<site>/?ref=<record id>".
+        // Only an active signed-in staff session ever sees record details; for anyone
+        // else the ref is ignored. Reads come from the already-loaded (RLS-scoped)
+        // queues/appointments; the only write is the existing markAppointmentArrived().
+        let pendingStaffRef = null;
+        try {
+            const refParam = new URLSearchParams(window.location.search).get('ref');
+            if (refParam && /^[A-Za-z0-9_-]{1,64}$/.test(refParam)) {
+                pendingStaffRef = refParam;
+                const cleanUrl = new URL(window.location.href);
+                cleanUrl.searchParams.delete('ref');
+                window.history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+            }
+        } catch (_) { pendingStaffRef = null; }
+
+        function renderStaffRefRecord(record, source) {
+            const body = document.getElementById('staffRefBody');
+            body.textContent = '';
+            const card = document.createElement('div');
+            card.className = 'pass-card';
+            const add = (label, value) => {
+                if (!value) return;
+                const row = document.createElement('div');
+                row.className = 'pass-row';
+                const dt = document.createElement('dt'); dt.textContent = label;
+                const dd = document.createElement('dd'); dd.textContent = value;
+                row.append(dt, dd);
+                list.append(row);
+            };
+            const ref = document.createElement('div');
+            ref.className = 'pass-ref';
+            ref.textContent = getDisplayTicketId(record);
+            const list = document.createElement('dl');
+            list.className = 'pass-details';
+            add('Jenis', source === 'appointment' ? 'Tempahan' : 'Giliran');
+            add('Nama', record.name);
+            add('Perkhidmatan', record.service);
+            if (source === 'appointment') add('Masa tempahan', `${record.date} ${record.time} GMT+8`);
+            const statusLabels = { upcoming: 'Akan datang', arrived: 'Telah tiba', waiting: 'Menunggu', serving: 'Sedang dilayan', done: 'Selesai', completed: 'Selesai', cancelled: 'Dibatalkan' };
+            add('Status', statusLabels[record.status] || record.status);
+            add('Kerusi', record.seat ? `Kerusi ${record.seat}` : '');
+            card.append(ref, list);
+            body.append(card);
+        }
+
+        function maybeShowStaffRefLookup() {
+            if (!pendingStaffRef) return;
+            if (!(staffSession && staffProfile?.active)) return;
+            const id = pendingStaffRef;
+            const queue = getQueues().find(q => q.id === id);
+            const appointment = getAppointments().find(a => a.id === id);
+            const record = queue || appointment;
+            const dialog = document.getElementById('staffRefDialog');
+            const status = document.getElementById('staffRefStatus');
+            const checkinBtn = document.getElementById('staffRefCheckinBtn');
+            if (!record) {
+                if (!(queuesHaveResolvedOnce && appointmentsHaveResolvedOnce)) return; // data still loading
+                pendingStaffRef = null;
+                document.getElementById('staffRefBody').textContent = 'Rujukan tidak ditemui dalam data hari ini.';
+                checkinBtn.hidden = true;
+                status.textContent = '';
+                openAppDialog(dialog);
+            } else {
+                pendingStaffRef = null;
+                const source = queue ? 'queue' : 'appointment';
+                renderStaffRefRecord(record, source);
+                status.textContent = '';
+                const canCheckIn = source === 'appointment' && record.status === 'upcoming';
+                checkinBtn.hidden = !canCheckIn;
+                checkinBtn.onclick = async () => {
+                    closeAppDialog(dialog);
+                    await markAppointmentArrived(record.id);
+                };
+                openAppDialog(dialog);
+            }
+            document.getElementById('staffRefCloseBtn').onclick = () => closeAppDialog(dialog);
+        }
+
         function updateUI() {
+            maybeShowStaffRefLookup();
             populateOperationalTimeSelects();
             renderOperationalDayTabs();
             renderShopIdentitySettings();
