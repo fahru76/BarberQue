@@ -343,7 +343,7 @@
             margin: var(--space-2) 0 34px !important;
             padding: 28px var(--space-4) 18px;
         }
-        #customer-header-text h2 {
+        #customer-header-text h1 {
             color: var(--text-main) !important;
             font-family: 'Cormorant Garamond', serif;
             font-size: clamp(2.8rem, 10vw, 5rem) !important;
@@ -1131,7 +1131,7 @@
             margin-bottom: 38px !important;
             padding-top: 34px;
         }
-        #customer-header-text h2 {
+        #customer-header-text h1 {
             max-width: 760px;
             margin-inline: auto;
             font-family: 'Manrope', system-ui, sans-serif;
@@ -1670,7 +1670,7 @@
         @media (max-width: 680px) {
             .app-nav { margin-bottom: 34px; border-radius: var(--radius-md); }
             #customer-header-text { padding-top: 24px; margin-bottom: var(--space-6) !important; }
-            #customer-header-text h2 { font-size: clamp(2.55rem, 15vw, 4.1rem) !important; }
+            #customer-header-text h1 { font-size: clamp(2.55rem, 15vw, 4.1rem) !important; }
             .panel-box { border-radius: var(--radius-lg); }
             #customer-take-ticket, #bookingFormBox { padding: 22px 17px; }
             #adminServicesList .service-sort-item { padding: var(--space-3) !important; }
@@ -2009,10 +2009,14 @@
         }
         /* Hero: the shop name and the ticket number carry the screen. */
         #customer-app #customer-header-text { text-align: left; padding: 6px 4px 0; margin-bottom: 22px !important; }
-        #customer-app #customer-header-text h2 { font-size: clamp(2.4rem, 9vw, 3.6rem) !important; line-height: .95; text-wrap: balance; }
+        #customer-app #customer-header-text h1 { font-size: clamp(2.4rem, 9vw, 3.6rem) !important; line-height: .95; text-wrap: balance; }
         #customer-app #customer-header-text p { margin: 12px 0 0 !important; max-width: 46ch; text-wrap: pretty; }
         #customer-app .ticket-box { padding: clamp(28px, 7vw, 44px) 24px; }
         #customer-app .ticket-number { text-shadow: 0 10px 36px color-mix(in srgb, var(--primary-color) 38%, transparent); }
+        /* 44px touch targets and a 12px floor for labels (audit P2). */
+        #customer-app .mode-btn, #customer-app .service-category-tab, #navCustomerBtn, #themeSelector { min-height: 44px; }
+        #customer-app label, #customer-app .mode-btn, #customer-app .service-category-tab, #customer-app .customer-queue-metric span { font-size: max(.75rem, 12px); }
+        #customer-app .service-tab-badge { font-size: .75rem; }
         /* Full-width primary action, kept in the flow so it never covers form fields. */
         #customer-app #btnBookTicket { width: 100%; }
         /* A disabled action must not take the hover fill (grey text on gold failed contrast). */
@@ -2093,7 +2097,7 @@
         <div class="customer-container">
             <!-- Header Teks Customer -->
             <div id="customer-header-text">
-                <h2 id="customerShopName">SYAM BARBER SHOP</h2>
+                <h1 id="customerShopName">SYAM BARBER SHOP</h1>
                 <p class="text-muted" id="customerTagline">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai—jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
             </div>
 
@@ -2291,7 +2295,7 @@
     </main>
 
     <!-- ================= 2. PAPARAN TV ================= -->
-    <main id="display-app" class="view-section">
+    <section id="display-app" class="view-section">
         <div id="tvDisplayCard">
             <h2 id="tvServingHeading">SEDANG DILAYAN</h2>
             <div class="serving-grid" id="tvServingGrid"></div>
@@ -2301,10 +2305,10 @@
                 OPERASI KEDAI TELAH DITUTUP
             </div>
         </div>
-    </main>
+    </section>
 
     <!-- ================= 3. PANEL BARBER ================= -->
-    <main id="barber-app" class="view-section">
+    <section id="barber-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Tukang Gunting</h2>
             <!-- Barber self-service duty (20261008100000): each barber's own
@@ -2395,10 +2399,10 @@
                 <div id="barberOwnSummaryEmpty"></div>
             </div>
         </div>
-    </main>
+    </section>
 
     <!-- ================= 4. PANEL ADMIN ================= -->
-    <main id="admin-app" class="view-section">
+    <section id="admin-app" class="view-section">
         <div class="admin-panel">
             <h2>Panel Admin</h2>
             <p class="text-muted fs-82">Reset global tersedia pada butang Reset di navigasi atas. Ia mengekalkan akaun kakitangan dan sejarah transaksi serta disekat jika masih ada giliran aktif atau tempahan akan datang.</p>
@@ -2949,7 +2953,7 @@
                 </div>
             </div>
         </div>
-    </main>
+    </section>
 
     <dialog id="staffRefDialog" class="app-dialog" aria-labelledby="staffRefDialogTitle">
         <div class="app-dialog-content">
@@ -3065,7 +3069,7 @@
     <dialog id="stylePhotoDialog" class="app-dialog style-photo-dialog" aria-labelledby="stylePhotoDialogTitle">
         <div class="app-dialog-content">
             <h3 id="stylePhotoDialogTitle"></h3>
-            <div class="style-photo-viewer"><img id="stylePhotoDialogImg" src="" alt=""></div>
+            <div class="style-photo-viewer"><img id="stylePhotoDialogImg" alt=""></div>
             <div class="style-photo-toggle" id="stylePhotoDialogToggle">
                 <button type="button" class="btn btn-sm" data-side="front" onclick="setStylePhotoSide('front')">Depan</button>
                 <button type="button" class="btn btn-sm" data-side="back" onclick="setStylePhotoSide('back')">Belakang</button>
