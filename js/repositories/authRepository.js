@@ -8,10 +8,11 @@
  *
  * New accounts are never self-registered — `enable_signup = false` in
  * supabase/config.toml is deliberate (see HANDOFF.md's design-decisions
- * list). The only way an account comes into being is an admin inviting one
- * by email through inviteBarber() below, or the one-time manual bootstrap of
- * the very first admin account, which this module cannot do itself (see
- * HANDOFF.md — it needs the Supabase Dashboard, not client code).
+ * list). Barbers are created by an admin with a name + PIN through
+ * createBarber() below and sign in with barberSignIn(); admins sign in with
+ * e-mail + password. The very first admin account is still bootstrapped once
+ * in the Supabase Dashboard (see HANDOFF.md). A locked-out admin recovers
+ * with recoverAdmin() and the offline recovery key.
  */
 import { supabase } from '../supabaseClient.js';
 
@@ -189,31 +190,88 @@ export async function setStaffStatus(id, { active, role, displayName, capability
 }
 
 /**
- * Invite a new barber by email. Goes through the invite-barber Edge Function
- * rather than calling the Auth Admin API from here, because creating a user
- * requires the service_role key — that key must never reach the browser, so
- * it lives only in the Edge Function's own environment. The function
- * independently re-checks the caller is really an active admin (via
- * is_admin()) before inviting anyone; it does not trust anything this client
- * claims about itself.
- *
- * @returns {Promise<{id: string, email: string}>}
+ * Calls one of this project's Edge Functions and surfaces the function's own
+ * (Bahasa Melayu, user-facing) error message when it returns one.
  */
-export async function inviteBarber(email, displayName) {
-    const { data, error } = await supabase.functions.invoke('invite-barber', {
-        body: { email, displayName }
-    });
+async function invokeFunction(name, body) {
+    const { data, error } = await supabase.functions.invoke(name, { body });
     if (error) {
-        // supabase-js puts a FunctionsHttpError's response body on error.context
-        // (a Response); surface the function's own message when there is one.
+        // supabase-js puts a FunctionsHttpError's response body on
+        // error.context (a Response); prefer the function's own message.
         let message = error.message;
         try {
-            const body = await error.context?.json?.();
-            if (body?.error) message = body.error;
+            const payload = await error.context?.json?.();
+            if (payload?.error) message = payload.error;
         } catch { /* fall back to error.message */ }
-        throw new Error(`[authRepository] ${message}`, { cause: error });
+        throw new Error(message, { cause: error });
     }
     return data;
+}
+
+/**
+ * Admin: create a barber from a name + 6-digit PIN (migration
+ * 20261012170000, Edge Function create-barber). No e-mail invitation; the
+ * account is active straight away and signs in with barberSignIn().
+ *
+ * @returns {Promise<{id: string, displayName: string}>}
+ */
+export async function createBarber(displayName, pin) {
+    return invokeFunction('create-barber', { displayName, pin });
+}
+
+/** Admin: set or change a barber's 6-digit PIN (also clears any PIN lockout). */
+export async function setBarberPin(staffId, pin) {
+    const { error } = await supabase.rpc('admin_set_barber_pin', { p_staff_id: staffId, p_pin: pin });
+    if (error) throw new Error(error.message, { cause: error });
+}
+
+/** Sign-in screen: active barbers who have a PIN (names only). */
+export async function listLoginBarbers() {
+    const { data, error } = await supabase.rpc('list_login_barbers');
+    raiseOnError(error);
+    return (data ?? []).map(row => ({ id: row.id, displayName: row.display_name }));
+}
+
+/**
+ * Barber PIN sign-in (Edge Function barber-login). The function checks the PIN
+ * (5 wrong tries lock that barber for 15 minutes) and returns a normal
+ * Supabase session, which is adopted here -- onAuthStateChange then fires
+ * exactly as for an e-mail sign-in.
+ */
+export async function barberSignIn(staffId, pin) {
+    const tokens = await invokeFunction('barber-login', { staffId, pin });
+    const { data, error } = await supabase.auth.setSession({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token
+    });
+    raiseOnError(error);
+    return data.session;
+}
+
+/**
+ * Admin: generate a new one-time recovery key. Returned ONCE in plain text
+ * (only its hash is stored); generating again invalidates the previous key.
+ */
+export async function generateRecoveryKey() {
+    const { data, error } = await supabase.rpc('admin_generate_recovery_key');
+    raiseOnError(error);
+    return data;
+}
+
+/** Admin: whether a recovery key exists and when it was made. */
+export async function getRecoveryKeyStatus() {
+    const { data, error } = await supabase.rpc('admin_recovery_key_status');
+    raiseOnError(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    return { hasKey: !!row?.has_key, createdAt: row?.created_at ?? null };
+}
+
+/**
+ * Locked-out admin: set a new password with e-mail + recovery key (Edge
+ * Function admin-recover). The key is spent on success.
+ */
+export async function recoverAdmin(email, key, newPassword) {
+    return invokeFunction('admin-recover', { email, key, newPassword });
 }
 
 /**
@@ -227,11 +285,11 @@ export async function setNewPassword(password) {
 
 /**
  * Permanently deletes a staff member's Supabase Auth account (they will
- * need a fresh invite through inviteBarber() to sign in again) --
+ * need to be created again with createBarber() to sign in again) --
  * `admin_remove_staff()` (20260909_staff_removal_and_barber_name_snapshot.sql)
  * runs `delete from auth.users`, which cascades to delete their
  * `public.staff` row (`staff.id references auth.users(id) on delete
- * cascade`). Unlike inviteBarber(), this does NOT need an Edge Function or
+ * cascade`). Unlike createBarber(), this does NOT need an Edge Function or
  * the service_role key -- the migration's DELETE runs as the function's
  * owner (`postgres`), which already has DELETE on `auth.users` in this
  * project, confirmed before that migration was written.

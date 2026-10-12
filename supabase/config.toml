@@ -7,4 +7,17 @@ major_version = 17
 enabled = true
 
 [auth]
-enable_signup = false          # barbers are invited by an admin, not self-serve
+enable_signup = false          # staff accounts are created by an admin (create-barber), never self-serve
+
+# Barber PIN sign-in and admin lock-out recovery are called by people who are
+# not signed in yet, so the platform JWT check is off for these two; each
+# function does its own checks (PIN lockout / recovery-key lockout).
+[functions.barber-login]
+verify_jwt = false
+
+[functions.admin-recover]
+verify_jwt = false
+
+# Admin-only; the function also re-checks is_admin() with the caller's JWT.
+[functions.create-barber]
+verify_jwt = true
