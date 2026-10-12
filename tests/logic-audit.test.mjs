@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 process.on('uncaughtException',e=>{console.error(e.message,e.detail,e.where);process.exit(1);});
 const db = new PGlite();
-await db.exec(`create role anon; create role authenticated;
+await db.exec(`create role anon; create role authenticated; create role service_role;
 create schema auth; create table auth.users(id uuid primary key);
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
 create schema realtime; create table realtime.messages(extension text);

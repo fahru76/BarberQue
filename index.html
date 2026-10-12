@@ -1703,7 +1703,7 @@
         #tvServingGrid { margin-bottom: 50px; }
         #tvUpcoming { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); justify-content: flex-start; }
         #tv-closed-notice { display: none; margin-top: 40px; padding: var(--space-4); background: rgba(220,53,69,0.1); color: var(--danger); border-radius: var(--radius-sm); font-size: 1.5rem; font-weight: bold; }
-        #inviteBarberError { color:var(--danger); display:none; margin-bottom: var(--space-2); }
+        #recoveryKeyStatus { margin: 8px 0 12px; }
         #staffListContainer { margin-top: var(--space-4); }
         #adminDetectedLocation { padding:12px; margin-top: var(--space-3); border-radius: var(--radius-sm); background:var(--border-light); color:var(--text-muted); font-size:0.85rem; }
         #announcementImageStatus { font-size:0.78rem; margin-top:7px; }
@@ -2361,21 +2361,28 @@
 
             <section class="panel-box border-primary">
                 <h3 class="admin-setting-title mb-10">KAKITANGAN</h3>
-                <p class="text-muted fs-85 mb-15">Akaun kakitangan tidak boleh didaftar sendiri. Jemput tukang gunting baharu di sini — mereka menerima e-mel untuk menetapkan kata laluan sendiri, dan kekal <strong>Belum Aktif</strong> sehingga anda mengaktifkannya di senarai di bawah.</p>
-                <form id="inviteBarberForm" onsubmit="event.preventDefault(); submitInviteBarber()">
+                <p class="text-muted fs-85 mb-15">Tambah tukang gunting dengan nama dan PIN 6 digit. Dia log masuk dengan memilih namanya dan memasukkan PIN — tiada e-mel atau jemputan diperlukan. Akaun terus aktif.</p>
+                <form id="addBarberForm" onsubmit="event.preventDefault(); submitAddBarber()">
                     <div class="input-group">
-                        <label for="inviteBarberName">Nama Penuh:</label>
-                        <input type="text" id="inviteBarberName" maxlength="60" required>
+                        <label for="addBarberName">Nama Tukang Gunting:</label>
+                        <input type="text" id="addBarberName" maxlength="60" required autocomplete="off">
                     </div>
                     <div class="input-group">
-                        <label for="inviteBarberEmail">E-mel:</label>
-                        <input type="email" id="inviteBarberEmail" required>
+                        <label for="addBarberPin">PIN (6 digit):</label>
+                        <input type="password" id="addBarberPin" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" required autocomplete="new-password" title="6 digit nombor" aria-describedby="addBarberError">
                     </div>
-                    <p id="inviteBarberError" class="text-muted"></p>
-                    <button type="submit" class="btn btn-action w-full mt-10">HANTAR JEMPUTAN</button>
+                    <p id="addBarberError" class="field-error" role="alert"></p>
+                    <button type="submit" class="btn btn-action w-full mt-10" id="btnAddBarber">TAMBAH TUKANG GUNTING</button>
                 </form>
                 <div id="staffListContainer"></div>
                 <button type="button" class="btn w-full mt-10" onclick="refreshStaffList()">MUAT SEMULA SENARAI</button>
+            </section>
+
+            <section class="panel-box mt-15" aria-labelledby="recoveryKeyTitle">
+                <h3 class="admin-setting-title mb-10" id="recoveryKeyTitle">KUNCI PEMULIHAN ADMIN</h3>
+                <p class="text-muted fs-85">Jika admin terkunci (lupa kata laluan atau akaun dinyahaktif), kunci ini membolehkan kata laluan baharu ditetapkan dari skrin log masuk (Admin &rarr; Terkunci?). Tulis dan simpan di tempat selamat di luar talian. Kunci hanya boleh digunakan sekali; menjana kunci baharu membatalkan kunci lama.</p>
+                <p id="recoveryKeyStatus" class="fs-85" aria-live="polite"></p>
+                <button type="button" class="btn btn-info w-full" id="btnGenerateRecoveryKey" onclick="generateRecoveryKey()">JANA KUNCI BAHARU</button>
             </section>
 
                     </div>
@@ -2928,8 +2935,28 @@
     <dialog id="staffLoginDialog" class="app-dialog" aria-labelledby="staffLoginDialogTitle">
         <div class="app-dialog-content">
             <h3 id="staffLoginDialogTitle">Log Masuk Kakitangan</h3>
-            <p class="text-muted fs-82 mb-14">Akaun kakitangan dicipta oleh Admin melalui jemputan e-mel — tiada pendaftaran sendiri.</p>
-            <form id="staffLoginForm" onsubmit="event.preventDefault(); submitStaffLogin()">
+            <div class="mode-toggle mb-15" role="tablist" aria-label="Jenis log masuk">
+                <button type="button" class="mode-btn active" id="btnLoginModeBarber" role="tab" aria-selected="true" aria-controls="barberLoginForm" onclick="setStaffLoginMode('barber')">Tukang Gunting</button>
+                <button type="button" class="mode-btn" id="btnLoginModeAdmin" role="tab" aria-selected="false" aria-controls="staffLoginForm" onclick="setStaffLoginMode('admin')">Admin</button>
+            </div>
+
+            <form id="barberLoginForm" onsubmit="event.preventDefault(); submitBarberLogin()">
+                <div class="input-group">
+                    <label for="barberLoginName">Nama:</label>
+                    <select id="barberLoginName" required></select>
+                </div>
+                <div class="input-group">
+                    <label for="barberLoginPin">PIN (6 digit):</label>
+                    <input type="password" id="barberLoginPin" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" required autocomplete="off" title="6 digit nombor" aria-describedby="barberLoginError">
+                </div>
+                <p id="barberLoginError" class="field-error" role="alert"></p>
+                <div class="d-flex gap-10 mt-10">
+                    <button type="button" class="btn btn-reset flex-1" onclick="closeStaffLoginDialog()">BATAL</button>
+                    <button type="submit" class="btn btn-action flex-1" id="btnBarberLogin">LOG MASUK</button>
+                </div>
+            </form>
+
+            <form id="staffLoginForm" onsubmit="event.preventDefault(); submitStaffLogin()" hidden>
                 <div class="input-group">
                     <label for="staffLoginEmail">E-mel:</label>
                     <input type="email" id="staffLoginEmail" required autocomplete="username">
@@ -2943,6 +2970,32 @@
                     <button type="button" class="btn btn-reset flex-1" onclick="closeStaffLoginDialog()">BATAL</button>
                     <button type="submit" class="btn btn-action flex-1">LOG MASUK</button>
                 </div>
+                <button type="button" class="btn btn-sm w-full mt-10" onclick="setStaffLoginMode('recover')">Terkunci? Guna kunci pemulihan</button>
+            </form>
+
+            <form id="adminRecoverForm" onsubmit="event.preventDefault(); submitAdminRecovery()" hidden>
+                <p class="text-muted fs-82 mb-14">Masukkan e-mel admin, kunci pemulihan yang disimpan, dan kata laluan baharu. Akaun admin akan diaktifkan semula. Kunci hanya boleh digunakan sekali.</p>
+                <div class="input-group">
+                    <label for="recoverEmail">E-mel Admin:</label>
+                    <input type="email" id="recoverEmail" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label for="recoverKey">Kunci Pemulihan:</label>
+                    <input type="text" id="recoverKey" required maxlength="29" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX-XXXXX-XXXXX">
+                </div>
+                <div class="input-group">
+                    <label for="recoverPassword">Kata Laluan Baharu (sekurang-kurangnya 8 aksara):</label>
+                    <input type="password" id="recoverPassword" required minlength="8" maxlength="72" autocomplete="new-password">
+                </div>
+                <div class="input-group">
+                    <label for="recoverPasswordConfirm">Ulang Kata Laluan Baharu:</label>
+                    <input type="password" id="recoverPasswordConfirm" required minlength="8" maxlength="72" autocomplete="new-password" aria-describedby="recoverError">
+                </div>
+                <p id="recoverError" class="field-error" role="alert"></p>
+                <div class="d-flex gap-10 mt-10">
+                    <button type="button" class="btn btn-reset flex-1" onclick="setStaffLoginMode('admin')">KEMBALI</button>
+                    <button type="submit" class="btn btn-action flex-1" id="btnAdminRecover">PULIHKAN AKSES</button>
+                </div>
             </form>
         </div>
     </dialog>
@@ -2950,7 +3003,7 @@
     <dialog id="setPasswordDialog" class="app-dialog" aria-labelledby="setPasswordDialogTitle">
         <div class="app-dialog-content">
             <h3 id="setPasswordDialogTitle">Tetapkan Kata Laluan</h3>
-            <p class="text-muted fs-82 mb-14">Anda telah dijemput sebagai kakitangan. Tetapkan kata laluan untuk akaun anda sebelum meneruskan.</p>
+            <p class="text-muted fs-82 mb-14">Tetapkan kata laluan baharu untuk akaun anda sebelum meneruskan.</p>
             <form id="setPasswordForm" onsubmit="event.preventDefault(); submitSetPassword()">
                 <div class="input-group">
                     <label for="setPasswordInput">Kata Laluan Baharu:</label>
@@ -3723,12 +3776,95 @@
             }
         }
 
+        // Sign-in modes (20261012170000): barbers pick their name + PIN, admins
+        // use e-mail + password, and a locked-out admin uses the recovery key.
+        function setStaffLoginMode(mode) {
+            const forms = { barber: 'barberLoginForm', admin: 'staffLoginForm', recover: 'adminRecoverForm' };
+            Object.entries(forms).forEach(([key, id]) => {
+                const form = document.getElementById(id);
+                if (form) form.hidden = key !== mode;
+            });
+            const isBarber = mode === 'barber';
+            const barberTab = document.getElementById('btnLoginModeBarber');
+            const adminTab = document.getElementById('btnLoginModeAdmin');
+            barberTab?.classList.toggle('active', isBarber);
+            adminTab?.classList.toggle('active', !isBarber);
+            barberTab?.setAttribute('aria-selected', String(isBarber));
+            adminTab?.setAttribute('aria-selected', String(!isBarber));
+            const focusId = { barber: 'barberLoginName', admin: 'staffLoginEmail', recover: 'recoverEmail' }[mode];
+            setTimeout(() => document.getElementById(focusId)?.focus(), 0);
+        }
+
+        async function loadLoginBarbers() {
+            const select = document.getElementById('barberLoginName');
+            if (!select) return;
+            select.innerHTML = '<option value="">Memuatkan…</option>';
+            try {
+                const barbers = await window.AuthRepo.listLoginBarbers();
+                select.innerHTML = barbers.length
+                    ? '<option value="">— Pilih nama anda —</option>' + barbers.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.displayName)}</option>`).join('')
+                    : '<option value="">Tiada tukang gunting berdaftar</option>';
+            } catch (error) {
+                select.innerHTML = '<option value="">Gagal memuatkan senarai</option>';
+                console.warn('Memuatkan senarai tukang gunting gagal.', error);
+            }
+        }
+
         function openStaffLoginDialog() {
             const dialog = document.getElementById('staffLoginDialog');
             document.getElementById('staffLoginError').style.display = 'none';
-            document.getElementById('staffLoginForm').reset();
+            ['staffLoginForm', 'barberLoginForm', 'adminRecoverForm'].forEach(id => document.getElementById(id)?.reset());
+            ['barberLoginError', 'recoverError'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = ''; });
             openAppDialog(dialog);
-            setTimeout(() => document.getElementById('staffLoginEmail').focus(), 0);
+            setStaffLoginMode('barber');
+            loadLoginBarbers();
+        }
+
+        async function submitBarberLogin() {
+            const staffId = document.getElementById('barberLoginName').value;
+            const pinInput = document.getElementById('barberLoginPin');
+            const errorEl = document.getElementById('barberLoginError');
+            errorEl.textContent = '';
+            if (!staffId) { errorEl.textContent = 'Pilih nama anda.'; return; }
+            if (!/^[0-9]{6}$/.test(pinInput.value)) { errorEl.textContent = 'PIN mesti 6 digit nombor.'; return; }
+            const button = document.getElementById('btnBarberLogin');
+            button.disabled = true;
+            try {
+                await window.AuthRepo.barberSignIn(staffId, pinInput.value);
+                closeStaffLoginDialog();
+            } catch (error) {
+                errorEl.textContent = error.message || 'Log masuk gagal. Sila cuba lagi.';
+                pinInput.value = '';
+                pinInput.focus();
+                console.warn('Log masuk tukang gunting gagal.', error);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function submitAdminRecovery() {
+            const email = document.getElementById('recoverEmail').value.trim();
+            const key = document.getElementById('recoverKey').value.trim();
+            const password = document.getElementById('recoverPassword').value;
+            const confirmPassword = document.getElementById('recoverPasswordConfirm').value;
+            const errorEl = document.getElementById('recoverError');
+            errorEl.textContent = '';
+            if (password.length < 8) { errorEl.textContent = 'Kata laluan baharu mesti sekurang-kurangnya 8 aksara.'; return; }
+            if (password !== confirmPassword) { errorEl.textContent = 'Kata laluan baharu tidak sepadan.'; return; }
+            const button = document.getElementById('btnAdminRecover');
+            button.disabled = true;
+            try {
+                await window.AuthRepo.recoverAdmin(email, key, password);
+                document.getElementById('adminRecoverForm').reset();
+                setStaffLoginMode('admin');
+                document.getElementById('staffLoginEmail').value = email;
+                await showAlertDialog('Akses admin dipulihkan. Log masuk dengan kata laluan baharu, kemudian jana kunci pemulihan baharu di Admin → Kakitangan.');
+            } catch (error) {
+                errorEl.textContent = error.message || 'Pemulihan gagal. Sila cuba lagi.';
+                console.warn('Pemulihan admin gagal.', error);
+            } finally {
+                button.disabled = false;
+            }
         }
 
         function closeStaffLoginDialog() {
@@ -3784,20 +3920,84 @@
             }
         }
 
-        async function submitInviteBarber() {
-            const name = document.getElementById('inviteBarberName').value.trim();
-            const email = document.getElementById('inviteBarberEmail').value.trim();
-            const errorEl = document.getElementById('inviteBarberError');
-            errorEl.style.display = 'none';
+        async function submitAddBarber() {
+            const nameInput = document.getElementById('addBarberName');
+            const pinInput = document.getElementById('addBarberPin');
+            const errorEl = document.getElementById('addBarberError');
+            errorEl.textContent = '';
+            const name = nameInput.value.replace(/\s+/g, ' ').trim();
+            if (!name) { errorEl.textContent = 'Masukkan nama tukang gunting.'; return; }
+            if (!/^[0-9]{6}$/.test(pinInput.value)) { errorEl.textContent = 'PIN mesti 6 digit nombor.'; return; }
+            const button = document.getElementById('btnAddBarber');
+            button.disabled = true;
             try {
-                await window.AuthRepo.inviteBarber(email, name);
-                (await showAlertDialog(`Jemputan dihantar ke ${email}.`));
-                document.getElementById('inviteBarberForm').reset();
+                await window.AuthRepo.createBarber(name, pinInput.value);
+                document.getElementById('addBarberForm').reset();
                 await refreshStaffList();
+                await showAlertDialog(`${name} ditambah. Dia boleh log masuk dengan memilih namanya dan memasukkan PIN.`);
             } catch (error) {
-                errorEl.textContent = error.message || 'Jemputan gagal dihantar.';
-                errorEl.style.display = 'block';
-                console.warn('Jemputan kakitangan gagal.', error);
+                errorEl.textContent = error.message || 'Tukang gunting gagal ditambah.';
+                console.warn('Menambah tukang gunting gagal.', error);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function startChangePin(id) {
+            const el = document.getElementById(`staffName-${id}`);
+            if (!el) return;
+            el.innerHTML = `
+                <input type="password" id="staffPinInput-${id}" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" class="staff-rename-input" autocomplete="new-password" placeholder="PIN baharu" aria-label="PIN baharu (6 digit)" />
+                <button type="button" class="btn btn-sm btn-action" onclick="saveChangePin('${id}')">Simpan</button>
+                <button type="button" class="btn btn-sm btn-reset" onclick="refreshStaffList()">Batal</button>
+            `;
+            document.getElementById(`staffPinInput-${id}`)?.focus();
+        }
+
+        async function saveChangePin(id) {
+            const input = document.getElementById(`staffPinInput-${id}`);
+            if (!input) return;
+            if (!/^[0-9]{6}$/.test(input.value)) return (await showAlertDialog('PIN mesti 6 digit nombor.'));
+            try {
+                await window.AuthRepo.setBarberPin(id, input.value);
+                await refreshStaffList();
+                await showAlertDialog('PIN dikemas kini. Sekatan cubaan salah (jika ada) juga dibuang.');
+            } catch (error) {
+                await showAlertDialog(error.message || 'Gagal menukar PIN.');
+                console.warn(error);
+            }
+        }
+
+        async function refreshRecoveryKeyStatus() {
+            const statusEl = document.getElementById('recoveryKeyStatus');
+            if (!statusEl || staffProfile?.role !== 'admin') return;
+            try {
+                const status = await window.AuthRepo.getRecoveryKeyStatus();
+                statusEl.textContent = status.hasKey
+                    ? `Kunci aktif — dijana pada ${formatMalaysiaDateTime(status.createdAt)}.`
+                    : 'Tiada kunci pemulihan. Jana satu sekarang dan simpan di tempat selamat.';
+                statusEl.classList.toggle('text-warning', !status.hasKey);
+            } catch (error) {
+                statusEl.textContent = 'Status kunci pemulihan tidak dapat dimuatkan.';
+                console.warn('Status kunci pemulihan gagal.', error);
+            }
+        }
+
+        async function generateRecoveryKey() {
+            if (!(await showConfirmDialog('Jana kunci pemulihan baharu? Kunci lama (jika ada) tidak lagi boleh digunakan.'))) return;
+            const button = document.getElementById('btnGenerateRecoveryKey');
+            button.disabled = true;
+            try {
+                const key = await window.AuthRepo.generateRecoveryKey();
+                let copied = false;
+                try { await navigator.clipboard.writeText(key); copied = true; } catch { /* clipboard may be blocked */ }
+                await refreshRecoveryKeyStatus();
+                await showAlertDialog(`Kunci pemulihan anda:\n\n${key}\n\nTulis dan simpan di tempat selamat SEKARANG — ia tidak akan dipaparkan lagi.${copied ? ' (Juga telah disalin ke papan keratan.)' : ''}`);
+            } catch (error) {
+                await showAlertDialog(error.message || 'Kunci pemulihan gagal dijana.');
+                console.warn(error);
+            } finally {
+                button.disabled = false;
             }
         }
 
@@ -3829,12 +4029,15 @@
                         <div class="d-flex items-center gap-6 flex-wrap">
                             <span id="staffName-${member.id}"><strong>${escapeHTML(member.displayName)}</strong><span class="text-muted"> &bull; ${member.active ? 'Aktif' : 'Belum Aktif'}</span></span>
                             <button type="button" class="btn btn-sm" onclick="startRenameStaff('${member.id}')" title="Ubah nama">Ubah Nama</button>
+                            ${member.role === 'barber' ? `<button type="button" class="btn btn-sm" onclick="startChangePin('${member.id}')" title="Tukar PIN log masuk">Tukar PIN</button>` : ''}
                         </div>
                         <div class="d-flex gap-8 items-center">
-                            <select onchange="setStaffRole('${member.id}', this.value)">
-                                <option value="barber" ${member.role === 'barber' ? 'selected' : ''}>Tukang Gunting</option>
-                                <option value="admin" ${member.role === 'admin' ? 'selected' : ''}>Admin</option>
-                            </select>
+                            ${member.role === 'admin'
+                                ? `<select onchange="setStaffRole('${member.id}', this.value)" aria-label="Peranan ${escapeHTML(member.displayName)}">
+                                    <option value="admin" selected>Admin</option>
+                                    <option value="barber">Tukang Gunting</option>
+                                </select>`
+                                : '<span class="badge badge-primary">Tukang Gunting</span>'}
                             ${member.active
                                 ? `<button type="button" class="btn btn-reset" onclick="toggleStaffActive('${member.id}', false)">NYAHAKTIF</button>`
                                 : `<button type="button" class="btn btn-action" onclick="toggleStaffActive('${member.id}', true)">AKTIFKAN</button>`}
@@ -3847,6 +4050,7 @@
                 // same roster; keep them current whenever it changes, not just on the
                 // next unrelated re-render.
                 renderBarberAssignments(true);
+                refreshRecoveryKeyStatus();
             } catch (error) {
                 container.innerHTML = '<div class="text-muted">Gagal memuatkan senarai kakitangan.</div>';
                 console.warn('Memuatkan senarai kakitangan gagal.', error);
@@ -4009,7 +4213,7 @@
         async function removeStaffMember(id) {
             const member = cachedStaffList.find(m => m.id === id);
             const name = member?.displayName || 'kakitangan ini';
-            const confirmed = await showConfirmDialog(`Padam akaun ${name} secara KEKAL? Mereka tidak akan dapat log masuk lagi dan perlu dijemput semula jika perlu di masa hadapan. Sejarah tiket/prestasi mereka yang lepas akan kekal untuk laporan, tetapi tindakan ini sendiri TIDAK boleh dibuat asal.`);
+            const confirmed = await showConfirmDialog(`Padam akaun ${name} secara KEKAL? Mereka tidak akan dapat log masuk lagi dan perlu ditambah semula jika perlu di masa hadapan. Sejarah tiket/prestasi mereka yang lepas akan kekal untuk laporan, tetapi tindakan ini sendiri TIDAK boleh dibuat asal.`);
             if (!confirmed) return;
             try {
                 await window.AuthRepo.removeStaffMember(id);
@@ -6817,7 +7021,7 @@
             });
             if (!cachedStaffList.length) {
                 container.insertAdjacentHTML('beforeend',
-                    '<div class="text-muted">Belum ada akaun kakitangan berdaftar. Jemput seorang tukang gunting dahulu di panel KAKITANGAN di atas.</div>');
+                    '<div class="text-muted">Belum ada akaun kakitangan berdaftar. Tambah seorang tukang gunting dahulu di panel KAKITANGAN.</div>');
             }
             container.dataset.signature = signature;
         }
