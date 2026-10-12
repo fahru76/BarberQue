@@ -103,6 +103,22 @@ await ok('specific call ignores capability and clears rest',async()=>{
  finally {await db.exec('reset role');}
  assert.equal((await db.query('select resting_since from public.seats where seat_no=1')).rows[0].resting_since,null);
 });
+await ok('leftover waiting tickets from an earlier day expire before intake and calls',async()=>{
+ await db.exec(`set session_replication_role=replica;
+ update public.queues set status='cancelled',cancelled_at=now(),cancel_reason='test reset' where status in ('waiting','serving');
+ update public.shop_settings set shop_status='open',max_queue=2 where id;
+ update public.seats set active=true,barber_id='${barber}',duty_date=public._current_business_date(),resting_since=null where seat_no=1;
+ insert into public.queues(id,ticket_no,name,claim_token,service,source,service_ids,price_sen,duration_minutes,created_at) values
+ ('OLD-A','OLD-A','Yesterday A',gen_random_uuid(),'Gunting Biasa','walkin',array['BASIC'],2000,30,now()-interval '1 day'),
+ ('OLD-B','OLD-B','Yesterday B',gen_random_uuid(),'Gunting Biasa','walkin',array['BASIC'],2000,30,now()-interval '1 day');
+ set session_replication_role=origin;`);
+ const today=await anon(async()=>(await db.query(`select public.take_walkin_ticket('Today','',array['BASIC'],gen_random_uuid()) t`)).rows[0].t);
+ const old=(await db.query("select status,cancel_reason from public.queues where id like 'OLD-%'")).rows;
+ assert.ok(old.length===2 && old.every(r=>r.status==='cancelled' && /Tamat hari/.test(r.cancel_reason)));
+ await db.exec(`select set_config('request.jwt.claim.sub','${barber}',false); set role authenticated;`);
+ try { assert.equal((await db.query('select * from public.call_next_customer(1)')).rows[0].id, today.id); }
+ finally { await db.exec('reset role'); }
+});
 await ok('overnight report attributes after midnight to previous business day',async()=>{
  await db.exec(`update public.shop_settings set weekly_op_hours=(select jsonb_object_agg(i::text,jsonb_build_object('open','18:00','close','01:00','closed',false)) from generate_series(0,6) i) where id=true;`);
  assert.equal((await db.query("select public._report_business_date('2026-10-13 00:30:00+08')::text d")).rows[0].d,'2026-10-12');
