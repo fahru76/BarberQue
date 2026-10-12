@@ -4154,3 +4154,5 @@ Before changing intake, bookings, reports, service restrictions, or browser queu
 - Capability/specialty restrictions no longer affect dispatch or live estimates. Rest and per-barber duration behavior are preserved.
 - Validation: npm test, npm run test:audit (Postgres migration replay plus client checks), and Edge live-refresh verification.
 - Rollout: apply 20261012151733_logic_audit_fixes.sql before publishing the page/repository. Refresh older pages after migration; they use revoked direct inserts. Live smoke verification remains pending migration deployment.
+
+Published for review: [PR #38](https://github.com/fahru76/BarberQue/pull/38), branch codex/logic-audit-2026-10-12. Latest implementation is in this branch/worktree; shared main checkout contains earlier local edits. Migration and deployment remain pending.
