@@ -35,10 +35,13 @@ function raiseOnError(error) {
  * it) simply doesn't appear — callers should treat "missing" the same as
  * `{ active: false, barberId: null }`.
  */
+// `*` rather than a column list: resting_since (20261012150000) only exists
+// once that migration is applied, and the page may be deployed first. With
+// `*` the same query works before and after.
 export async function listSeats() {
     const { data, error } = await supabase
         .from('seats')
-        .select('seat_no, active, barber_id, break_until, duty_date, staff:barber_id ( display_name )')
+        .select('*, staff:barber_id ( display_name )')
         .order('seat_no', { ascending: true });
     raiseOnError(error);
     return data.map(row => ({
@@ -47,7 +50,8 @@ export async function listSeats() {
         barberId: row.barber_id,
         barberName: row.staff?.display_name ?? null,
         breakUntil: row.break_until ?? null,
-        dutyDate: row.duty_date ?? null
+        dutyDate: row.duty_date ?? null,
+        resting: !!row.resting_since
     }));
 }
 
@@ -81,7 +85,7 @@ export async function setSeatAssignment(seatNo, { active, staffId }) {
  * capability + own service times. Deliberately carries no barber id/name.
  *
  * @returns {Promise<Array<{seatNo:number, onDuty:boolean, breakUntil:string|null,
- *           capabilityServiceIds:string[]|null, serviceDurations:Object|null}>>}
+ *           capabilityServiceIds:string[]|null, serviceDurations:Object|null, resting:boolean}>>}
  */
 export async function listSeatProfiles() {
     const { data, error } = await supabase.rpc('list_seat_profiles');
@@ -91,7 +95,9 @@ export async function listSeatProfiles() {
         onDuty: !!row.on_duty,
         breakUntil: row.break_until ?? null,
         capabilityServiceIds: Array.isArray(row.capability_service_ids) ? row.capability_service_ids : null,
-        serviceDurations: row.service_durations && typeof row.service_durations === 'object' ? row.service_durations : null
+        serviceDurations: row.service_durations && typeof row.service_durations === 'object' ? row.service_durations : null,
+        // Absent before migration 20261012150000 is applied -> not resting.
+        resting: !!row.resting
     }));
 }
 
@@ -131,6 +137,22 @@ export async function setSeatBreak(seatNo, minutes) {
     const { data, error } = await supabase.rpc('set_seat_break', { p_seat_no: seatNo, p_minutes: minutes });
     raiseOnError(error);
     return { seatNo: data.seat_no, breakUntil: data.break_until ?? null };
+}
+
+/**
+ * Barber rest (migration 20261012150000): the chair is closed for serving and
+ * wait estimates until the barber is back. No fixed duration. Goes through the
+ * set_seat_rest() SECURITY DEFINER RPC -- only the chair's own barber (or an
+ * admin) can change it, and rest is refused while a customer is being served.
+ *
+ * @param {number} seatNo
+ * @param {boolean} resting true = start rest, false = back on duty.
+ * @returns {Promise<{seatNo:number, resting:boolean}>}
+ */
+export async function setSeatRest(seatNo, resting) {
+    const { data, error } = await supabase.rpc('set_seat_rest', { p_seat_no: seatNo, p_resting: !!resting });
+    raiseOnError(error);
+    return { seatNo: data.seat_no, resting: !!data.resting_since };
 }
 
 /**

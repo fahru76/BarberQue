@@ -2273,15 +2273,8 @@
                     <button type="button" class="btn btn-action" id="btnStartDuty" onclick="startMyDuty()">Mula Bertugas</button>
                 </div>
                 <div id="myDutyOn" class="mt-10" hidden>
-                    <div class="d-flex gap-8 flex-wrap items-center" id="myBreakCtrl">
-                        <select id="myBreakMinutes" class="flex-1" aria-label="Tempoh rehat">
-                            <option value="10">10 minit</option>
-                            <option value="15" selected>15 minit</option>
-                            <option value="30">30 minit</option>
-                            <option value="45">45 minit</option>
-                            <option value="60">60 minit</option>
-                        </select>
-                        <button type="button" class="btn btn-reset" id="btnMyBreak" onclick="startMyBreak()">Rehat</button>
+                    <div id="myBreakCtrl">
+                        <button type="button" class="btn btn-reset w-full" id="btnMyBreak" onclick="startMyBreak()">Rehat (Tutup Kerusi)</button>
                     </div>
                     <button type="button" class="btn btn-action w-full mt-10" id="btnMyResume" onclick="endMyBreak()" hidden>Kembali Bertugas</button>
                     <button type="button" class="btn btn-reset w-full mt-10" id="btnEndDuty" onclick="endMyDuty()">Tamat Bertugas</button>
@@ -3076,7 +3069,7 @@
     <!-- xlsx.full.min.js is loaded on demand by loadXlsxLibrary() so customers never download it. -->
     <script type="module">
         import { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
-        import { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
+        import { listSeats, listSeatProfiles, setSeatAssignment, setSeatRest, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
         import {
@@ -3087,7 +3080,7 @@
         import * as AuthRepo from './js/repositories/authRepository.js';
 
         window.QueueRepo = { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
-        window.SeatRepo = { listSeats, listSeatProfiles, setSeatAssignment, setSeatBreak, startDuty, endDuty, subscribeSeatChanges };
+        window.SeatRepo = { listSeats, listSeatProfiles, setSeatAssignment, setSeatRest, startDuty, endDuty, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState };
         window.AppointmentRepo = {
@@ -5261,7 +5254,7 @@
                 } else if (ticket?.status === 'waiting') {
                     const waiting = sortWaitingQueue(queues.filter(q => q.status === 'waiting'));
                     const position = waiting.findIndex(q => q.id === ticket.id);
-                    const activeSeatCount = Math.max(1, Object.values(getActiveSeats()).filter(Boolean).length);
+                    const activeSeatCount = Math.max(1, Object.entries(getActiveSeats()).filter(([seat, open]) => open && !isSeatResting(seat)).length);
                     const servingCount = queues.filter(q => q.status === 'serving').length;
                     if (position >= 0 && position < activeSeatCount && servingCount > 0) {
                         notifyOnce(`prepare:${ticket.id}`, 'SILA BERSEDIA', `${getDisplayTicketId(ticket)}: Giliran anda semakin hampir. Pastikan anda berada berhampiran kedai.`);
@@ -6754,15 +6747,8 @@
                     <div class="fs-180 text-primary my-15" id="bSeat${seat}Num">---</div>
                     <button class="btn btn-action w-full" id="btnCall${seat}" onclick="callNextToSeat(${seat})">Panggil</button>
                     <button class="btn d-none w-full bg-success text-white border-success" id="btnDone${seat}" onclick="markSeatDone(${seat})">Selesai</button>
-                    <div class="d-flex gap-8 mt-10" id="bBreakCtrl${seat}">
-                        <select id="breakMinutes${seat}" class="flex-1" aria-label="Tempoh rehat kerusi ${seat}">
-                            <option value="10">10 minit</option>
-                            <option value="15" selected>15 minit</option>
-                            <option value="30">30 minit</option>
-                            <option value="45">45 minit</option>
-                            <option value="60">60 minit</option>
-                        </select>
-                        <button type="button" class="btn btn-reset" id="btnBreak${seat}" onclick="startSeatBreak(${seat})">Rehat</button>
+                    <div class="mt-10" id="bBreakCtrl${seat}">
+                        <button type="button" class="btn btn-reset w-full" id="btnBreak${seat}" onclick="startSeatBreak(${seat})">Rehat (Tutup Kerusi)</button>
                     </div>
                     <button type="button" class="btn btn-action w-full d-none mt-10" id="btnResume${seat}" onclick="endSeatBreak(${seat})">Kembali Bertugas</button>
                 </div>`).join('');
@@ -7494,6 +7480,13 @@
             const selectedFashionService = changedFashionService || checkboxes.find(cb => cb.checked && getCheckboxServiceCategory(cb) === 'fashion');
             const changedBasicHaircut = changedCheckbox && changedCheckbox.checked && getCheckboxServiceCategory(changedCheckbox) === 'asas' && ['gunting', 'botak'].includes(getCheckboxServiceType(changedCheckbox)) ? changedCheckbox : null;
             const selectedBasicHaircut = changedBasicHaircut || checkboxes.find(cb => cb.checked && getCheckboxServiceCategory(cb) === 'asas' && ['gunting', 'botak'].includes(getCheckboxServiceType(cb)));
+            // Only one basic haircut per customer -- e.g. Gunting Biasa (adult)
+            // and Gunting Kanak-kanak can never be picked together. Enforced on
+            // type, not on the target field, because an adult cut set to
+            // target "semua" would otherwise slip past the target rule.
+            const isBasicCut = cb => getCheckboxServiceCategory(cb) === 'asas' && getCheckboxServiceType(cb) === 'gunting';
+            const changedBasicCut = changedCheckbox && changedCheckbox.checked && isBasicCut(changedCheckbox) ? changedCheckbox : null;
+            const selectedBasicCut = changedBasicCut || checkboxes.find(cb => cb.checked && isBasicCut(cb));
             const changedBaldService = changedCheckbox && changedCheckbox.checked && getCheckboxServiceType(changedCheckbox) === 'botak' ? changedCheckbox : null;
             const selectedBaldService = changedBaldService || checkboxes.find(cb => cb.checked && getCheckboxServiceType(cb) === 'botak');
 
@@ -7506,8 +7499,10 @@
                 const blockedByFashionBasic = Boolean(selectedFashionService) && serviceCategory === 'asas' && (serviceType === 'botak' || serviceType === 'gunting');
                 const blockedByBasicHaircut = Boolean(selectedBasicHaircut) && serviceCategory === 'fashion';
                 const blockedByBald = Boolean(selectedBaldService) && cb !== selectedBaldService && serviceType !== 'facial';
-                const shouldDisable = blockedByTarget || blockedByFashionLimit || blockedByFashionBasic || blockedByBasicHaircut || blockedByBald;
-                const reason = blockedByFashionLimit ? 'Hanya satu Gaya Potongan boleh dipilih'
+                const blockedByOtherBasicCut = Boolean(selectedBasicCut) && cb !== selectedBasicCut && isBasicCut(cb);
+                const shouldDisable = blockedByTarget || blockedByFashionLimit || blockedByFashionBasic || blockedByBasicHaircut || blockedByBald || blockedByOtherBasicCut;
+                const reason = blockedByOtherBasicCut ? 'Hanya satu gunting asas boleh dipilih (dewasa atau kanak-kanak)'
+                    : blockedByFashionLimit ? 'Hanya satu Gaya Potongan boleh dipilih'
                     : blockedByFashionBasic ? 'Tidak boleh digabungkan dengan Gaya Potongan'
                     : blockedByBasicHaircut ? 'Tidak boleh digabungkan dengan servis gunting asas'
                     : blockedByBald ? 'Tidak boleh digabungkan dengan Botak Kepala'
@@ -7532,6 +7527,9 @@
             const selected = Array.from(checkboxes);
             const selectedTargets = new Set(selected.map(getServiceTarget).filter(target => target !== 'semua'));
             if (selectedTargets.size > 1) return "Servis Dewasa Sahaja dan Kanak-kanak Sahaja tidak boleh dipilih bersama.";
+
+            const basicCutCount = selected.filter(cb => getCheckboxServiceCategory(cb) === 'asas' && getCheckboxServiceType(cb) === 'gunting').length;
+            if (basicCutCount > 1) return "Pilih satu gunting asas sahaja: gunting dewasa atau gunting kanak-kanak, bukan kedua-duanya.";
 
             const fashionServiceCount = selected.filter(cb => getCheckboxServiceCategory(cb) === 'fashion').length;
             if (fashionServiceCount > 1) return "Hanya satu Gaya Potongan boleh dipilih.";
@@ -7995,7 +7993,18 @@
         function getQueueOccupancyIntervals(date, appointmentRecords = null, queueRecords = null, activeSeatMap = null, seatCapability = null, seatDurations = null) {
             if (date !== getCurrentBusinessDate()) return [];
             const activeSeats = activeSeatMap || getActiveSeats();
-            const allSeatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat]).map(Number);
+            const seatStateForBreaks = typeof seatServerState === 'object' && seatServerState ? seatServerState : {};
+            const seatProfilesForBreaks = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
+            // Barber rest (20261012150000): a resting barber's chair is closed
+            // for serving, so waiting tickets are projected only onto the
+            // chairs still working, and flow back the moment he returns (the
+            // flag clears and the next render re-projects). Staff surfaces read
+            // seatServerState; anon/TV read the seat profile.
+            const seatIsResting = seat => {
+                const state = seatStateForBreaks[String(seat)];
+                return state ? !!state.resting : !!seatProfilesForBreaks[String(seat)]?.resting;
+            };
+            const allSeatNumbers = Object.keys(activeSeats).filter(seat => activeSeats[seat] && !seatIsResting(seat)).map(Number);
             // Bug hunt (2026-09-19, H1): only schedule a waiting ticket onto a
             // seat whose assigned barber can perform every service on it --
             // the same hard gate call_next_customer() enforces server-side.
@@ -8022,8 +8031,6 @@
             // wall-clock minutes (not a clock-time conversion) so it is safe
             // across the overnight business-day boundary. Surfaces that never
             // load seatServerState (anon/TV) simply see no breaks.
-            const seatStateForBreaks = typeof seatServerState === 'object' && seatServerState ? seatServerState : {};
-            const seatProfilesForBreaks = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
             seatNumbers.forEach(seat => {
                 const breakMillis = timestampToMillis(seatStateForBreaks[String(seat)]?.breakUntil ?? seatProfilesForBreaks[String(seat)]?.breakUntil);
                 if (!Number.isFinite(breakMillis)) return;
@@ -8811,14 +8818,17 @@
                 return;
             }
             const serving = (queues || getQueues()).find(q => q.status === 'serving' && Number(q.seat) === mySeat);
-            const breakText = serving ? '' : getSeatBreakUntilText(mySeat);
+            const resting = !serving && isSeatResting(mySeat);
+            const breakText = serving || resting ? '' : getSeatBreakUntilText(mySeat);
             status.textContent = serving
                 ? `Bertugas di Kerusi ${mySeat} — sedang melayan ${getDisplayTicketId(serving)}.`
-                : breakText
-                    ? `Bertugas di Kerusi ${mySeat} — rehat hingga ${breakText}. Giliran dilayan oleh tukang gunting lain.`
-                    : `Bertugas di Kerusi ${mySeat} — sedia menerima pelanggan.`;
-            setShown(document.getElementById('myBreakCtrl'), !serving && !breakText);
-            setShown(document.getElementById('btnMyResume'), !!breakText);
+                : resting
+                    ? `Berehat — Kerusi ${mySeat} ditutup untuk pelanggan. Giliran dilayan oleh tukang gunting lain sehingga anda tekan Kembali Bertugas.`
+                    : breakText
+                        ? `Bertugas di Kerusi ${mySeat} — rehat hingga ${breakText}. Giliran dilayan oleh tukang gunting lain.`
+                        : `Bertugas di Kerusi ${mySeat} — sedia menerima pelanggan.`;
+            setShown(document.getElementById('myBreakCtrl'), !serving && !resting && !breakText);
+            setShown(document.getElementById('btnMyResume'), resting || !!breakText);
             document.getElementById('btnEndDuty').disabled = !!serving;
             document.getElementById('btnEndDuty').title = serving ? "Sila 'Selesai' pelanggan dahulu." : '';
         }
@@ -8854,7 +8864,7 @@
         async function startMyBreak() {
             const mySeat = getMyDutySeat();
             if (mySeat === null) return;
-            await startSeatBreak(mySeat, Number.parseInt(document.getElementById('myBreakMinutes').value, 10));
+            await startSeatBreak(mySeat);
         }
 
         async function endMyBreak() {
@@ -8873,28 +8883,40 @@
             return parts ? `${String(parts.hour % 24).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}` : '';
         }
 
-        async function applySeatBreak(seatNum, minutes) {
-            if (!window.SeatRepo?.setSeatBreak) return (await showAlertDialog("Ciri rehat belum sedia. Sila muat semula halaman."));
+        // Barber rest (20261012150000): the chair is closed for serving until
+        // the barber is back -- no fixed duration. Staff surfaces read
+        // seatServerState; anon/TV only have the seat profile.
+        function isSeatResting(seatNum) {
+            const key = String(seatNum);
+            const state = seatServerState[key];
+            if (state) return !!state.active && !!state.resting;
+            return !!seatProfiles[key]?.resting;
+        }
+
+        async function applySeatRest(seatNum, resting) {
+            if (!window.SeatRepo?.setSeatRest) return (await showAlertDialog("Ciri rehat belum sedia. Sila muat semula halaman."));
             try {
-                const updated = await window.SeatRepo.setSeatBreak(seatNum, minutes);
+                const updated = await window.SeatRepo.setSeatRest(seatNum, resting);
                 const key = String(seatNum);
-                seatServerState = { ...seatServerState, [key]: { ...(seatServerState[key] || {}), breakUntil: updated.breakUntil } };
+                seatServerState = { ...seatServerState, [key]: { ...(seatServerState[key] || {}), resting: updated.resting, breakUntil: null } };
+                if (seatProfiles[key]) seatProfiles = { ...seatProfiles, [key]: { ...seatProfiles[key], resting: updated.resting, breakUntil: null } };
             } catch (error) {
                 return (await showAlertDialog(error.message || "Status rehat gagal dikemas kini. Sila cuba lagi."));
             }
             updateUI();
+            refreshSeatProfiles();
         }
 
-        async function startSeatBreak(seatNum, explicitMinutes = null) {
-            const minutes = Number.isInteger(explicitMinutes) ? explicitMinutes : Number.parseInt(document.getElementById(`breakMinutes${seatNum}`)?.value, 10);
-            if (!Number.isInteger(minutes) || minutes < 1 || minutes > 120) return (await showAlertDialog("Sila pilih tempoh rehat yang sah."));
-            if (getQueues().find(q => q.status === 'serving' && q.seat === seatNum)) return (await showAlertDialog("Sila 'Selesai' pelanggan di kerusi ini dahulu."));
-            if (!(await showConfirmDialog(`Mula rehat ${minutes} minit? Giliran akan dilayan oleh tukang gunting lain sementara anda berehat.`))) return;
-            await applySeatBreak(seatNum, minutes);
+        async function startSeatBreak(seatNum) {
+            if (getQueues().find(q => q.status === 'serving' && Number(q.seat) === seatNum)) return (await showAlertDialog("Sila 'Selesai' pelanggan di kerusi ini dahulu."));
+            if (!(await showConfirmDialog(`Mula rehat? Kerusi ${seatNum} ditutup untuk pelanggan sehingga anda tekan Kembali Bertugas. Giliran akan dilayan oleh tukang gunting lain.`))) return;
+            await applySeatRest(seatNum, true);
         }
 
+        // Also ends a timed break set by a page from before 20261012150000:
+        // set_seat_rest(false) clears break_until too.
         async function endSeatBreak(seatNum) {
-            await applySeatBreak(seatNum, 0);
+            await applySeatRest(seatNum, false);
         }
 
         async function callNextToSeat(seatNum) {
@@ -9338,7 +9360,8 @@
             document.getElementById('myWaitTime').innerText = formatWaitMinutes(0);
             if (queueProgress) queueProgress.style.display = 'grid';
             if (queueContext) {
-                const activeSeatCount = Object.values(activeSeats).filter(Boolean).length;
+                // Resting chairs (20261012150000) are not serving right now.
+                const activeSeatCount = Object.entries(activeSeats).filter(([seat, open]) => open && !isSeatResting(seat)).length;
                 queueContext.style.display = 'block';
                 queueContext.textContent = activeSeatCount > 0
                     ? `Kedai beroperasi dengan ${activeSeatCount} kerusi serentak. Kedudukan boleh berubah mengikut operasi semasa.`
@@ -9628,10 +9651,11 @@
             // TV & Barber UI logic
             getSeatNumbers().forEach(n => {
                 let curr = queues.find(q => q.status === 'serving' && q.seat === n);
-                const breakUntilText = activeSeats[n] && !curr ? getSeatBreakUntilText(n) : '';
+                const seatResting = !!activeSeats[n] && !curr && isSeatResting(n);
+                const breakUntilText = activeSeats[n] && !curr && !seatResting ? getSeatBreakUntilText(n) : '';
                 // TV View
                 let tvNum = document.getElementById(`tvSeat${n}Num`);
-                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span class="fs-120 ls-normal">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : (breakUntilText ? `<span class="fs-120 ls-normal">REHAT</span><br><span class="cust-name-label">hingga ${escapeHTML(breakUntilText)}</span>` : '---'));
+                if (tvNum) tvNum.innerHTML = !activeSeats[n] ? '<span class="fs-120 ls-normal">TUTUP</span>' : (curr ? `${escapeHTML(getDisplayTicketId(curr))}<br><span class="cust-name-label">${escapeHTML(curr.name)}</span>` : (seatResting ? '<span class="fs-120 ls-normal">REHAT</span>' : (breakUntilText ? `<span class="fs-120 ls-normal">REHAT</span><br><span class="cust-name-label">hingga ${escapeHTML(breakUntilText)}</span>` : '---')));
                 let tvBox = document.getElementById(`tvSeat${n}Box`);
                 if (tvBox) tvBox.style.borderColor = curr ? 'var(--primary-color)' : 'rgba(255,255,255,0.1)';
                 
@@ -9683,8 +9707,8 @@
                 // Barbers manage their own break from TUGASAN SAYA (myDutyPanel); the
                 // per-chair controls stay as an admin override only.
                 const canManageBreak = !!activeSeats[n] && isAdmin && !!assignedBarberName;
-                if (bBreakCtrl) bBreakCtrl.classList.toggle('d-none', !canManageBreak || !!curr || !!breakUntilText);
-                if (bResume) bResume.classList.toggle('d-none', !canManageBreak || !breakUntilText);
+                if (bBreakCtrl) bBreakCtrl.classList.toggle('d-none', !canManageBreak || !!curr || seatResting || !!breakUntilText);
+                if (bResume) bResume.classList.toggle('d-none', !canManageBreak || (!seatResting && !breakUntilText));
 
                 if(!activeSeats[n]) {
                     if(bCtrl) bCtrl.style.opacity = '0.5';
@@ -9701,6 +9725,10 @@
                             bDone.disabled = !isMyServingSeat;
                             bDone.title = isMyServingSeat ? '' : notMyAssignedSeatTitle;
                         }
+                    } else if (seatResting) {
+                        if(bSeat) bSeat.innerHTML = '<span class="fs-150">REHAT</span><br><span class="fs-100 text-main">Kerusi ditutup sementara</span>';
+                        if(bCall) bCall.style.display='none';
+                        if(bDone) bDone.style.display='none';
                     } else if (breakUntilText) {
                         if(bSeat) bSeat.innerHTML = `<span class="fs-150">REHAT</span><br><span class="fs-100 text-main">hingga ${escapeHTML(breakUntilText)}</span>`;
                         if(bCall) bCall.style.display='none';

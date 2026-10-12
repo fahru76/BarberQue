@@ -54,7 +54,7 @@ function extractFunction(name) {
 // The inline scheduler's free identifiers, stubbed. STATE is set per case.
 const STATE = {
     queues: [], appointments: [], activeSeats: {}, ops: {}, today: '', nowMinutes: 0,
-    seatServerState: {}, cachedStaffList: []
+    seatServerState: {}, cachedStaffList: [], seatProfiles: {}
 };
 
 const stubbedGlobals = `
@@ -76,9 +76,11 @@ const stubbedGlobals = `
     }
     var seatServerState = {};
     var cachedStaffList = [];
+    var seatProfiles = {};
     function __syncState() {
         seatServerState = STATE.seatServerState;
         cachedStaffList = STATE.cachedStaffList;
+        seatProfiles = STATE.seatProfiles || {};
     }
 `;
 
@@ -109,8 +111,8 @@ const NOW = 15 * 60;
 const waiting = (id, i) => ({ id, status: 'waiting', duration: 30, queueSource: 'walkin', timestamp: new Date(Date.UTC(2026, 9, 8, 5, i)).toISOString() });
 const queues = [waiting('T1', 0), waiting('T2', 1), waiting('T3', 2)];
 const activeSeats = { 1: true, 2: true };
-const run = seatState => {
-    Object.assign(STATE, { queues, appointments: [], activeSeats, ops: OPS, today: '2026-10-08', nowMinutes: NOW, seatServerState: seatState, cachedStaffList: [] });
+const run = (seatState, profiles = {}) => {
+    Object.assign(STATE, { queues, appointments: [], activeSeats, ops: OPS, today: '2026-10-08', nowMinutes: NOW, seatServerState: seatState, cachedStaffList: [], seatProfiles: profiles });
     inline.__syncState();
     return Object.fromEntries(inline.getQueueOccupancyIntervals('2026-10-08', [], queues, activeSeats).map(iv => [iv.recordId, iv.start - NOW]));
 };
@@ -130,6 +132,19 @@ check('expired break is ignored (auto back on duty)', JSON.stringify(expired) ==
 
 const noState = run(undefined);
 check('surface without seatServerState (anon/TV) unchanged', JSON.stringify(noState) === JSON.stringify(onDuty));
+
+// ---- barber rest = chair closed for serving (migration 20261012150000) ---
+const resting = run({ 1: { barberId: 'a', resting: true }, 2: { barberId: 'b' } });
+check('seat 1 resting: every ticket goes to seat 2 (T1 now, T2 at 30, T3 at 60)', resting.T1 === 0 && resting.T2 === 30 && resting.T3 === 60);
+
+const back = run({ 1: { barberId: 'a', resting: false }, 2: { barberId: 'b' } });
+check('barber back from rest: queue flows back to both seats', JSON.stringify(back) === JSON.stringify(onDuty));
+
+const anonResting = run(undefined, { 1: { resting: true }, 2: { resting: false } });
+check('anon/TV surface reads rest from seat profile', JSON.stringify(anonResting) === JSON.stringify(resting));
+
+const allResting = run({ 1: { barberId: 'a', resting: true }, 2: { barberId: 'b', resting: true } });
+check('every barber resting: no ticket is projected onto a chair', Object.keys(allResting).length === 0);
 
 STATE.seatServerState = { 1: { breakUntil: inMin(20) }, 2: { breakUntil: inMin(-1) } };
 inline.__syncState();
