@@ -4141,3 +4141,16 @@ browser `processCustomerNotifications()` behavior working independently.
   commit did not happen.
 - `npm test`: passed; reset contract: passed; differential: 20,000 / 0
   mismatches; SQL consistency and grant consistency: passed.
+
+## Done — logic audit implementation; deployment pending (2026-10-13)
+
+Status: implemented and locally validated; prepared for GitHub review. The production database has NOT been migrated and the updated page has NOT been deployed.
+
+Before changing intake, bookings, reports, service restrictions, or browser queue storage, read [the audit resolution](docs/logic-audit-2026-10-12-resolution.md). It supersedes older notes about direct queue inserts, browser-history sales reports, and capability/specialty dispatch.
+
+- Atomic walk-in RPC, bounded input and catalogue snapshots; revoke anon table insert/history reads and direct counter access.
+- Future booking capacity is configured chair count; today uses current duty. Past starts and non-today check-ins are rejected.
+- Reports come from the server, include inactive/deleted barbers and use business dates. Browser refresh retains only the server scope and keeps rendering when storage is full.
+- Capability/specialty restrictions no longer affect dispatch or live estimates. Rest and per-barber duration behavior are preserved.
+- Validation: npm test, npm run test:audit (Postgres migration replay plus client checks), and Edge live-refresh verification.
+- Rollout: apply 20261012151733_logic_audit_fixes.sql before publishing the page/repository. Refresh older pages after migration; they use revoked direct inserts. Live smoke verification remains pending migration deployment.

@@ -36,3 +36,5 @@ git log --oneline -n 3 && git status --short --branch && printf "\n--- open/rema
   ```
 
 - In `AGENTS.md`, `CLAUDE.md`, or your chat runbook: treat this as mandatory, not optional.
+
+For queue intake, bookings, sales reports or dispatch, read the 2026-10-13 logic-audit entry in HANDOFF.md and its linked resolution before editing.

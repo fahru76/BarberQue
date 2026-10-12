@@ -3068,7 +3068,7 @@
     <script src="js/i18n.js"></script>
     <!-- xlsx.full.min.js is loaded on demand by loadXlsxLibrary() so customers never download it. -->
     <script type="module">
-        import { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges } from './js/repositories/queueRepository.js';
+        import { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges, loadSalesReport } from './js/repositories/queueRepository.js';
         import { listSeats, listSeatProfiles, setSeatAssignment, setSeatRest, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
@@ -3079,9 +3079,10 @@
         } from './js/repositories/appointmentRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
 
-        window.QueueRepo = { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges };
+        window.QueueRepo = { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges, loadSalesReport };
         window.SeatRepo = { listSeats, listSeatProfiles, setSeatAssignment, setSeatRest, startDuty, endDuty, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
+        setTimeout(() => window.updateUI?.(), 0);
         window.ShopSettingsRepo = { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState };
         window.AppointmentRepo = {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
@@ -4832,21 +4833,7 @@
          * authoritative gate stays server-side in call_next_customer().
          */
         function resolveSeatCapability(activeSeats) {
-            const fromStaff = buildSeatCapabilityMapInline(activeSeats, seatServerState, cachedStaffList);
-            if (fromStaff.size) return fromStaff;
-            // 20261008140000: every surface now has per-chair capability via
-            // list_seat_profiles(), so the estimate honours the same hard gate
-            // as call_next_customer() even on a customer's phone. Still an
-            // empty Map (fail open) until that data has loaded.
-            const profiles = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
-            const map = new Map();
-            for (const seat of Object.keys(activeSeats || {}).filter(no => activeSeats[no])) {
-                const profile = profiles[String(seat)];
-                if (!profile) continue;
-                const capability = profile.capabilityServiceIds;
-                map.set(Number(seat), Array.isArray(capability) && capability.length ? [...capability].sort() : null);
-            }
-            return map;
+            return new Map(); // Dispatch accepts every service after skill-panel removal.
         }
 
         /**
@@ -5397,13 +5384,15 @@
             return normalized;
         }
 
+        let liveQueuesMemory = null;
         function getQueues() {
+            if (liveQueuesMemory !== null) return liveQueuesMemory;
             const value = readJSON('queues', []);
             return Array.isArray(value)
                 ? value.map(queue => normalizeUTCFields(queue, ['timestamp', 'calledAt', 'completedAt', 'approvedAt', 'cancelledAt', 'revokedAt']))
                 : [];
         }
-        function saveQueues(queues) { return safeSetItem('queues', queues); }
+        function saveQueues(queues) { liveQueuesMemory = queues; safeSetItem('queues', queues); return true; }
         function getAppointments() {
             const value = readJSON('appointments', []);
             return Array.isArray(value)
@@ -8110,6 +8099,13 @@
             return intervals;
         }
 
+        function getBookingSeats(date) {
+            if (date !== getCurrentBusinessDate()) return Object.fromEntries(Array.from({length: getSeatCount()}, (_, i) => [i + 1, true]));
+            const seats = getActiveSeats();
+            for (const no of Object.keys(seats)) seats[no] = seats[no] && seatProfiles?.[String(no)]?.onDuty === true;
+            return seats;
+        }
+
         function isAppointmentSlotAvailable(date, time, duration, excludeAppointmentId = '', availabilityContext = null) {
             if (!date || !time || !Number.isFinite(duration) || duration <= 0) return false;
             // Bug hunt (2026-09-19, M3): timeToMinutes() returns NaN for a
@@ -8121,7 +8117,7 @@
             if (!Number.isFinite(timeToMinutes(time))) return false;
             if (!isOnlineBookingDateAllowed(date)) return false;
 
-            const activeSeats = availabilityContext?.activeSeats || getActiveSeats();
+            const activeSeats = availabilityContext?.activeSeats || getBookingSeats(date);
             const seats = Object.values(activeSeats).filter(Boolean).length;
             if (seats === 0) return false;
             const ops = getOpHours(date);
@@ -8353,7 +8349,7 @@
                 }
                 return;
             }
-            const activeSeats = getActiveSeats();
+            const activeSeats = getBookingSeats(d);
             if (Object.values(activeSeats).filter(Boolean).length === 0) {
                 s.innerHTML = '<option value="">KEDAI BELUM SEDIA UNTUK TEMPAHAN ONLINE</option>';
                 s.disabled = true;
@@ -9228,6 +9224,36 @@
             updateUI();
         }
 
+        const serverReports = new Map();
+        function reportRange(type) {
+            const {year, month} = getMalaysiaDateTimeParts();
+            if (type === 'daily') return [getCurrentBusinessDate(), getCurrentBusinessDate()];
+            if (type === 'yearly') return [`${year-1}-01-01`, `${year-1}-12-31`];
+            const y = month === 1 ? year-1 : year, m = month === 1 ? 12 : month-1;
+            const prefix = `${y}-${String(m).padStart(2,'0')}`;
+            return [prefix+'-01', prefix+'-'+new Date(Date.UTC(y,m,0)).getUTCDate()];
+        }
+        function getServerReport(type, own = false) {
+            if (!staffProfile?.active || (!own && staffProfile.role !== 'admin')) return {records:[],summary:[]};
+            const range = reportRange(type);
+            const key = [staffProfile.id, own, ...range].join(':');
+            let entry = serverReports.get(key);
+            if (!entry) { entry = {records:[],summary:[],time:0,pending:false,loaded:false,error:false}; serverReports.set(key,entry); }
+            if (!entry.pending && Date.now()-entry.time > 15000 && window.QueueRepo?.loadSalesReport) {
+                entry.pending = true;
+                const identity = staffProfile.id;
+                window.QueueRepo.loadSalesReport(...range,own).then(result => {
+                    if (staffProfile?.id !== identity) { serverReports.delete(key); return; }
+                    Object.assign(entry,result,{time:Date.now(),pending:false,loaded:true,error:false}); updateUI();
+                }).catch(error => {
+                    Object.assign(entry,{time:Date.now(),pending:false,error:true});
+                    updateUI();
+                    console.warn('Report refresh failed',error);
+                });
+            }
+            return entry;
+        }
+
         // REPORTS
         function showReport(type) {
             currentReportType = type;
@@ -9856,13 +9882,14 @@
                 : '<p class="text-muted fs-90">Tiada servis ditetapkan.</p>';
 
             // Reports Rendering
-            let targQ = filterCompletedQueuesForReportPeriod(queues, currentReportType);
-            let tSales = 0;
-            targQ.forEach(q => tSales += (Number(q.price) || 0));
+            const adminReport = getServerReport(currentReportType);
+            let targQ = adminReport.records;
+            const tSales = adminReport.summary.reduce((sum,item) => sum + item.sales, 0);
+            const tCount = adminReport.summary.reduce((sum,item) => sum + item.customers, 0);
             document.getElementById('reportSales').innerText = `RM ${tSales.toFixed(2)}`;
-            document.getElementById('reportCount').innerText = `${targQ.length}`;
-            document.getElementById('reportAverage').innerText = `RM ${(targQ.length ? tSales / targQ.length : 0).toFixed(2)}`;
-            const barberPerformance = buildBarberPerformance(targQ, Object.values(getBarberAssignments()));
+            document.getElementById('reportCount').innerText = `${tCount}`;
+            document.getElementById('reportAverage').innerText = `RM ${(tCount ? tSales / tCount : 0).toFixed(2)}`;
+            const barberPerformance = adminReport.summary;
             // Kept for exportReportToExcel(), which runs from a separate button
             // click, not from inside this render pass -- rebuilding the same
             // filtered set there would just be this block copy-pasted again.
@@ -9924,13 +9951,13 @@
             // defaults until a profile is available, same as every other
             // staffProfile-gated read in this file.
             if (staffProfile) {
-                const myRecords = filterCompletedQueuesForReportPeriod(queues, currentBarberReportType)
-                    .filter(q => q.barberId === staffProfile.id);
-                let mySales = 0;
-                myRecords.forEach(q => mySales += (Number(q.price) || 0));
+                const myReport = getServerReport(currentBarberReportType, true);
+                const myRecords = myReport.records;
+                const mySales = myReport.summary.reduce((sum,item) => sum + item.sales, 0);
+                const myCount = myReport.summary.reduce((sum,item) => sum + item.customers, 0);
                 document.getElementById('barberOwnSales').innerText = `RM ${mySales.toFixed(2)}`;
-                document.getElementById('barberOwnCount').innerText = `${myRecords.length}`;
-                document.getElementById('barberOwnAverage').innerText = `RM ${(myRecords.length ? mySales / myRecords.length : 0).toFixed(2)}`;
+                document.getElementById('barberOwnCount').innerText = `${myCount}`;
+                document.getElementById('barberOwnAverage').innerText = `RM ${(myCount ? mySales / myCount : 0).toFixed(2)}`;
                 document.getElementById('barberOwnSummaryEmpty').innerHTML = myRecords.length ? '' : `
                     <div class="dashboard-empty-state mt-15">
                         <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 19v-6M13 19V9M18 19v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
@@ -9939,12 +9966,27 @@
                     </div>`;
             }
 
+            // Never present an unavailable server report as confirmed zero sales.
+            if (staffProfile?.active) {
+                for (const own of [false, true]) {
+                    if (!own && staffProfile.role !== 'admin') continue;
+                    const report = getServerReport(own ? currentBarberReportType : currentReportType, own);
+                    if (!report.loaded || report.error) {
+                        const label = report.error ? 'Laporan gagal dimuatkan' : 'Memuatkan…';
+                        const ids = own ? ['barberOwnSales','barberOwnCount','barberOwnAverage'] : ['reportSales','reportCount','reportAverage'];
+                        ids.forEach(id => { document.getElementById(id).innerText = label; });
+                        if (own) document.getElementById('barberOwnSummaryEmpty').textContent = label;
+                    }
+                }
+            }
+
             renderVisualCalendar(calCurrentDate); renderAdminVisualCalendar(adminCalCurrentDate);
             processCustomerNotifications();
         }
 
         window.addEventListener('storage', event => {
             if (['appName','shopName','shopMapLink','shopMapQuery','shopMapAddress','shopLocationName','shopAnnouncement','shopAnnouncementHtml','shopAnnouncementEnabled','queues','appointments','shopStatus','activeSeats','barberAssignments','seatCount','closedDates','bookingAdvanceDays','weeklyOpHours','shopServices','maxQueue'].includes(event.key)) {
+                if (event.key === 'queues') liveQueuesMemory = null;
                 if (['shopAnnouncement','shopAnnouncementHtml'].includes(event.key)) announcementCache.initialized = false;
                 if (event.key === 'shopServices') refreshServiceConfigurationUI();
                 else updateUI();
@@ -9973,30 +10015,11 @@
         // makes the TV screen/another barber's tablet update when someone elsewhere
         // calls next, completes service, checks in, or books/cancels an appointment.
         //
-        // Merge-by-id, never a wholesale replace: `queues`/`appointments` in
-        // localStorage hold this device's ALL-TIME history (completed tickets feed
-        // barberPerformance() reports, for instance), while the server functions
-        // behind this refresh are deliberately scoped to "still relevant today or
-        // later" (see list_today_queues_full()/list_active_appointments() in the
-        // migration). Overwriting the whole local array with just that scoped
-        // result would silently delete older history still needed for reports --
-        // merging by id instead only ever touches rows the fresh fetch had an
-        // opinion about, and leaves everything else exactly as it was.
+        // Keep only the authoritative server scope; historical reports use RPCs.
         function mergeServerRows(localArray, freshRows) {
-            const freshById = new Map(freshRows.map(row => [row.id, row]));
-            const localIds = new Set(localArray.map(item => item.id));
-            // The server query is authoritative for active work in its scope.
-            // Do not keep a locally cached waiting/serving row when the server
-            // no longer returns it: that leaves stale customers (for example a
-            // test ticket) rendered on a seat forever. Completed/cancelled
-            // history remains local because the scoped RPC intentionally does
-            // not return all historical rows.
-            const activeStatuses = new Set(['waiting', 'serving']);
-            const merged = localArray
-                .filter(item => !activeStatuses.has(item.status) || freshById.has(item.id))
-                .map(item => freshById.has(item.id) ? { ...item, ...freshById.get(item.id) } : item);
-            for (const row of freshRows) if (!localIds.has(row.id)) merged.push(row);
-            return merged;
+            // Scoped server reads are authoritative; never accumulate local history.
+            const localById = new Map(localArray.map(row => [row.id, row]));
+            return freshRows.map(row => ({ ...localById.get(row.id), ...row }));
         }
 
         // A burst of writes on another device (e.g. call-next then complete-service
@@ -10022,7 +10045,8 @@
                     ? await window.QueueRepo.listTodayQueuesFull()
                     : await window.QueueRepo.listQueues();
                 if (!saveQueues(mergeServerRows(getQueues(), freshRows))) return;
-                                queuesHaveResolvedOnce = true;
+                serverReports.forEach(entry => { entry.time = 0; });
+                queuesHaveResolvedOnce = true;
                                 updateUI();
             } catch (error) {
                 // Never surface this to the customer/TV screen -- a missed live

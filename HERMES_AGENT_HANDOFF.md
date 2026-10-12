@@ -165,3 +165,7 @@ bar:
   minute or two after a push, so re-fetch with a cache-busting query string if a check
   right after deploy doesn't show your change yet — not just local/static reasoning,
   before reporting something as fixed.
+
+## Audit handoff — 2026-10-13
+
+Read the latest logic-audit entry in [HANDOFF.md](HANDOFF.md) before editing queue intake, booking capacity, reports, or dispatch. Implementation is ready for review; production migration and frontend deployment remain pending.

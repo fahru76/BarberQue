@@ -66,11 +66,13 @@ for (const m of clean.matchAll(/alter table public\.(\w+)\s+([\s\S]*?);/g)) {
 
 let problems = [];
 const known = new Set(['auth', 'now', 'true', 'false', 'null', 'public']);
+const declaredFunctions = new Set([...clean.matchAll(/create (?:or replace )?function public\.(\w+)\s*\(/gi)].map(m => m[1]));
 
 // ---- every public.<table> reference names a real table -------------------
 for (const m of clean.matchAll(/public\.(\w+)/g)) {
     const n = m[1];
     if (tables[n]) continue;
+    if (declaredFunctions.has(n)) continue;
     if (/^(is_active_staff|is_admin|bump_row_version|handle_new_staff_user|next_ticket_number|cancel_own_ticket|call_next_customer|call_specific_customer|complete_service|barber_performance|_appointment_slot_capacity_ok|_appointment_hours_ok|book_appointment|cancel_own_appointment|reschedule_own_appointment|convert_walkin_to_appointment|checkin_appointment|approve_fast_pass|revoke_fast_pass|list_today_queues_full|list_active_appointments|admin_cancel_record|reset_operational_state|_current_business_date|enforce_staff_self_update_scope|recompute_walkin_price_from_services|admin_remove_staff|sync_queue_barber_name|_business_day_start|list_today_queues|_notify_queues_change|_notify_appointments_change|set_seat_break|_seats_clear_break_on_reassign|_seats_stamp_duty_date|_close_stale_duty_seats|start_duty|end_duty|set_my_services|_staff_stamp_services_change|list_seat_profiles|set_seat_rest|_queues_end_rest_on_call|_enforce_one_basic_haircut)$/.test(n)) continue;
     problems.push(`unknown public.${n}`);
 }

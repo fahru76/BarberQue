@@ -133,7 +133,8 @@ function compare(name, setup) {
 
     const ticket = queues.find(q => q.status === 'waiting')?.id ?? 'none';
     const inlineW = inline.estimateQueueWaitMinutes(queues, ticket, activeSeats);
-    const moduleW = S.estimateWaitMinutes({ queues, appointments, activeSeats, ops, nowMinutes, ticketId: ticket, seatCapability: moduleCap });
+    // Live dispatch no longer applies hidden capabilities after skill-panel removal.
+    const moduleW = S.estimateWaitMinutes({ queues, appointments, activeSeats, ops, nowMinutes, ticketId: ticket });
     if (inlineW !== moduleW) mismatches.push({ name, fn: 'estimateWait', inline: inlineW, module: moduleW });
     checked++;
 }

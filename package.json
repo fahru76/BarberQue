@@ -5,6 +5,10 @@
   "private": true,
   "scripts": {
     "test": "node tests/domain/scheduler.test.mjs && node tests/domain/overnightRpcContract.test.mjs && node tests/domain/semanticsContract.test.mjs && node tests/domain/resetContract.test.mjs && node tests/domain/resetUiContract.test.mjs && node tests/domain/walkinCapacityContract.test.mjs && node tests/domain/liveRefreshContract.test.mjs && node tests/domain/barberBreakContract.test.mjs && node tests/domain/barberAwareEstimateContract.test.mjs && node tests/differential.test.mjs && node tests/differential-capability.test.mjs && node tests/sql-consistency.mjs && node tests/sql-grant-consistency.mjs",
-    "test:live": "node tests/live-smoke.mjs"
+    "test:live": "node tests/live-smoke.mjs",
+    "test:audit": "node tests/logic-audit.test.mjs && node tests/domain/logicAuditClient.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.9"
   }
 }

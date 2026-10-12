@@ -238,68 +238,37 @@ export function subscribeQueueChanges(onChange) {
 }
 
 /**
- * Take a ticket: mint a server-sequenced number, then insert the row.
- *
- * `id` is the minted ticket number itself (see the mapQueueRow comment above
- * for why — index.html has no separate identity from its display number).
- * `claimToken` is generated here because the anon INSERT policy needs
- * `claim_token` present in the same statement — there is no separate "set my
- * own claim token" step — and nothing else could hand the browser a token to
- * prove ownership with later.
- *
- * `priceRm` is what index.html actually has on hand: a plain RM float summed
- * from the selected services' `data-price`. It is converted to integer sen
- * here (`Math.round(priceRm * 100)`), inside the one module that is allowed
- * to know `price_sen` exists, rather than asking every call site to do
- * currency-rounding arithmetic — which is exactly the bug class `price_sen`
- * was introduced to retire (see the design-decisions section of HANDOFF.md).
- *
- * Every other queues column (`status`, `seat_no`, `barber_id`, `is_fast_pass`,
- * `called_at`, `version`, ...) is left out of the payload on purpose: the
- * table defaults ('waiting', null, null, false, null, 1) are exactly what the
- * anon `with check` on "anon may take a ticket" requires. Setting any of them
- * explicitly — even to their own default value — is unnecessary and, for a
- * staff-authenticated caller with a typo, would be a way to accidentally
- * insert a customer as already `serving`.
- *
- * @param {{prefix: string, name: string, phone?: string, service: string,
- *          durationMinutes: number, priceRm?: number, source?: 'walkin'|'booking',
- *          serviceIds?: string[]}} record `serviceIds` is the snapshot Item 1
- *          (smart barber assignment, see QUEUECUT_HANDOVER.md) matches
- *          against — the selected checkboxes' `service.id` values, not their
- *          display names. Optional and additive: omitting it (every call
- *          site written before this feature) inserts NULL, which
- *          call_next_customer() treats as "unknown service", not a mismatch.
- * @returns {Promise<object & {claimToken: string}>} the inserted ticket, plus the
- *          claim token the caller must persist (e.g. localStorage) — the
- *          server never returns claim_token again, by design.
+ * Atomically validate intake, mint a number and store the catalogue snapshot.
+ * The caller retains the claim token to prove cancellation ownership.
  */
-export async function takeTicket({ prefix, name, phone, service, durationMinutes, priceRm, source = 'walkin', serviceIds }) {
-    const { data: ticketNo, error: ticketError } = await supabase.rpc('next_ticket_number', { p_prefix: prefix });
-    raiseOnError(ticketError);
-
+export async function takeTicket({ name, phone, serviceIds }) {
     const claimToken = crypto.randomUUID();
-    const priceSen = Number.isFinite(priceRm) ? Math.round(priceRm * 100) : undefined;
-
-    const { data, error } = await supabase
-        .from('queues')
-        .insert({
-            id: ticketNo,
-            ticket_no: ticketNo,
-            name,
-            phone,
-            claim_token: claimToken,
-            service,
-            duration_minutes: durationMinutes,
-            price_sen: priceSen,
-            source,
-            service_ids: serviceIds?.length ? serviceIds : undefined
-        })
-        .select(QUEUE_COLUMNS)
-        .single();
+    const { data, error } = await supabase.rpc('take_walkin_ticket', {
+        p_name: name, p_phone: phone, p_service_ids: serviceIds, p_claim_token: claimToken
+    });
     raiseOnError(error);
-
     return { ...mapQueueRow(data), claimToken };
+}
+
+export async function loadSalesReport(from, to, own = false) {
+    const params = { p_from: from, p_to: to };
+    const summaryPromise = supabase.rpc(own ? 'my_barber_performance' : 'barber_performance', params);
+    const rows = [];
+    // Supabase caps table-returning RPC responses; fetch every page for exports.
+    for (let offset = 0; ; offset += 1000) {
+        const page = await supabase.rpc('report_completed_tickets', { ...params, p_own: own }).range(offset, offset + 999);
+        raiseOnError(page.error);
+        rows.push(...(page.data || []));
+        if ((page.data || []).length < 1000) break;
+    }
+    const summary = await summaryPromise;
+    raiseOnError(summary.error);
+    return {
+        records: rows.map(row => ({ ...mapQueueRow(row), price: row.price_sen / 100, barberName: row.barber_name })),
+        summary: (summary.data || []).map(row => ({ barberId: row.barber_id, barberName: row.display_name,
+            customers: Number(row.customers), sales: Number(row.sales_sen) / 100,
+            averageSale: Number(row.customers) ? Number(row.sales_sen) / 100 / Number(row.customers) : 0 }))
+    };
 }
 
 /**

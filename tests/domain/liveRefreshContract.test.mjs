@@ -28,6 +28,6 @@ console.log('\nAuthoritative live refresh merge');
 assert('stale active row is pruned', !ids.includes('LIVE-STALE'));
 assert('fresh active row is retained', ids.includes('LIVE-KEEP'));
 assert('new server row is added', ids.includes('NEW-LIVE'));
-assert('completed history is preserved', ids.includes('DONE-HISTORY'));
-assert('cancelled history is preserved', ids.includes('CANCEL-HISTORY'));
+assert('completed history absent from server scope is pruned', !ids.includes('DONE-HISTORY'));
+assert('cancelled history absent from server scope is pruned', !ids.includes('CANCEL-HISTORY'));
 console.log('\n5 passed');
