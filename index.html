@@ -146,9 +146,6 @@
         .mode-toggle .mode-btn.active { background: var(--primary-color); color: #fff; font-weight: bold; }
 
         .service-checkbox-container { display:flex; flex-direction:column; gap: var(--space-2); padding-top: var(--space-1); }
-        .service-category-tabs { display:flex; gap:8px; margin: 8px 0 var(--space-2); padding:4px; background:var(--border-light); }
-        .service-category-tab { flex:1; padding:9px 12px; border:1px solid transparent; background:transparent; color:var(--text-main); font-size:1rem; cursor:pointer; }
-        .service-category-tab.active { background:var(--primary-color); color:#fff; font-weight:bold; }
         .service-category-panel { display:flex; flex-direction:column; gap: var(--space-2); }
         .service-empty-state { padding: var(--space-3); border:1px dashed var(--border-color); border-radius: var(--radius-sm); color:var(--text-muted); text-align:center; font-size:0.85rem; }
         /* Each service option is itself a <label>, nested inside the
@@ -497,9 +494,6 @@
             background: var(--surface-elevated);
             color: var(--primary-strong);
         }
-        .service-category-tabs { gap: 4px; padding: 4px; background: var(--border-light); }
-        .service-category-tab { font-family: 'Manrope', sans-serif; font-size: 0.75rem; font-weight: 700; }
-        .service-category-tab.active { background: var(--surface-elevated); color: var(--primary-strong); }
 
         .input-group .service-checkbox-label {
             gap: 14px;
@@ -1285,13 +1279,6 @@
             color: var(--text-main);
             box-shadow: 0 8px 24px rgba(0,0,0,.22), inset 0 0 0 1px var(--glow-accent-20);
         }
-        .service-category-tabs { padding: var(--space-1); border-radius: var(--radius-md); }
-        .service-category-tab { min-height: 42px; border-radius: var(--radius-md); }
-        .service-category-tab.active {
-            background: var(--sleek-accent-soft);
-            color: var(--sleek-accent-strong);
-            box-shadow: inset 0 0 0 1px var(--glow-accent-22);
-        }
 
         .weekly-hours-tabs {
             display: grid;
@@ -1376,29 +1363,6 @@
             background: var(--sleek-accent-soft);
             box-shadow: inset 3px 0 0 var(--sleek-accent);
         }
-        .service-tab-badge {
-            display: none;
-            margin-left: 6px;
-            padding: 1px 7px;
-            border-radius: 999px;
-            background: var(--primary-color);
-            color: var(--on-primary);
-            font-size: 0.75rem;
-            font-weight: 800;
-            line-height: 1.35;
-        }
-        .service-tab-badge.visible { display: inline-block; }
-        .service-combo-hint {
-            margin-top: 12px;
-            padding: 12px 14px;
-            border: 1px dashed var(--primary-color);
-            border-radius: var(--radius-md);
-            background: rgba(199,166,106,.08);
-            color: var(--text-main);
-            font-size: 0.85rem;
-            line-height: 1.5;
-        }
-        .service-combo-hint .btn { margin-top: var(--space-2); }
         .input-group .service-checkbox-label.disabled-box { opacity: .65; pointer-events: auto; }
         .service-info .service-lock-reason {
             display: none;
@@ -1720,7 +1684,6 @@
         #adminNoActiveSeatsWarning { display:none; text-align:center; margin-bottom:18px; background: rgba(220, 53, 69, 0.12); border: 1px solid var(--danger); color: var(--danger); padding: 14px 16px; border-radius: var(--radius-sm); font-weight: bold; font-size: 0.85rem; cursor: pointer; }
         #closingSoonAlert { display:none; text-align:center; margin-bottom: var(--space-3); background: rgba(220, 53, 69, 0.1); border: 1px solid var(--danger); padding: var(--space-3); border-radius: var(--radius-sm); }
         #closingSoonAlertText { margin-bottom: var(--space-2); font-size:0.85rem; }
-        #walkinServiceHint { display:none; }
         #walkinServiceSummary { margin-top: var(--space-3); color:var(--primary-color); font-size:1rem; text-align:right; }
         #btnBookTicket { width: 100%; font-size: 1.25rem; padding: var(--space-3); margin-top: var(--space-4); }
         #customer-my-ticket { display: none; }
@@ -1731,7 +1694,6 @@
         #bookingFormTitle { color: var(--primary-color); margin-bottom: var(--space-3); text-align: center; }
         #customerMapFrame { width:100%; height:220px; border:0; border-radius: var(--radius-sm); }
         #customerMapLink { display:block; width:100%; margin-top: var(--space-2); text-align:center; }
-        #bookingServiceHint { display:none; }
         #bookServiceSummary { margin-top: var(--space-3); color:var(--primary-color); font-size:1rem; text-align:right; }
         #bookDateInput { display: none; }
         #bookingSlotNotice { display:none; margin-top:8px; color:var(--danger); font-size:0.85rem; }
@@ -1923,20 +1885,6 @@
         .badge-success { background:var(--success); }
         [data-theme="dark"] .badge-success { color:#241a06; }
         .badge-danger { background:var(--danger); }
-        /* Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md): per-staff
-           capability/specialty checklist inside the admin staff card. */
-        .staff-capability-panel { width:100%; margin-top: var(--space-2); border:1px solid var(--border-color); border-radius: var(--radius-sm); padding: var(--space-2) 12px; background:var(--card-bg); }
-        .staff-capability-panel summary { cursor:pointer; font-weight:bold; }
-        .capability-hint { font-size:0.85rem; margin:8px 0; }
-        .capability-row { display:flex; align-items:center; gap: var(--space-2); padding:6px 0; border-bottom:1px solid var(--border-light); }
-        .capability-row:last-of-type { border-bottom:none; }
-        .capability-row-name { flex:1; }
-        .specialty-star { background:none; border:1px solid var(--border-color); border-radius: var(--radius-sm); width:32px; height:32px; font-size:1rem; line-height:1; cursor:pointer; color:var(--border-color); }
-        /* #f39c12 amber is bright in both themes, so white fails at 2.19:1;
-           a near-black foreground reaches 7.78:1 and needs no per-theme token. */
-        .specialty-star.active { color:#11130f; background:#f39c12; border-color:#f39c12; }
-        /* Higher specificity than the global `input[type="number"] { width:100%; height:48px; }` rule (an attribute selector beats a lone class), otherwise this box balloons to fill the row and crushes the service name column. */
-        .staff-capability-panel input.capability-duration-input { width:52px; min-width:52px; max-width:52px; flex:0 0 auto; height:34px; padding:2px 4px; border:1px solid var(--border-color); border-radius: var(--radius-sm); font-size:0.78rem; text-align:center; }
         /* Phase 2 (docs/DESIGN_BLUEPRINT.md): first-paint loading state.
            Deliberately a plain text row, not a skeleton or a spinner.
            A shimmer reads as "broken" on the TV and the seat tablets, and the
@@ -2019,9 +1967,8 @@
         #customer-app .ticket-box { padding: clamp(28px, 7vw, 44px) 24px; }
         #customer-app .ticket-number { text-shadow: 0 8px 28px rgba(0,0,0,.30); }
         /* 44px touch targets and a 12px floor for labels (audit P2). */
-        #customer-app .mode-btn, #customer-app .service-category-tab, #navCustomerBtn, #themeSelector { min-height: 44px; }
-        #customer-app label, #customer-app .mode-btn, #customer-app .service-category-tab, #customer-app .customer-queue-metric span { font-size: max(.75rem, 12px); }
-        #customer-app .service-tab-badge { font-size: .75rem; }
+        #customer-app .mode-btn, #navCustomerBtn, #themeSelector { min-height: 44px; }
+        #customer-app label, #customer-app .mode-btn, #customer-app .customer-queue-metric span { font-size: max(.75rem, 12px); }
         /* Language switch: BM | EN. Sits at the start of the customer view; right-aligned on desktop. */
         #customer-app .lang-toggle { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: var(--space-3); border: 1px solid var(--border-color); border-radius: 999px; background: color-mix(in srgb, var(--surface-elevated) 70%, transparent); }
         #customer-app .lang-toggle button { min-width: 48px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.78rem; font-weight: 700; letter-spacing: .06em; cursor: pointer; }
@@ -2193,12 +2140,7 @@
                     
                     <div class="input-group">
                         <label id="walkinServicesLabel">Pilih Servis:</label>
-                        <div class="service-category-tabs">
-                            <button type="button" id="walkinServiceTabAsas" class="service-category-tab active" onclick="setServiceCategoryTab('walkin', 'asas')">Servis Asas <span id="walkinAsasBadge" class="service-tab-badge"></span></button>
-                            <button type="button" id="walkinServiceTabFashion" class="service-category-tab" onclick="setServiceCategoryTab('walkin', 'fashion')">Gaya Potongan</button>
-                        </div>
                         <div id="walkinServiceSelect" class="service-checkbox-container" role="group" aria-labelledby="walkinServicesLabel"></div>
-                        <div id="walkinServiceHint" class="service-combo-hint" aria-live="polite"></div>
                         <div id="walkinServiceSummary"></div>
                     </div>
 
@@ -2258,12 +2200,7 @@
                     <div class="text-muted fs-85 mb-15">Nombor WhatsApp adalah pilihan dan tidak dikongsi dengan pihak ketiga. Masa tempahan boleh berubah mengikut operasi semasa.</div>
                     <div class="input-group">
                         <label id="bookingServicesLabel">Pilih Servis:</label>
-                        <div class="service-category-tabs">
-                            <button type="button" id="bookingServiceTabAsas" class="service-category-tab active" onclick="setServiceCategoryTab('booking', 'asas')">Servis Asas <span id="bookingAsasBadge" class="service-tab-badge"></span></button>
-                            <button type="button" id="bookingServiceTabFashion" class="service-category-tab" onclick="setServiceCategoryTab('booking', 'fashion')">Gaya Potongan</button>
-                        </div>
                         <div id="bookServiceSelect" class="service-checkbox-container" role="group" aria-labelledby="bookingServicesLabel"></div>
-                        <div id="bookingServiceHint" class="service-combo-hint" aria-live="polite"></div>
                         <div id="bookServiceSummary"></div>
                     </div>
                     <div class="input-row">
@@ -2349,16 +2286,6 @@
                     <button type="button" class="btn btn-action w-full mt-10" id="btnMyResume" onclick="endMyBreak()" hidden>Kembali Bertugas</button>
                     <button type="button" class="btn btn-reset w-full mt-10" id="btnEndDuty" onclick="endMyDuty()">Tamat Bertugas</button>
                 </div>
-            </section>
-            <!-- Barber self-service skills/services (20261008110000): the barber's
-                 own capability (services offered) + specialty (starred skills).
-                 Saved through set_my_services(); custom durations stay admin-only. -->
-            <section class="panel-box mb-15" id="myServicesPanel" aria-labelledby="myServicesTitle" hidden>
-                <h3 class="text-primary mb-15" id="myServicesTitle">KEMAHIRAN &amp; SERVIS SAYA</h3>
-                <p class="text-muted capability-hint">Tanda servis yang anda tawarkan kepada pelanggan. Jika TIADA yang ditanda, anda dianggap boleh buat SEMUA servis. Tanda &#9733; pada kemahiran utama anda -- pelanggan servis itu akan dipanggil kepada anda dahulu. Masukkan purata masa anda (minit) bagi setiap servis -- kosongkan untuk guna masa lalai kedai.</p>
-                <div id="myServicesRows"></div>
-                <p id="myServicesSummary" class="text-muted mt-10" aria-live="polite"></p>
-                <button type="button" class="btn btn-sm btn-action mt-8" id="btnSaveMyServices" onclick="saveMyServices()">Simpan Kemahiran &amp; Servis</button>
             </section>
             <div class="serving-grid" id="barberSeatControls"></div>
             <div class="panel-box mt-30 border-primary">
@@ -2804,10 +2731,6 @@
                     </div>
                 </div>
 
-                <div class="service-category-tabs">
-                    <button type="button" id="adminServiceTabAsas" class="service-category-tab active" onclick="setAdminServiceTab('asas')">Servis Asas</button>
-                    <button type="button" id="adminServiceTabFashion" class="service-category-tab" onclick="setAdminServiceTab('fashion')">Gaya Potongan</button>
-                </div>
                 <p class="service-sort-hint">Seret servis menggunakan pemegang di sebelah kiri untuk mengubah keutamaan. Turutan teratas akan dipaparkan dahulu kepada pelanggan.</p>
                 <div id="serviceOrderNotice" class="service-order-notice" role="status" aria-live="polite"></div>
                 <div id="adminServicesList"></div>
@@ -2958,8 +2881,9 @@
                 <div id="adminSeatControls"></div>
                 <hr id="seatSectionDivider">
                 <h4 id="barberAssignmentHeading">Tukang Gunting Bertugas</h4>
-                <p class="text-muted fs-82 mb-14">Nama tukang gunting wajib diisi sebelum kerusi boleh diaktifkan. Nama dikekalkan apabila kerusi ditutup supaya mudah dibuka semula, dan boleh ditukar ketika kerusi tidak aktif.</p>
+                <p class="text-muted fs-82 mb-14">Nama tukang gunting wajib diisi sebelum kerusi boleh diaktifkan. Semua tukang gunting dipaparkan di setiap kerusi. Memilih tukang gunting yang sudah berada di kerusi lain akan memindahkannya ke sini; kerusi lama dikosongkan dan ditutup apabila anda menyimpan.</p>
                 <div id="adminBarberAssignments" class="barber-assignment-grid"></div>
+                <p id="barberAssignmentNotice" class="text-muted fs-82 mt-10" role="status" aria-live="polite"></p>
                 <button class="btn btn-action" id="btnSaveBarberAssignments" onclick="saveBarberAssignments()">SIMPAN PASUKAN BERTUGAS</button>
             </div>
 
@@ -3924,7 +3848,6 @@
                                 ? `<button type="button" class="btn btn-reset" onclick="removeStaffMember('${member.id}')" title="Padam akaun secara kekal">BUANG</button>`
                                 : ''}
                         </div>
-                        ${renderStaffCapabilityPanel(member)}
                     </div>`).join('') || '<div class="text-muted">Tiada kakitangan lagi.</div>';
                 // The seat<->staff assignment dropdowns (migration step 4b) show the
                 // same roster; keep them current whenever it changes, not just on the
@@ -3937,104 +3860,6 @@
                 // Both paths write real content, and finally runs on both, so
                 // this cannot leave aria-busy stuck on.
                 container.removeAttribute('aria-busy');
-            }
-        }
-
-        /**
-         * Item 1 (smart barber assignment, see QUEUECUT_HANDOVER.md): the
-         * per-staff capability (checkbox, hard gate) + specialty (star, soft
-         * priority) checklist rendered inside each staff card. One row per
-         * active service, so an empty catalogue or every service being
-         * inactive simply renders nothing rather than an empty panel.
-         *
-         * Design rule that matches the DB default exactly, so no migration/
-         * backfill logic was needed anywhere: if NO service is checked
-         * "Boleh", the barber is saved as capability_service_ids = null,
-         * i.e. capable of everything -- the same state every barber that
-         * predates this feature is already in. Checking even one service
-         * switches that barber into an explicit, restricted list.
-         */
-        function renderStaffCapabilityPanel(member) {
-            const services = getServices().filter(service => service.active);
-            if (!services.length) return '';
-            const capabilitySet = new Set(member.capabilityServiceIds || []);
-            const specialtySet = new Set(member.specialtyServiceIds || []);
-            const durationMap = member.serviceDurations || {};
-            const rows = services.map(service => `
-                <label class="capability-row">
-                    <input type="checkbox" class="capability-check" data-service-id="${escapeHTML(service.id)}" ${capabilitySet.has(service.id) ? 'checked' : ''} onchange="onCapabilityCheckboxChange(this)">
-                    <span class="capability-row-name">${escapeHTML(service.name)}</span>
-                    <input type="number" class="capability-duration-input" data-service-id="${escapeHTML(service.id)}" min="1" max="480" step="1" inputmode="numeric" placeholder="${service.duration}" value="${Number.isInteger(durationMap[service.id]) ? durationMap[service.id] : ''}" title="Tempoh tersuai (minit) untuk tukang gunting ini bagi servis ini. Masukkan nombor sahaja (unit minit automatik). Kosongkan untuk guna lalai kedai (${service.duration} minit).">
-                    <button type="button" class="specialty-star${specialtySet.has(service.id) ? ' active' : ''}" onclick="toggleSpecialtyStar(this)" title="Jadikan servis utama (diutamakan)">&#9733;</button>
-                </label>`).join('');
-            return `
-                <details class="staff-capability-panel" data-staff-id="${member.id}">
-                    <summary>Kebolehan &amp; Keutamaan Servis${capabilitySet.size ? ` (dihadkan kepada ${capabilitySet.size})` : ' (tiada had -- boleh semua)'}${member.servicesUpdatedBy && member.servicesUpdatedBy === member.id ? ' <span class="text-warning fw-bold">&bull; diubah sendiri</span>' : ''}</summary>
-                    ${renderServicesChangeNote(member)}
-                    <p class="text-muted capability-hint">Jika TIADA servis ditanda "Boleh", tukang gunting ini dianggap boleh buat SEMUA servis (lalai, sama seperti sekarang). Tanda &#9733; untuk jadikan servis itu keutamaan -- pelanggan servis tersebut akan dipanggil dahulu oleh tukang gunting ini. Masukkan tempoh (minit) untuk tetapkan tempoh tersuai tukang gunting ini bagi servis tersebut -- kosongkan untuk guna tempoh lalai kedai.</p>
-                    ${rows}
-                    <button type="button" class="btn btn-sm btn-action mt-8" onclick="saveStaffCapabilities('${member.id}')">Simpan Kebolehan</button>
-                </details>`;
-        }
-
-        // "Last changed by" note on the admin card (20261008120000). A change
-        // by the barber himself is highlighted so admin can review it.
-        function renderServicesChangeNote(member) {
-            if (!member.servicesUpdatedAt) return '';
-            const when = formatMalaysiaDateTime(member.servicesUpdatedAt);
-            if (member.servicesUpdatedBy && member.servicesUpdatedBy === member.id) {
-                return `<p class="capability-hint text-warning fw-bold">Terakhir diubah oleh tukang gunting sendiri &bull; ${escapeHTML(when)}</p>`;
-            }
-            const byName = member.servicesUpdatedBy ? getStaffDisplayName(member.servicesUpdatedBy) : '';
-            return `<p class="capability-hint text-muted">Terakhir diubah oleh ${byName ? `admin ${escapeHTML(byName)}` : 'sistem'} &bull; ${escapeHTML(when)}</p>`;
-        }
-
-        /** Unchecking capability also un-stars that row -- a specialty always implies capability. */
-        function onCapabilityCheckboxChange(checkbox) {
-            if (checkbox.checked) return;
-            const star = checkbox.closest('.capability-row')?.querySelector('.specialty-star');
-            if (star) { star.classList.remove('active'); star.setAttribute('aria-pressed', 'false'); }
-        }
-
-        /** Starring a service auto-checks its capability box for the same reason. */
-        function toggleSpecialtyStar(button) {
-            const willActivate = !button.classList.contains('active');
-            button.classList.toggle('active', willActivate);
-            button.setAttribute('aria-pressed', String(willActivate));
-            if (willActivate) {
-                const checkbox = button.closest('.capability-row')?.querySelector('.capability-check');
-                if (checkbox) checkbox.checked = true;
-            }
-        }
-
-        async function saveStaffCapabilities(staffId) {
-            const panel = document.querySelector(`.staff-capability-panel[data-staff-id="${staffId}"]`);
-            if (!panel) return;
-            const capabilityServiceIds = Array.from(panel.querySelectorAll('.capability-check:checked')).map(cb => cb.dataset.serviceId);
-            const specialtyServiceIds = Array.from(panel.querySelectorAll('.specialty-star.active')).map(star =>
-                star.closest('.capability-row')?.querySelector('.capability-check')?.dataset.serviceId
-            ).filter(Boolean);
-            // Item: per-barber custom service durations. Same "1-480 minutes" range as
-            // the queues.duration_minutes check constraint (call_next_customer() also
-            // re-validates server-side). An empty box means "use the shop's default
-            // duration for this service" and is simply omitted from the map.
-            const serviceDurations = {};
-            for (const input of panel.querySelectorAll('.capability-duration-input')) {
-                const raw = input.value.trim();
-                if (!raw) continue;
-                const minutes = Number.parseInt(raw, 10);
-                if (!Number.isInteger(minutes) || minutes < 1 || minutes > 480) {
-                    (await showAlertDialog('Tempoh servis tersuai mesti nombor bulat antara 1 hingga 480 minit.'));
-                    return;
-                }
-                serviceDurations[input.dataset.serviceId] = minutes;
-            }
-            try {
-                await window.AuthRepo.setStaffStatus(staffId, { capabilityServiceIds, specialtyServiceIds, serviceDurations });
-                await refreshStaffList();
-            } catch (error) {
-                (await showAlertDialog(error.message || 'Gagal menyimpan kebolehan servis.'));
-                console.warn(error);
             }
         }
 
@@ -4213,7 +4038,6 @@
         // recompute the same date-filtered set from scratch.
         let lastReportRecords = [];
         let lastReportBarberPerformance = [];
-        let adminServiceTab = 'asas';
         let bookingChangeMode = null;
         let pendingAdminCancellation = null;
         let draggedServiceId = '';
@@ -4233,7 +4057,6 @@
             { startId: 'br1Start', endId: 'br1End', startKey: 'break1Start', endKey: 'break1End', label: 'Rehat 1' },
             { startId: 'br2Start', endId: 'br2End', startKey: 'break2Start', endKey: 'break2End', label: 'Rehat 2' }
         ];
-        const customerServiceTabs = { walkin: 'asas', booking: 'asas' };
 
         // UTILITIES
         function escapeHTML(str) {
@@ -6143,7 +5966,7 @@
             },
             style: {
                 label: 'Gaya Potongan', target: 'semua', category: 'fashion', type: 'gunting',
-                summary: 'Dipaparkan dalam tab Gaya Potongan. Hanya satu gaya boleh dipilih dan semua servis gunting asas serta Botak Kepala akan dikunci.'
+                summary: 'Hanya satu gaya boleh dipilih dan semua servis gunting asas serta Botak Kepala akan dikunci.'
             },
             facial: {
                 label: 'Janggut / Misai / Jambang', target: 'dewasa', category: 'asas', type: 'facial',
@@ -6405,7 +6228,7 @@
         // panel-box groups wrapped in the HTML above); only their ORDER is
         // customisable, via drag or the up/down arrows -- identical
         // interaction to the existing service-priority reorder
-        // (reorderServicesWithinCategory/persistServicePriority above), just
+        // (reorderServices/persistServicePriority above), just
         // applied to a flat list instead of one split by category.
         //
         // The selected section (currentAdminSection) stays a plain JS
@@ -6988,34 +6811,35 @@
             if (!force && container.dataset.signature === signature && container.childElementCount === getSeatCount()) return;
             if (!force && container.querySelector('select[data-dirty="true"]')) return;
             const pendingEdits = new Map();
-            container.querySelectorAll('select[data-dirty="true"]').forEach(select => pendingEdits.set(select.id, select.value));
+            container.querySelectorAll('select[data-dirty="true"]').forEach(select => pendingEdits.set(select.id, {
+                value: select.value, autoCleared: select.dataset.autoCleared === 'true'
+            }));
             container.innerHTML = getSeatNumbers().map(seat => `
                 <div class="barber-assignment-card">
                     <label for="barberNameSeat${seat}">Kerusi ${seat}</label>
-                    <select id="barberNameSeat${seat}" onchange="this.dataset.dirty='true'; refreshBarberAssignmentDropdownOptions();"></select>
+                    <select id="barberNameSeat${seat}" onchange="onBarberAssignmentChange(${seat})"></select>
                 </div>`).join('');
+            // Desired value per seat: the server assignment, overridden by any
+            // unsaved edit. It is applied only once the <option>s exist --
+            // setting select.value on an empty <select> silently leaves it
+            // blank, which used to make every seat show "Pilih" after a
+            // re-render even when a barber was assigned.
+            const valuesBySeat = {};
             getSeatNumbers().forEach((seat, index) => {
-                const select = document.getElementById(`barberNameSeat${seat}`);
-                if (select) select.value = seatStaffIds[index];
+                const pending = pendingEdits.get(`barberNameSeat${seat}`);
+                valuesBySeat[seat] = pending ? pending.value : seatStaffIds[index];
             });
-            pendingEdits.forEach((value, id) => {
+            // Every seat lists every staff member (Fahru's request, 2026-10-12).
+            // A barber still holds only one seat at a time (DB index
+            // seats_one_seat_per_barber_uidx): picking someone who is on
+            // another seat moves them -- see onBarberAssignmentChange().
+            refreshBarberAssignmentDropdownOptions(valuesBySeat);
+            pendingEdits.forEach((pending, id) => {
                 const select = document.getElementById(id);
-                if (select) {
-                    select.value = value;
-                    select.dataset.dirty = 'true';
-                }
+                if (!select) return;
+                select.dataset.dirty = 'true';
+                if (pending.autoCleared) select.dataset.autoCleared = 'true';
             });
-            // Fahru's request (2026-09-08, follow-up): a barber must never be
-            // pickable on more than one seat's dropdown at the same time --
-            // active or not. The earlier fix only rejected a duplicate at save
-            // time (an alert AFTER the fact); this instead makes the mistake
-            // impossible to make: each seat's own <option> list simply omits
-            // any staff member already selected on a DIFFERENT seat, so a name
-            // held as an inactive seat's "placeholder" (e.g. Kerusi 3) can't
-            // also show up in Kerusi 1's list. To move a barber from one seat
-            // to another, clear the old seat's dropdown first -- that frees
-            // the name up everywhere else immediately.
-            refreshBarberAssignmentDropdownOptions();
             if (!cachedStaffList.length) {
                 container.insertAdjacentHTML('beforeend',
                     '<div class="text-muted">Belum ada akaun kakitangan berdaftar. Jemput seorang tukang gunting dahulu di panel KAKITANGAN di atas.</div>');
@@ -7023,25 +6847,64 @@
             container.dataset.signature = signature;
         }
 
-        function refreshBarberAssignmentDropdownOptions() {
+        // valuesBySeat (optional): the value each seat should end up showing;
+        // defaults to what each <select> currently shows.
+        function refreshBarberAssignmentDropdownOptions(valuesBySeat = null) {
             const seats = getSeatNumbers();
             const currentValues = {};
-            seats.forEach(seat => { currentValues[seat] = document.getElementById(`barberNameSeat${seat}`)?.value || ''; });
+            seats.forEach(seat => {
+                currentValues[seat] = valuesBySeat ? (valuesBySeat[seat] || '') : (document.getElementById(`barberNameSeat${seat}`)?.value || '');
+            });
             seats.forEach(seat => {
                 const select = document.getElementById(`barberNameSeat${seat}`);
                 if (!select) return;
                 const ownValue = currentValues[seat];
-                const takenElsewhere = new Set(
-                    seats.filter(other => other !== seat).map(other => currentValues[other]).filter(Boolean)
+                // Every staff member is listed on every seat. One already
+                // picked on another seat is labelled with that seat, so admin
+                // can see that choosing them here moves them.
+                const seatOfStaff = new Map(
+                    seats.filter(other => other !== seat && currentValues[other]).map(other => [currentValues[other], other])
                 );
                 const options = ['<option value="">— Pilih tukang gunting —</option>'].concat(
-                    cachedStaffList
-                        .filter(member => member.id === ownValue || !takenElsewhere.has(member.id))
-                        .map(member => `<option value="${escapeHTML(member.id)}">${escapeHTML(member.displayName)}${member.active ? '' : ' (tidak aktif)'}</option>`)
+                    cachedStaffList.map(member => {
+                        const otherSeat = seatOfStaff.get(member.id);
+                        const suffix = (member.active ? '' : ' (tidak aktif)') + (otherSeat ? ` — kini di Kerusi ${otherSeat}` : '');
+                        return `<option value="${escapeHTML(member.id)}">${escapeHTML(member.displayName)}${escapeHTML(suffix)}</option>`;
+                    })
                 );
                 select.innerHTML = options.join('');
                 select.value = ownValue;
             });
+        }
+
+        // Picking a barber who is on another seat moves him here: the other
+        // seat's dropdown is cleared and flagged so saveBarberAssignments()
+        // can close that seat if it was active (an active seat may not be
+        // left without a barber).
+        function onBarberAssignmentChange(seat) {
+            const select = document.getElementById(`barberNameSeat${seat}`);
+            if (!select) return;
+            select.dataset.dirty = 'true';
+            delete select.dataset.autoCleared;
+            const staffId = select.value;
+            const movedFrom = [];
+            if (staffId) {
+                getSeatNumbers().filter(other => other !== seat).forEach(other => {
+                    const otherSelect = document.getElementById(`barberNameSeat${other}`);
+                    if (otherSelect?.value !== staffId) return;
+                    otherSelect.value = '';
+                    otherSelect.dataset.dirty = 'true';
+                    otherSelect.dataset.autoCleared = 'true';
+                    movedFrom.push(other);
+                });
+            }
+            refreshBarberAssignmentDropdownOptions();
+            const notice = document.getElementById('barberAssignmentNotice');
+            if (notice) {
+                notice.textContent = movedFrom.length
+                    ? `${getStaffDisplayName(staffId)} dipindahkan dari Kerusi ${movedFrom.join(', ')} ke Kerusi ${seat}. Kerusi ${movedFrom.join(', ')} akan dikosongkan dan ditutup apabila anda tekan SIMPAN PASUKAN BERTUGAS.`
+                    : '';
+            }
         }
 
         async function saveBarberAssignments() {
@@ -7055,7 +6918,15 @@
                 assignments[seat] = normalizeBarberName(getStaffDisplayName(staffIdsBySeat[seat]));
             }
             if (!Object.values(assignments).some(Boolean)) return (await showAlertDialog("Pilih sekurang-kurangnya seorang tukang gunting yang bertugas."));
-            const activeSeats = getActiveSeats();
+            const activeSeats = { ...getActiveSeats() };
+            // A seat emptied because its barber was moved to another seat
+            // (onBarberAssignmentChange) is closed as part of this save --
+            // unless it is serving a customer, which must finish first.
+            const movedAwaySeats = getSeatNumbers().filter(seat => activeSeats[seat] && !staffIdsBySeat[seat]
+                && document.getElementById(`barberNameSeat${seat}`)?.dataset.autoCleared === 'true');
+            const servingMovedSeat = movedAwaySeats.find(seat => getQueues().some(queue => queue.status === 'serving' && Number(queue.seat) === seat));
+            if (servingMovedSeat) return (await showAlertDialog(`Kerusi ${servingMovedSeat} sedang melayan pelanggan. Sila 'Selesai' dahulu sebelum memindahkan tukang gunting kerusi itu.`));
+            movedAwaySeats.forEach(seat => { activeSeats[seat] = false; });
             const activeSeatWithoutName = getSeatNumbers().find(seat => activeSeats[seat] && !assignments[seat]);
             if (activeSeatWithoutName) return (await showAlertDialog(`Tukang gunting Kerusi ${activeSeatWithoutName} tidak boleh dikosongkan ketika kerusi masih aktif. Tutup kerusi dahulu.`));
             // Fahru's request (2026-09-08, follow-up): a barber can only ever be
@@ -7117,7 +6988,9 @@
                 if (!appliedSeats.has(seat)) confirmedAssignments[seat] = '';
             });
             if (!safeSetItem('barberAssignments', confirmedAssignments)) return (await showAlertDialog("Tukang gunting gagal disimpan. Sila cuba lagi."));
-            document.querySelectorAll('#adminBarberAssignments select').forEach(select => delete select.dataset.dirty);
+            document.querySelectorAll('#adminBarberAssignments select').forEach(select => { delete select.dataset.dirty; delete select.dataset.autoCleared; });
+            const assignmentNotice = document.getElementById('barberAssignmentNotice');
+            if (assignmentNotice) assignmentNotice.textContent = '';
             appendAuditEvent('barber_assignments_updated', 'shop_setting', 'barberAssignments', 'admin', { assignments: confirmedAssignments });
             await refreshSeatServerState();
             renderBarberAssignments(true);
@@ -7270,11 +7143,6 @@
             if (!profileSelect) return;
             profileSelect.value = 'custom';
             updateServiceProfileSummary(prefix);
-        }
-
-        function setAdminServiceTab(category) {
-            adminServiceTab = category === 'fashion' ? 'fashion' : 'asas';
-            updateUI();
         }
 
         function refreshServiceConfigurationUI() {
@@ -7490,7 +7358,6 @@
             if(svcs[index]) {
                 svcs[index].name = nName; svcs[index].price = nPrice; svcs[index].duration = nDur; svcs[index].profile = nProfile; svcs[index].target = nTarget; svcs[index].category = nCategory; svcs[index].type = nType; svcs[index].styleNotes = nNotes;
                 saveServices(svcs);
-                adminServiceTab = nCategory;
                 document.getElementById('adminEditServiceForm').style.display = 'none'; (await showAlertDialog("Servis dikemas kini.")); refreshServiceConfigurationUI();
             }
         }
@@ -7527,25 +7394,21 @@
             refreshServiceConfigurationUI();
         }
 
-        function reorderServicesWithinCategory(services, sourceId, targetId, placeAfter = false) {
+        // Services are one list now (no category tabs), so priority is
+        // reordered across the whole catalogue.
+        function reorderServices(services, sourceId, targetId, placeAfter = false) {
             if (!sourceId || !targetId || sourceId === targetId) return [...services];
-            const source = services.find(service => service.id === sourceId);
-            const target = services.find(service => service.id === targetId);
-            if (!source || !target || source.category !== target.category) return [...services];
-            const category = source.category;
-            const categoryServices = services.filter(service => service.category === category);
-            const moving = categoryServices.find(service => service.id === sourceId);
-            const remaining = categoryServices.filter(service => service.id !== sourceId);
+            const moving = services.find(service => service.id === sourceId);
+            const remaining = services.filter(service => service.id !== sourceId);
             const targetIndex = remaining.findIndex(service => service.id === targetId);
             if (!moving || targetIndex < 0) return [...services];
             remaining.splice(targetIndex + (placeAfter ? 1 : 0), 0, moving);
-            let categoryIndex = 0;
-            return services.map(service => service.category === category ? remaining[categoryIndex++] : service);
+            return remaining;
         }
 
         async function persistServicePriority(sourceId, targetId, placeAfter = false) {
             const services = getServices();
-            const reordered = reorderServicesWithinCategory(services, sourceId, targetId, placeAfter);
+            const reordered = reorderServices(services, sourceId, targetId, placeAfter);
             if (reordered.map(service => service.id).join('|') === services.map(service => service.id).join('|')) return false;
             if (!saveServices(reordered)) return (await showAlertDialog("Turutan servis gagal disimpan. Sila cuba lagi."));
             appendAuditEvent('service_priority_updated', 'shop_service', sourceId, 'admin', { targetId, placeAfter });
@@ -7598,11 +7461,10 @@
             const services = getServices();
             const service = services.find(item => item.id === serviceId);
             if (!service) return;
-            const categoryServices = services.filter(item => item.category === service.category);
-            const index = categoryServices.findIndex(item => item.id === serviceId);
+            const index = services.findIndex(item => item.id === serviceId);
             const targetIndex = index + direction;
-            if (targetIndex < 0 || targetIndex >= categoryServices.length) return;
-            const target = categoryServices[targetIndex];
+            if (targetIndex < 0 || targetIndex >= services.length) return;
+            const target = services[targetIndex];
             persistServicePriority(serviceId, target.id, direction > 0);
         }
 
@@ -7618,51 +7480,6 @@
 
         function getCheckboxServiceType(checkbox) {
             return ['gunting', 'botak', 'facial', 'lain'].includes(checkbox.dataset.serviceType) ? checkbox.dataset.serviceType : 'lain';
-        }
-
-        function renderServiceCombinationHint(context) {
-            if (!['walkin', 'booking'].includes(context)) return;
-            const isWalkin = context === 'walkin';
-            const containerId = isWalkin ? 'walkinServiceSelect' : 'bookServiceSelect';
-            const inputName = isWalkin ? 'walkinServices' : 'bookingServices';
-            const container = document.getElementById(containerId);
-            const hint = document.getElementById(isWalkin ? 'walkinServiceHint' : 'bookingServiceHint');
-            const badge = document.getElementById(isWalkin ? 'walkinAsasBadge' : 'bookingAsasBadge');
-            if (!container) return;
-
-            const checkboxes = Array.from(container.querySelectorAll(`input[name="${inputName}"]`));
-            const styleName = checkboxes.find(cb => cb.checked && cb.dataset.category === 'fashion')?.value || '';
-            const openAsas = checkboxes.filter(cb => cb.dataset.category === 'asas' && !cb.disabled && !cb.checked);
-            const chosenAsas = checkboxes.filter(cb => cb.dataset.category === 'asas' && cb.checked);
-
-            if (badge) {
-                badge.textContent = openAsas.length ? String(openAsas.length) : '';
-                badge.classList.toggle('visible', Boolean(styleName) && openAsas.length > 0);
-            }
-
-            if (!hint) return;
-            const showHint = customerServiceTabs[context] === 'fashion' && Boolean(styleName)
-                && (openAsas.length > 0 || chosenAsas.length > 0);
-            hint.style.display = showHint ? 'block' : 'none';
-            if (!showHint) {
-                hint.replaceChildren();
-                return;
-            }
-
-            const parts = [];
-            if (openAsas.length) {
-                const names = openAsas.slice(0, 3).map(cb => escapeHTML(cb.value));
-                const more = openAsas.length > 3 ? ` dan ${openAsas.length - 3} lagi` : '';
-                parts.push(`<strong>${escapeHTML(styleName)}</strong> boleh digabungkan dengan servis asas: ${names.join(', ')}${more}.`);
-            }
-            if (chosenAsas.length) {
-                const chosenNames = chosenAsas.map(cb => escapeHTML(cb.value)).join(', ');
-                parts.push(`<span class="text-muted">${chosenAsas.length} servis asas sudah dipilih: ${chosenNames}.</span>`);
-            }
-            if (openAsas.length) {
-                parts.push(`<button type="button" class="btn btn-sm btn-info" onclick="setServiceCategoryTab('${context}', 'asas')">LIHAT SERVIS ASAS</button>`);
-            }
-            hint.innerHTML = parts.join('<br>');
         }
 
         function enforceServiceRules(containerId, inputName, changedCheckbox = null) {
@@ -7709,8 +7526,6 @@
                     }
                 }
             });
-            if (containerId === 'walkinServiceSelect') renderServiceCombinationHint('walkin');
-            if (containerId === 'bookServiceSelect') renderServiceCombinationHint('booking');
         }
 
         function getInvalidServiceCombinationMessage(checkboxes) {
@@ -7732,24 +7547,6 @@
             return '';
         }
 
-        function setServiceCategoryTab(context, category) {
-            if (!['walkin', 'booking'].includes(context)) return;
-            const selectedCategory = category === 'fashion' ? 'fashion' : 'asas';
-            customerServiceTabs[context] = selectedCategory;
-            const containerId = context === 'walkin' ? 'walkinServiceSelect' : 'bookServiceSelect';
-            const buttonPrefix = context === 'walkin' ? 'walkinServiceTab' : 'bookingServiceTab';
-            const container = document.getElementById(containerId);
-            if (container) container.querySelectorAll('.service-category-panel').forEach(panel => {
-                panel.style.display = panel.dataset.category === selectedCategory ? 'flex' : 'none';
-            });
-            const asasButton = document.getElementById(`${buttonPrefix}Asas`);
-            const fashionButton = document.getElementById(`${buttonPrefix}Fashion`);
-            if (asasButton) asasButton.classList.toggle('active', selectedCategory === 'asas');
-            if (fashionButton) fashionButton.classList.toggle('active', selectedCategory === 'fashion');
-            // Klik tab membaca keadaan pasca-rules. Semasa senarai dibina semula, enforceServiceRules memanggil semula petunjuk ini serta-merta.
-            renderServiceCombinationHint(context);
-        }
-
         function renderCustomerServiceOptions(containerId, inputName, context, showDuration) {
             const services = getServices().filter(service => service.active);
             const container = document.getElementById(containerId);
@@ -7764,9 +7561,11 @@
             container.setAttribute('aria-busy', String(isLoadingServices));
             const selectedServiceIds = new Set(Array.from(container.querySelectorAll(`input[name="${inputName}"]:checked`)).map(input => input.dataset.serviceId || input.value));
 
-            container.innerHTML = ['asas', 'fashion'].map(category => {
-                const categoryServices = services.filter(service => service.category === category);
-                const serviceHTML = categoryServices.length ? categoryServices.map(service => {
+            // One list for all services (the Asas / Gaya Potongan tabs were
+            // removed, Fahru's request 2026-10-12), in the admin's priority
+            // order. The category still drives the combination rules in
+            // enforceServiceRules().
+            const serviceHTML = services.length ? services.map(service => {
                     const detail = showDuration
                         ? `RM ${escapeHTML(service.price)} &bull; ${escapeHTML(service.duration)} min`
                         : `RM ${escapeHTML(service.price)}`;
@@ -7785,15 +7584,13 @@
                     return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}">${thumbHTML}<div class="service-info"><div class="service-name-line"><strong>${escapeHTML(service.name)}</strong>${noteHTML}</div><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
                 }).join('') : (isLoadingServices
                     ? '<div class="catalog-loading-state">Memuatkan senarai servis…</div>'
-                    : `<div class="service-empty-state">Tiada servis ${category === 'fashion' ? 'Gaya Potongan' : 'Asas'} yang aktif.</div>`);
-                return `<div class="service-category-panel" data-category="${category}">${serviceHTML}</div>`;
-            }).join('');
+                    : '<div class="service-empty-state">Tiada servis yang aktif.</div>');
+            container.innerHTML = `<div class="service-category-panel">${serviceHTML}</div>`;
 
             container.querySelectorAll(`input[name="${inputName}"]`).forEach(input => {
                 input.checked = selectedServiceIds.has(input.dataset.serviceId) || selectedServiceIds.has(input.value);
             });
 
-            setServiceCategoryTab(context, customerServiceTabs[context]);
         }
 
         function populateWalkinServices() {
@@ -9026,79 +8823,6 @@
             document.getElementById('btnEndDuty').title = serving ? "Sila 'Selesai' pelanggan dahulu." : '';
         }
 
-        // ---- Barber self-service skills/services (20261008110000) ----------
-        // Rendered only when the service catalogue or the barber's saved
-        // selection changes, so an unsaved tick-box edit is never wiped by the
-        // periodic/realtime updateUI() repaint.
-        let myServicesSignature = '';
-        function renderMyServicesPanel() {
-            const panel = document.getElementById('myServicesPanel');
-            if (!panel) return;
-            const services = getServices().filter(service => service.active);
-            const signedIn = !!staffProfile?.id;
-            setShown(panel, signedIn && services.length > 0);
-            if (!signedIn || !services.length) return;
-            const capability = staffProfile.capabilityServiceIds || [];
-            const specialty = staffProfile.specialtyServiceIds || [];
-            const durations = staffProfile.serviceDurations || {};
-            const signature = JSON.stringify([staffProfile.id, services.map(s => [s.id, s.name, s.duration]), capability, specialty, durations]);
-            if (signature === myServicesSignature) return;
-            myServicesSignature = signature;
-            const capabilitySet = new Set(capability);
-            const specialtySet = new Set(specialty);
-            document.getElementById('myServicesRows').innerHTML = services.map(service => `
-                <label class="capability-row">
-                    <input type="checkbox" class="capability-check" data-service-id="${escapeHTML(service.id)}" ${capabilitySet.has(service.id) ? 'checked' : ''} onchange="onCapabilityCheckboxChange(this)">
-                    <span class="capability-row-name">${escapeHTML(service.name)}</span>
-                    <input type="number" class="capability-duration-input" data-service-id="${escapeHTML(service.id)}" min="1" max="480" step="1" inputmode="numeric" placeholder="${escapeHTML(String(service.duration))}" value="${Number.isInteger(durations[service.id]) ? durations[service.id] : ''}" aria-label="Purata masa anda (minit): ${escapeHTML(service.name)}" title="Purata masa anda (minit). Kosongkan untuk guna lalai kedai (${escapeHTML(String(service.duration))} minit).">
-                    <button type="button" class="specialty-star${specialtySet.has(service.id) ? ' active' : ''}" onclick="toggleSpecialtyStar(this)" aria-pressed="${specialtySet.has(service.id)}" aria-label="Kemahiran utama: ${escapeHTML(service.name)}" title="Jadikan kemahiran utama (diutamakan)">&#9733;</button>
-                </label>`).join('');
-            const customTimes = Object.keys(durations).length;
-            document.getElementById('myServicesSummary').textContent = (capabilitySet.size
-                ? `Disimpan: ${capabilitySet.size} servis ditawarkan, ${specialtySet.size} kemahiran utama`
-                : 'Disimpan: boleh buat semua servis') + (customTimes ? `, ${customTimes} masa servis sendiri.` : '.');
-        }
-
-        async function saveMyServices() {
-            const panel = document.getElementById('myServicesPanel');
-            if (!panel || !window.AuthRepo?.setMyServices) return (await showAlertDialog("Ciri ini belum sedia. Sila muat semula halaman."));
-            const capabilityServiceIds = Array.from(panel.querySelectorAll('.capability-check:checked')).map(cb => cb.dataset.serviceId);
-            const specialtyServiceIds = Array.from(panel.querySelectorAll('.specialty-star.active'))
-                .map(star => star.closest('.capability-row')?.querySelector('.capability-check')?.dataset.serviceId)
-                .filter(Boolean);
-            // Own average time per service (20261008130000). Blank = shop
-            // default. When the barber restricts his services, a time on a
-            // service he no longer offers is dropped -- the server would
-            // reject it, and it could never be used anyway.
-            const offered = new Set(capabilityServiceIds);
-            const serviceDurations = {};
-            for (const input of panel.querySelectorAll('.capability-duration-input')) {
-                const raw = input.value.trim();
-                if (!raw) continue;
-                if (offered.size && !offered.has(input.dataset.serviceId)) continue;
-                const minutes = Number(raw);
-                if (!Number.isInteger(minutes) || minutes < 1 || minutes > 480) {
-                    input.focus();
-                    return (await showAlertDialog('Masa servis mesti nombor bulat antara 1 hingga 480 minit.'));
-                }
-                serviceDurations[input.dataset.serviceId] = minutes;
-            }
-            const button = document.getElementById('btnSaveMyServices');
-            button.disabled = true;
-            try {
-                const saved = await window.AuthRepo.setMyServices(capabilityServiceIds, specialtyServiceIds, serviceDurations);
-                staffProfile = { ...staffProfile, ...saved };
-                myServicesSignature = '';
-                renderMyServicesPanel();
-                refreshSeatProfiles();
-                await showAlertDialog("Kemahiran dan servis anda telah disimpan.");
-            } catch (error) {
-                await showAlertDialog(error.message || "Gagal menyimpan kemahiran dan servis. Sila cuba lagi.");
-            } finally {
-                button.disabled = false;
-            }
-        }
-
         async function startMyDuty() {
             const seat = Number.parseInt(document.getElementById('myDutySeatSelect')?.value, 10);
             if (!Number.isInteger(seat)) return (await showAlertDialog("Tiada kerusi kosong untuk dipilih."));
@@ -9994,7 +9718,6 @@
             });
 
             renderMyDutyPanel(queues);
-            renderMyServicesPanel();
 
             document.getElementById('tvUpcoming').innerHTML = waitingList.map(q => `<div class="upcoming-item upcoming-item-accent">${escapeHTML(getDisplayTicketId(q))}<br><span class="fs-90 fw-normal text-muted">${escapeHTML(q.name)}</span></div>`).join('');
             document.getElementById('tv-closed-notice').style.display = isShopOpen ? 'none' : 'block';
@@ -10070,9 +9793,7 @@
 
             // FORMAT ADMIN SERVICES BARU (Memenuhi arahan barisan baru)
             let services = getServices();
-            document.getElementById('adminServiceTabAsas').classList.toggle('active', adminServiceTab === 'asas');
-            document.getElementById('adminServiceTabFashion').classList.toggle('active', adminServiceTab === 'fashion');
-            const visibleAdminServices = services.filter(service => service.category === adminServiceTab);
+            const visibleAdminServices = services;
             document.getElementById('adminServicesList').innerHTML = visibleAdminServices.length > 0
                 ? visibleAdminServices.map((s, serviceIndex) => `
                     <div class="admin-list-item service-sort-item p-15 ${s.active ? 'border-left-primary' : 'border-left-danger'}" data-service-id="${escapeHTML(s.id)}" ondragstart="handleServiceDragStart(event,${toInlineJSString(s.id)})" ondragover="handleServiceDragOver(event,${toInlineJSString(s.id)})" ondrop="handleServiceDrop(event,${toInlineJSString(s.id)})" ondragend="handleServiceDragEnd()">
@@ -10104,7 +9825,7 @@
                             </div>
                         </div>
                     </div>`).join('')
-                : `<p class="text-muted fs-90">Tiada servis ${adminServiceTab === 'fashion' ? 'Gaya Potongan' : 'Asas'} ditetapkan.</p>`;
+                : '<p class="text-muted fs-90">Tiada servis ditetapkan.</p>';
 
             // Reports Rendering
             let targQ = filterCompletedQueuesForReportPeriod(queues, currentReportType);
