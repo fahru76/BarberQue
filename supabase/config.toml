@@ -21,3 +21,7 @@ verify_jwt = false
 # Admin-only; the function also re-checks is_admin() with the caller's JWT.
 [functions.create-barber]
 verify_jwt = true
+
+# Admin-only (barber -> admin with a real e-mail + password); re-checks is_admin().
+[functions.promote-barber]
+verify_jwt = true

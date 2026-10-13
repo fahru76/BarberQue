@@ -219,6 +219,16 @@ export async function createBarber(displayName, pin) {
     return invokeFunction('create-barber', { displayName, pin });
 }
 
+/**
+ * Admin: turn a barber into an admin (Edge Function promote-barber). Sets the
+ * account's real e-mail + password (used on the Admin sign-in tab) and removes
+ * the barber's PIN. The reverse is setStaffStatus(id, { role: 'barber' })
+ * followed by setBarberPin().
+ */
+export async function promoteBarberToAdmin(staffId, email, password) {
+    return invokeFunction('promote-barber', { staffId, email, password });
+}
+
 /** Admin: set or change a barber's 6-digit PIN (also clears any PIN lockout). */
 export async function setBarberPin(staffId, pin) {
     const { error } = await supabase.rpc('admin_set_barber_pin', { p_staff_id: staffId, p_pin: pin });
