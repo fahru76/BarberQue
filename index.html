@@ -7652,6 +7652,7 @@
             let styleNotes = document.getElementById('newSvcNotes').value.trim();
             const priceIsVariable = document.getElementById('newSvcVariable').checked;
             if(!profile) { (await showAlertDialog("Pilih Jenis Servis untuk servis ini.")); return; }
+            if (type === 'facial' && target !== 'dewasa') return (await showAlertDialog("Servis Janggut / Misai / Jambang hanya untuk dewasa. Tukar Kumpulan Sasaran kepada Dewasa Sahaja."));
             if(!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(duration) || duration <= 0) { (await showAlertDialog("Masukkan nama, harga positif dan masa servis yang sah.")); return; }
             let svcs = getServices();
             if (svcs.some(s => String(s.name).toLowerCase() === name.toLowerCase())) return (await showAlertDialog("Nama servis ini sudah wujud."));
@@ -7813,6 +7814,7 @@
             let nNotes = document.getElementById('editSvcNotes').value.trim();
             const nVariable = document.getElementById('editSvcVariable').checked;
             if(!nProfile) { (await showAlertDialog("Pilih Jenis Servis untuk servis ini.")); return; }
+            if (nType === 'facial' && nTarget !== 'dewasa') return (await showAlertDialog("Servis Janggut / Misai / Jambang hanya untuk dewasa. Tukar Kumpulan Sasaran kepada Dewasa Sahaja."));
             if(!nName || !Number.isFinite(nPrice) || nPrice <= 0 || !Number.isInteger(nDur) || nDur <= 0) { (await showAlertDialog("Lengkapkan maklumat dengan nilai positif.")); return; }
             let svcs = getServices();
             const index = svcs.findIndex(service => service.id === serviceId);
