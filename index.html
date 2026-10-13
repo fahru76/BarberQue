@@ -1848,6 +1848,8 @@
         .border-left-primary { border-left-color:var(--primary-color); }
         .border-left-success { border-left-color:var(--success); }
         .border-left-warning { border-left-color:var(--warning); }
+        .svc-advanced { margin-top: var(--space-3); border-top: 1px dashed var(--border-color); padding-top: var(--space-2); }
+        .svc-advanced > summary { cursor: pointer; font-weight: 600; padding: var(--space-2) 0; }
         .border-left-fastpass { border-left-color:#ffc107; }
         .d-none { display:none; }
         /* .q-num already sets font-size via the descendant selector
@@ -2648,16 +2650,16 @@
                     <h4 class="text-info mb-10">Kemas Kini Servis</h4>
                     <input type="hidden" id="editSvcId">
                     <div class="input-group mt-0">
-                        <label for="editSvcProfile">Profil Logik:</label>
+                        <label for="editSvcProfile">Jenis Servis:</label>
                         <select id="editSvcProfile" onchange="applyServiceProfile('edit')">
-                            <option value="">-- Pilih Profil Logik --</option>
+                            <option value="">-- Pilih Jenis Servis --</option>
                             <option value="adult_haircut">Gunting Dewasa</option>
                             <option value="child_haircut">Gunting Kanak-kanak</option>
                             <option value="bald">Botak Kepala</option>
                             <option value="style">Gaya Potongan</option>
                             <option value="facial">Janggut / Misai / Jambang</option>
                             <option value="hair_addon">Servis Tambahan Rambut</option>
-                            <option value="custom">Tetapan Tersuai</option>
+                            <option value="custom">Lain-lain (tetapan sendiri)</option>
                         </select>
                         <div id="editSvcProfileSummary"></div>
                     </div>
@@ -2680,7 +2682,7 @@
                         <span class="text-muted fs-82">Harga di atas menjadi harga permulaan (pelanggan nampak "Dari RM…"). Jumlah sebenar dimasukkan semasa tekan Selesai.</span>
                     </div>
                     <div class="input-group">
-                        <label for="editSvcNotes">Penceritaan Gaya (pilihan):</label>
+                        <label for="editSvcNotes">Penerangan ringkas (pilihan):</label>
                         <textarea id="editSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea>
                     </div>
                     <div class="input-group">
@@ -2707,6 +2709,9 @@
                             </div>
                         </div>
                     </div>
+                    <details class="svc-advanced" id="editSvcAdvanced">
+                        <summary>Tetapan lanjutan (jarang diperlukan)</summary>
+                        <p class="text-muted fs-82">Diisi secara automatik mengikut Jenis Servis di atas. Ubah hanya jika memilih "Lain-lain".</p>
                     <div class="input-group">
                         <label for="editSvcTarget">Kumpulan Sasaran:</label>
                         <select id="editSvcTarget" onchange="markServiceProfileCustom('edit')">
@@ -2725,7 +2730,7 @@
                             <span class="text-muted fs-82">Untuk peraturan gabungan: Gaya Potongan tidak boleh digabung dengan potongan asas.</span>
                         </div>
                         <div>
-                            <label for="editSvcType">Jenis Servis:</label>
+                            <label for="editSvcType">Kumpulan Servis:</label>
                             <select id="editSvcType" onchange="markServiceProfileCustom('edit')">
                                 <option value="gunting">Gunting Rambut</option>
                                 <option value="botak">Botak Kepala</option>
@@ -2734,6 +2739,7 @@
                             </select>
                         </div>
                     </div>
+                    </details>
                     <div class="d-flex gap-10 mt-15">
                         <button class="btn btn-info flex-1" onclick="saveServiceEdit()">SIMPAN KEMAS KINI</button>
                         <button class="btn btn-reset flex-1" onclick="document.getElementById('adminEditServiceForm').style.display='none'">BATAL</button>
@@ -2747,16 +2753,16 @@
                 <div id="adminAddServiceBox">
                     <h4 id="addServiceHeading">Tambah Servis Baru</h4>
                     <div class="input-group">
-                        <label for="newSvcProfile">Profil Logik:</label>
+                        <label for="newSvcProfile">Jenis Servis:</label>
                         <select id="newSvcProfile" onchange="applyServiceProfile('new')">
-                            <option value="">-- Pilih Profil Logik --</option>
+                            <option value="">-- Pilih Jenis Servis --</option>
                             <option value="adult_haircut">Gunting Dewasa</option>
                             <option value="child_haircut">Gunting Kanak-kanak</option>
                             <option value="bald">Botak Kepala</option>
                             <option value="style">Gaya Potongan</option>
                             <option value="facial">Janggut / Misai / Jambang</option>
                             <option value="hair_addon">Servis Tambahan Rambut</option>
-                            <option value="custom">Tetapan Tersuai</option>
+                            <option value="custom">Lain-lain (tetapan sendiri)</option>
                         </select>
                         <div id="newSvcProfileSummary"></div>
                     </div>
@@ -2769,8 +2775,11 @@
                         <label class="d-flex gap-8 items-center"><input type="checkbox" id="newSvcVariable"> Harga ikut keadaan</label>
                         <span class="text-muted fs-82">Harga di atas menjadi harga permulaan (pelanggan nampak "Dari RM…"). Jumlah sebenar dimasukkan semasa tekan Selesai.</span>
                     </div>
-                    <div class="input-group"><label for="newSvcNotes">Penceritaan Gaya (pilihan):</label><textarea id="newSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea></div>
+                    <div class="input-group"><label for="newSvcNotes">Penerangan ringkas (pilihan):</label><textarea id="newSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea></div>
                     <p class="text-muted fs-85">Gambar gaya (depan/belakang) boleh ditambah selepas servis ini disimpan -- buka semula dalam senarai di bawah untuk muat naik.</p>
+                    <details class="svc-advanced" id="newSvcAdvanced">
+                        <summary>Tetapan lanjutan (jarang diperlukan)</summary>
+                        <p class="text-muted fs-82">Diisi secara automatik mengikut Jenis Servis di atas. Ubah hanya jika memilih "Lain-lain".</p>
                     <div class="input-group">
                         <label for="newSvcTarget">Kumpulan Sasaran:</label>
                         <select id="newSvcTarget" onchange="markServiceProfileCustom('new')">
@@ -2789,7 +2798,7 @@
                             <span class="text-muted fs-82">Untuk peraturan gabungan: Gaya Potongan tidak boleh digabung dengan potongan asas.</span>
                         </div>
                         <div>
-                            <label for="newSvcType">Jenis Servis:</label>
+                            <label for="newSvcType">Kumpulan Servis:</label>
                             <select id="newSvcType" onchange="markServiceProfileCustom('new')">
                                 <option value="gunting">Gunting Rambut</option>
                                 <option value="botak">Botak Kepala</option>
@@ -2798,6 +2807,7 @@
                             </select>
                         </div>
                     </div>
+                    </details>
                     <button class="btn btn-outline mt-15 w-full border-primary text-primary" onclick="addService()">+ TAMBAH SERVIS</button>
                 </div>
             </div>
@@ -6436,8 +6446,8 @@
                 summary: 'Sesuai untuk cuci, dye, rawatan atau styling rambut. Boleh digabungkan dengan servis lain kecuali Botak Kepala.'
             },
             custom: {
-                label: 'Tetapan Tersuai',
-                summary: 'Gunakan tetapan terperinci di bawah. Admin menentukan sendiri sasaran pelanggan, jenis potongan dan jenis servis.'
+                label: 'Lain-lain (tetapan sendiri)',
+                summary: 'Untuk servis yang tidak sepadan dengan pilihan lain. Tetapkan sendiri di bahagian Tetapan lanjutan di bawah.'
             }
         };
 
@@ -7565,7 +7575,7 @@
 
         function getServiceProfileBadgeHTML(profile) {
             const label = SERVICE_PROFILES[profile] ? SERVICE_PROFILES[profile].label : SERVICE_PROFILES.custom.label;
-            return `<span class="badge badge-neutral">Profil: ${escapeHTML(label)}</span>`;
+            return `<span class="badge badge-neutral">${escapeHTML(label)}</span>`;
         }
 
         function updateServiceProfileSummary(prefix) {
@@ -7575,7 +7585,10 @@
             const profile = SERVICE_PROFILES[profileSelect.value];
             summaryBox.textContent = profile
                 ? profile.summary
-                : 'Pilih profil yang paling hampir dengan servis. Sasaran, kategori dan jenis servis akan diisi secara automatik.';
+                : 'Pilih jenis yang paling hampir dengan servis ini. Peraturan gabungan servis akan ditetapkan secara automatik.';
+            // Advanced fields only matter for "Lain-lain"; keep them out of the way otherwise.
+            const advanced = document.getElementById(`${prefix}SvcAdvanced`);
+            if (advanced) advanced.open = profileSelect.value === 'custom';
         }
 
         function applyServiceProfile(prefix) {
@@ -7635,7 +7648,7 @@
             let type = document.getElementById('newSvcType').value;
             let styleNotes = document.getElementById('newSvcNotes').value.trim();
             const priceIsVariable = document.getElementById('newSvcVariable').checked;
-            if(!profile) { (await showAlertDialog("Pilih Profil Logik untuk servis ini.")); return; }
+            if(!profile) { (await showAlertDialog("Pilih Jenis Servis untuk servis ini.")); return; }
             if(!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(duration) || duration <= 0) { (await showAlertDialog("Masukkan nama, harga positif dan masa servis yang sah.")); return; }
             let svcs = getServices();
             if (svcs.some(s => String(s.name).toLowerCase() === name.toLowerCase())) return (await showAlertDialog("Nama servis ini sudah wujud."));
@@ -7796,7 +7809,7 @@
             let nType = document.getElementById('editSvcType').value;
             let nNotes = document.getElementById('editSvcNotes').value.trim();
             const nVariable = document.getElementById('editSvcVariable').checked;
-            if(!nProfile) { (await showAlertDialog("Pilih Profil Logik untuk servis ini.")); return; }
+            if(!nProfile) { (await showAlertDialog("Pilih Jenis Servis untuk servis ini.")); return; }
             if(!nName || !Number.isFinite(nPrice) || nPrice <= 0 || !Number.isInteger(nDur) || nDur <= 0) { (await showAlertDialog("Lengkapkan maklumat dengan nilai positif.")); return; }
             let svcs = getServices();
             const index = svcs.findIndex(service => service.id === serviceId);
@@ -10429,9 +10442,6 @@
                                 </div>
                                  <div class="mt-5 d-flex gap-5 flex-wrap items-center">
                                      ${getServiceProfileBadgeHTML(s.profile)}
-                                     ${getTargetBadgeHTML(s.target)}
-                                    ${getServiceCategoryBadgeHTML(s.category)}
-                                    ${getServiceTypeBadgeHTML(s.type)}
                                     <span class="badge ${s.active ? 'badge-success' : 'badge-danger'}">${s.active ? 'AKTIF' : 'DITUTUP'}</span>
                                 </div>
                                 <div class="fs-90 text-muted mt-5">
