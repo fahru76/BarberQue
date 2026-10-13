@@ -2127,7 +2127,7 @@
                     <div id="closingSoonAlert">
                         <div id="closingSoonAlertHeading">Kedai Akan Tutup Sebentar Lagi</div>
                         <div id="closingSoonAlertText">Anggaran giliran dan servis anda mungkin tidak sempat diservis hari ini.</div>
-                        <button type="button" class="btn btn-info w-full" onclick="offerNextDayBooking()">TEMPAH UNTUK ESOK</button>
+                        <button type="button" class="btn btn-info w-full" id="closingSoonAlertBtn" onclick="offerNextDayBooking()">TEMPAH UNTUK ESOK</button>
                     </div>
 
                     <div class="input-group">
@@ -8382,12 +8382,48 @@
             // customer to booking and this one stays hidden. Uses the exact same
             // currentMinutes + wait + duration > closeMinutes formula bookTicket()
             // uses for its own (later, submit-time) rejection.
+            // Fix (2026-10-13, Fahru's report): after closing time the "closing
+            // soon" formula is always true, so the banner kept saying "akan tutup
+            // sebentar lagi" long after the shop had closed. Before opening /
+            // after closing now get their own wording.
             const closingSoonAlert = document.getElementById('closingSoonAlert');
             if (closingSoonAlert) {
                 const ops = getOpHours();
-                const isClosingSoon = !isQueueFull && !ops.closed && Number.isFinite(projectedWait) &&
-                    (businessMinutes(getMalaysiaCurrentMinutes(), ops) + projectedWait + previewRecord.duration) > resolveCloseMinutes(ops);
-                closingSoonAlert.style.display = isClosingSoon ? 'block' : 'none';
+                const clock = getMalaysiaCurrentMinutes();
+                const openMinutes = timeToMinutes(ops.open);
+                const closeClock = timeToMinutes(ops.close);
+                const closeMinutes = resolveCloseMinutes(ops);
+                const hoursKnown = !ops.closed && Number.isFinite(clock) && openMinutes >= 0 && closeClock >= 0;
+                // Work from the wall clock: businessMinutes() treats EVERY time
+                // before opening as the post-midnight tail of an overnight shift,
+                // which would call 17:00 "after close" for an 18:00-01:00 shop.
+                let beforeOpen = false, afterClose = false, nowMinutes = clock;
+                if (hoursKnown && openMinutes !== closeClock) {
+                    if (closeClock < openMinutes) {            // overnight, e.g. 18:00-01:00
+                        if (clock < closeClock) nowMinutes = clock + 1440; // still open from last night
+                        else if (clock < openMinutes) beforeOpen = true;
+                    } else {
+                        beforeOpen = clock < openMinutes;
+                        afterClose = clock >= closeClock;
+                    }
+                }
+                const isClosingSoon = !isQueueFull && hoursKnown && openMinutes !== closeClock && !beforeOpen && !afterClose && Number.isFinite(projectedWait) &&
+                    (nowMinutes + projectedWait + previewRecord.duration) > closeMinutes;
+                const heading = document.getElementById('closingSoonAlertHeading');
+                const text = document.getElementById('closingSoonAlertText');
+                const button = document.getElementById('closingSoonAlertBtn');
+                if (afterClose) {
+                    heading.textContent = 'Kedai Sudah Tutup Untuk Hari Ini';
+                    text.textContent = `Waktu operasi hari ini ${ops.open} hingga ${ops.close}. Sila tempah slot untuk hari lain.`;
+                } else if (beforeOpen) {
+                    heading.textContent = 'Kedai Belum Dibuka';
+                    text.textContent = `Kedai dibuka jam ${ops.open} hari ini. Nombor giliran boleh diambil selepas kedai dibuka.`;
+                } else {
+                    heading.textContent = 'Kedai Akan Tutup Sebentar Lagi';
+                    text.textContent = 'Anggaran giliran dan servis anda mungkin tidak sempat diservis hari ini.';
+                }
+                if (button) button.style.display = beforeOpen ? 'none' : '';
+                closingSoonAlert.style.display = (afterClose || beforeOpen || isClosingSoon) ? 'block' : 'none';
             }
         }
 
