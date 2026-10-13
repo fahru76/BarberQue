@@ -2717,11 +2717,12 @@
                     </div>
                     <div class="input-row">
                         <div>
-                            <label for="editSvcCategory">Kategori Tab:</label>
+                            <label for="editSvcCategory">Jenis Potongan:</label>
                             <select id="editSvcCategory" onchange="markServiceProfileCustom('edit')">
                                 <option value="asas">Servis Asas</option>
                                 <option value="fashion">Gaya Potongan</option>
                             </select>
+                            <span class="text-muted fs-82">Untuk peraturan gabungan: Gaya Potongan tidak boleh digabung dengan potongan asas.</span>
                         </div>
                         <div>
                             <label for="editSvcType">Jenis Servis:</label>
@@ -2780,11 +2781,12 @@
                     </div>
                     <div class="input-row">
                         <div>
-                            <label for="newSvcCategory">Kategori Tab:</label>
+                            <label for="newSvcCategory">Jenis Potongan:</label>
                             <select id="newSvcCategory" onchange="markServiceProfileCustom('new')">
                                 <option value="asas">Servis Asas</option>
                                 <option value="fashion">Gaya Potongan</option>
                             </select>
+                            <span class="text-muted fs-82">Untuk peraturan gabungan: Gaya Potongan tidak boleh digabung dengan potongan asas.</span>
                         </div>
                         <div>
                             <label for="newSvcType">Jenis Servis:</label>
@@ -6435,7 +6437,7 @@
             },
             custom: {
                 label: 'Tetapan Tersuai',
-                summary: 'Gunakan tetapan terperinci di bawah. Admin menentukan sendiri sasaran pelanggan, kategori tab dan jenis servis.'
+                summary: 'Gunakan tetapan terperinci di bawah. Admin menentukan sendiri sasaran pelanggan, jenis potongan dan jenis servis.'
             }
         };
 
