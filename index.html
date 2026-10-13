@@ -2936,8 +2936,8 @@
         <div class="app-dialog-content">
             <h3 id="staffLoginDialogTitle">Log Masuk Kakitangan</h3>
             <div class="mode-toggle mb-15" role="tablist" aria-label="Jenis log masuk">
-                <button type="button" class="mode-btn active" id="btnLoginModeBarber" role="tab" aria-selected="true" aria-controls="barberLoginForm" onclick="setStaffLoginMode('barber')">Tukang Gunting</button>
-                <button type="button" class="mode-btn" id="btnLoginModeAdmin" role="tab" aria-selected="false" aria-controls="staffLoginForm" onclick="setStaffLoginMode('admin')">Admin</button>
+                <button type="button" class="mode-btn active" id="btnLoginModeBarber" role="tab" aria-selected="true" aria-controls="barberLoginForm" onclick="setStaffLoginMode('barber')">Nama + PIN</button>
+                <button type="button" class="mode-btn" id="btnLoginModeAdmin" role="tab" aria-selected="false" aria-controls="staffLoginForm" onclick="setStaffLoginMode('admin')">E-mel</button>
             </div>
 
             <form id="barberLoginForm" onsubmit="event.preventDefault(); submitBarberLogin()">
@@ -3958,45 +3958,17 @@
             const input = document.getElementById(`staffPinInput-${id}`);
             if (!input) return;
             if (!/^[0-9]{6}$/.test(input.value)) return (await showAlertDialog('PIN mesti 6 digit nombor.'));
+            // PIN sign-in (barber-login) replaces the account's password each
+            // time, so an admin who also uses e-mail + password loses that
+            // password after their first PIN sign-in.
+            if (cachedStaffList.find(m => m.id === id)?.role === 'admin'
+                && !(await showConfirmDialog('Akaun admin ini mungkin juga log masuk dengan e-mel. Selepas dia log masuk dengan PIN, kata laluan e-melnya tidak lagi berfungsi (kunci pemulihan masih boleh menetapkan yang baharu). Teruskan?'))) return;
             try {
                 await window.AuthRepo.setBarberPin(id, input.value);
                 await refreshStaffList();
                 await showAlertDialog('PIN dikemas kini. Sekatan cubaan salah (jika ada) juga dibuang.');
             } catch (error) {
                 await showAlertDialog(error.message || 'Gagal menukar PIN.');
-                console.warn(error);
-            }
-        }
-
-        // Barber -> admin. A barber's account has no usable e-mail/password
-        // (PIN sign-in only), so promotion asks for a real e-mail + password
-        // for the Admin sign-in tab; the promote-barber Edge Function sets
-        // them, switches the role and removes the old PIN.
-        function startPromoteToAdmin(id) {
-            const el = document.getElementById(`staffName-${id}`);
-            if (!el) return;
-            el.innerHTML = `
-                <input type="email" id="promoteEmail-${id}" class="staff-rename-input" placeholder="E-mel admin" aria-label="E-mel untuk log masuk admin" autocomplete="off" maxlength="254">
-                <input type="password" id="promotePassword-${id}" class="staff-rename-input" placeholder="Kata laluan (min 8)" aria-label="Kata laluan admin" autocomplete="new-password" minlength="8" maxlength="72">
-                <button type="button" class="btn btn-sm btn-action" onclick="savePromoteToAdmin('${id}')">Jadikan Admin</button>
-                <button type="button" class="btn btn-sm btn-reset" onclick="refreshStaffList()">Batal</button>
-            `;
-            document.getElementById(`promoteEmail-${id}`)?.focus();
-        }
-
-        async function savePromoteToAdmin(id) {
-            const email = document.getElementById(`promoteEmail-${id}`)?.value.trim() || '';
-            const password = document.getElementById(`promotePassword-${id}`)?.value || '';
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return (await showAlertDialog('Masukkan e-mel yang sah.'));
-            if (password.length < 8 || password.length > 72) return (await showAlertDialog('Kata laluan mesti 8 hingga 72 aksara.'));
-            const name = cachedStaffList.find(m => m.id === id)?.displayName || 'tukang gunting ini';
-            if (!(await showConfirmDialog(`Jadikan ${name} admin? Dia akan log masuk di tab Admin dengan ${email}. PIN lamanya tidak lagi berfungsi.`))) return;
-            try {
-                await window.AuthRepo.promoteBarberToAdmin(id, email, password);
-                await refreshStaffList();
-                await showAlertDialog(`${name} kini admin. Dia log masuk di tab Admin dengan e-mel dan kata laluan tadi.`);
-            } catch (error) {
-                await showAlertDialog(error.message || 'Gagal menjadikan admin.');
                 console.warn(error);
             }
         }
@@ -4062,15 +4034,13 @@
                         <div class="d-flex items-center gap-6 flex-wrap">
                             <span id="staffName-${member.id}"><strong>${escapeHTML(member.displayName)}</strong><span class="text-muted"> &bull; ${member.active ? 'Aktif' : 'Belum Aktif'}</span></span>
                             <button type="button" class="btn btn-sm" onclick="startRenameStaff('${member.id}')" title="Ubah nama">Ubah Nama</button>
-                            ${member.role === 'barber' ? `<button type="button" class="btn btn-sm" onclick="startChangePin('${member.id}')" title="Tukar PIN log masuk">Tukar PIN</button><button type="button" class="btn btn-sm" onclick="startPromoteToAdmin('${member.id}')" title="Jadikan admin (perlu e-mel dan kata laluan)">Jadikan Admin</button>` : ''}
+                            <button type="button" class="btn btn-sm" onclick="startChangePin('${member.id}')" title="Tukar PIN log masuk">Tukar PIN</button>
                         </div>
                         <div class="d-flex gap-8 items-center">
-                            ${member.role === 'admin'
-                                ? `<select onchange="setStaffRole('${member.id}', this.value)" aria-label="Peranan ${escapeHTML(member.displayName)}"${member.id === staffProfile?.id ? ' disabled title="Peranan anda sendiri tidak boleh ditukar di sini. Minta admin lain."' : ''}>
-                                    <option value="admin" selected>Admin</option>
-                                    <option value="barber">Tukang Gunting</option>
-                                </select>`
-                                : '<span class="badge badge-primary">Tukang Gunting</span>'}
+                            <select onchange="setStaffRole('${member.id}', this.value)" aria-label="Peranan ${escapeHTML(member.displayName)}"${member.id === staffProfile?.id ? ' disabled title="Peranan anda sendiri tidak boleh ditukar di sini. Minta admin lain."' : ''}>
+                                <option value="admin"${member.role === 'admin' ? ' selected' : ''}>Admin</option>
+                                <option value="barber"${member.role === 'barber' ? ' selected' : ''}>Tukang Gunting</option>
+                            </select>
                             ${member.active
                                 ? `<button type="button" class="btn btn-reset" onclick="toggleStaffActive('${member.id}', false)">NYAHAKTIF</button>`
                                 : `<button type="button" class="btn btn-action" onclick="toggleStaffActive('${member.id}', true)">AKTIFKAN</button>`}
@@ -4222,15 +4192,13 @@
 
         async function setStaffRole(id, role) {
             if (!(await confirmIfActingOnSelf(id))) return refreshStaffList();
+            const name = cachedStaffList.find(m => m.id === id)?.displayName || 'kakitangan ini';
+            const label = role === 'admin' ? 'Admin' : 'Tukang Gunting';
+            if (!(await showConfirmDialog(`Tukar ${name} kepada ${label}? Dia terus log masuk dengan nama + PIN yang sama.`))) return refreshStaffList();
             try {
                 await window.AuthRepo.setStaffStatus(id, { role });
                 await refreshStaffList();
-                // A barber signs in with name + PIN only, so a demoted admin
-                // needs a PIN before they can sign in again.
-                if (role === 'barber' && id !== staffProfile?.id) {
-                    await showAlertDialog('Peranan ditukar kepada Tukang Gunting. Tetapkan PIN 6 digit supaya dia boleh log masuk di skrin Tukang Gunting.');
-                    startChangePin(id);
-                }
+                await showAlertDialog(`${name} kini ${label}. Jika dia belum ada PIN, tekan Tukar PIN pada barisnya.`);
             } catch (error) {
                 (await showAlertDialog(error.message?.includes('admin aktif terakhir') ? 'Tidak boleh: ini admin aktif terakhir.' : 'Gagal menukar peranan kakitangan.'));
                 console.warn(error);
