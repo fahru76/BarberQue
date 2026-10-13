@@ -2659,6 +2659,7 @@
                             <option value="style">Gaya Potongan</option>
                             <option value="facial">Janggut / Misai / Jambang</option>
                             <option value="hair_addon">Servis Tambahan Rambut</option>
+                            <option value="adult_addon">Servis Tambahan Rambut (Dewasa sahaja)</option>
                             <option value="custom">Lain-lain (tetapan sendiri)</option>
                         </select>
                         <div id="editSvcProfileSummary"></div>
@@ -2760,6 +2761,7 @@
                             <option value="style">Gaya Potongan</option>
                             <option value="facial">Janggut / Misai / Jambang</option>
                             <option value="hair_addon">Servis Tambahan Rambut</option>
+                            <option value="adult_addon">Servis Tambahan Rambut (Dewasa sahaja)</option>
                             <option value="custom">Lain-lain (tetapan sendiri)</option>
                         </select>
                         <div id="newSvcProfileSummary"></div>
@@ -6439,7 +6441,11 @@
             },
             hair_addon: {
                 label: 'Servis Tambahan Rambut', target: 'semua', category: 'asas', type: 'lain',
-                summary: 'Sesuai untuk cuci, dye, rawatan atau styling rambut. Boleh digabungkan dengan servis lain kecuali Botak Kepala.'
+                summary: 'Sesuai untuk cuci, rawatan atau styling rambut. Boleh digabungkan dengan servis lain kecuali Botak Kepala.'
+            },
+            adult_addon: {
+                label: 'Servis Tambahan Rambut (Dewasa sahaja)', target: 'dewasa', category: 'asas', type: 'lain',
+                summary: 'Untuk servis seperti warna rambut. Tidak boleh dipilih bersama Gunting Kanak-kanak; boleh digabungkan dengan servis dewasa lain kecuali Botak Kepala.'
             },
             custom: {
                 label: 'Lain-lain (tetapan sendiri)',
@@ -6454,6 +6460,7 @@
             if (service.category === 'asas' && service.type === 'botak' && service.target === 'semua') return 'bald';
             if (service.category === 'asas' && service.type === 'facial' && service.target === 'dewasa') return 'facial';
             if (service.category === 'asas' && service.type === 'lain' && service.target === 'semua') return 'hair_addon';
+            if (service.category === 'asas' && service.type === 'lain' && service.target === 'dewasa') return 'adult_addon';
             return 'custom';
         }
 
@@ -7984,7 +7991,7 @@
                     : blockedByFashionBasic ? 'Tidak boleh digabungkan dengan Gaya Potongan'
                     : blockedByBasicHaircut ? 'Tidak boleh digabungkan dengan servis gunting asas'
                     : blockedByBald ? 'Tidak boleh digabungkan dengan Botak Kepala'
-                    : blockedByTarget ? 'Sasaran pelanggan berbeza'
+                    : blockedByTarget ? (serviceTarget === 'dewasa' ? 'Untuk dewasa sahaja' : 'Untuk kanak-kanak sahaja')
                     : '';
                 if (shouldDisable) cb.checked = false;
                 cb.disabled = shouldDisable;
