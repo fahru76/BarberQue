@@ -3128,7 +3128,7 @@
         import {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
             convertWalkinToAppointment, checkinAppointment, approveFastPass, revokeFastPass,
-            adminCancelRecord, listActiveAppointments, subscribeAppointmentChanges
+            adminCancelRecord, listActiveAppointments, listTodayBookedSlots, subscribeAppointmentChanges
         } from './js/repositories/appointmentRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
 
@@ -3140,7 +3140,7 @@
         window.AppointmentRepo = {
             bookAppointment, cancelOwnAppointment, rescheduleOwnAppointment,
             convertWalkinToAppointment, checkinAppointment, approveFastPass, revokeFastPass,
-            adminCancelRecord, listActiveAppointments, subscribeAppointmentChanges
+            adminCancelRecord, listActiveAppointments, listTodayBookedSlots, subscribeAppointmentChanges
         };
         window.AuthRepo = AuthRepo;
 
@@ -5844,6 +5844,154 @@
             const hours = Math.floor(totalMinutes / 60);
             const remainingMinutes = totalMinutes % 60;
             return remainingMinutes ? `${hours} jam ${remainingMinutes} minit` : `${hours} jam`;
+        }
+
+        // Booking delay estimate on "Tempahan Saya" (Fahru, 2026-10-13).
+        // A booking's time is a promise and is never moved; this only tells
+        // the customer how late today's booking is likely to START, by
+        // replaying today's queue the way call_next_customer() dispatches it:
+        // whichever open chair frees up first takes Laluan Pantas, then
+        // bookings (arrived, or due by then), then walk-ins in order. Walk-ins
+        // called before the booking time can still overrun it -- that is the
+        // delay. Anon phones only hold their own bookings locally, so the times +
+        // lengths of everyone's upcoming bookings today are read with the
+        // existing anon access (no names/phones) via listTodayBookedSlots().
+        let todayBookedSlots = null;
+        let todayBookedSlotsLoadedAt = 0;
+        const BOOKING_DELAY_WINDOW_MINUTES = 120;
+
+        function getMyUpcomingAppointmentsToday() {
+            const today = getCurrentBusinessDate();
+            const myIds = getMyAppIds();
+            return getAppointments().filter(a => myIds.includes(a.id) && a.status === 'upcoming' && a.date === today);
+        }
+
+        async function refreshTodayBookedSlots(force = false) {
+            if (staffSession || !window.AppointmentRepo?.listTodayBookedSlots) return;
+            if (!getMyUpcomingAppointmentsToday().length) return;
+            if (!force && Date.now() - todayBookedSlotsLoadedAt < 55000) return;
+            todayBookedSlotsLoadedAt = Date.now();
+            try {
+                todayBookedSlots = await window.AppointmentRepo.listTodayBookedSlots(getCurrentBusinessDate());
+                refreshAppointmentDelayLabels();
+            } catch (error) {
+                console.warn('Memuatkan slot tempahan hari ini gagal.', error);
+            }
+        }
+
+        function estimateAppointmentDelay(appointment) {
+            const today = getCurrentBusinessDate();
+            const ops = getOpHours(today);
+            const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
+            const apptStart = businessMinutes(timeToMinutes(appointment.time), ops);
+            if (!Number.isFinite(apptStart) || !Number.isFinite(nowMinutes)) return null;
+            const activeSeats = getActiveSeats();
+            const seats = Object.keys(activeSeats).filter(seat => activeSeats[seat] && !isSeatResting(seat)).map(Number);
+            if (!seats.length) return { noSeats: true };
+
+            const seatState = typeof seatServerState === 'object' && seatServerState ? seatServerState : {};
+            const profiles = typeof seatProfiles === 'object' && seatProfiles ? seatProfiles : {};
+            const freeAt = new Map(seats.map(seat => [seat, nowMinutes]));
+            seats.forEach(seat => {
+                const breakMillis = timestampToMillis(seatState[String(seat)]?.breakUntil ?? profiles[String(seat)]?.breakUntil);
+                const remaining = Number.isFinite(breakMillis) ? Math.ceil((breakMillis - Date.now()) / 60000) : 0;
+                if (remaining > 0) freeAt.set(seat, nowMinutes + remaining);
+            });
+            const queues = getQueues();
+            queues.filter(queue => queue.status === 'serving').forEach(queue => {
+                const seat = Number(queue.seat);
+                if (!freeAt.has(seat)) return;
+                const called = getMalaysiaDateTimeParts(queue.calledAt);
+                const start = called ? called.hour * 60 + called.minute : nowMinutes;
+                const end = Math.max(nowMinutes, getServiceEnd(start, Number(queue.duration) || AVG_WAIT_MINUTES, ops, { inProgress: true }));
+                freeAt.set(seat, Math.max(freeAt.get(seat), end));
+            });
+
+            const lengthOf = record => Number(record.duration) || AVG_WAIT_MINUTES;
+            const waiting = sortWaitingQueue(queues.filter(queue => queue.status === 'waiting'));
+            const ahead = waiting.filter(queue => getQueuePriority(queue) < 2).map(queue => ({ duration: lengthOf(queue) }));
+            const walkins = waiting.filter(queue => getQueuePriority(queue) === 2).map(queue => ({ duration: lengthOf(queue) }));
+
+            // Other bookings not yet arrived, assumed to turn up on time. Past-due
+            // no-shows are ignored (they join the queue only if they arrive).
+            let others;
+            if (staffSession) {
+                others = getAppointments().filter(a => a.date === today && a.status === 'upcoming' && a.id !== appointment.id);
+            } else {
+                others = Array.isArray(todayBookedSlots) ? [...todayBookedSlots] : [];
+                const own = others.findIndex(slot => slot.time === appointment.time && Number(slot.duration) === lengthOf(appointment));
+                if (own >= 0) others.splice(own, 1);
+            }
+            const bookings = others
+                .map(record => ({ at: businessMinutes(timeToMinutes(record.time), ops), duration: lengthOf(record), target: false }))
+                .filter(booking => Number.isFinite(booking.at) && booking.at >= nowMinutes);
+            bookings.push({ at: Math.max(apptStart, nowMinutes), duration: lengthOf(appointment), target: true });
+            // On a tie the other customer goes first (a cautious estimate).
+            bookings.sort((a, b) => a.at - b.at || (a.target ? 1 : 0) - (b.target ? 1 : 0));
+
+            for (let guard = 0; guard < 500; guard += 1) {
+                let seat = null;
+                let freeTime = Infinity;
+                for (const [candidate, time] of freeAt) if (time < freeTime) { freeTime = time; seat = candidate; }
+                let next = null;
+                if (ahead.length) next = ahead.shift();
+                else {
+                    const due = bookings.findIndex(booking => booking.at <= freeTime);
+                    if (due >= 0) next = bookings.splice(due, 1)[0];
+                    else if (walkins.length) next = walkins.shift();
+                    else {
+                        freeAt.set(seat, bookings[0].at);
+                        continue;
+                    }
+                }
+                const start = moveServicePastBreak(freeTime, next.duration, ops);
+                if (next.target) return { delay: Math.max(0, start - apptStart) };
+                freeAt.set(seat, start + next.duration);
+            }
+            return null;
+        }
+
+        function getAppointmentDelayStatus(appointment) {
+            const today = getCurrentBusinessDate();
+            if (!appointment || appointment.date !== today || appointment.status !== 'upcoming') return null;
+            if (localStorage.getItem('shopStatus') === 'closed') {
+                return { tone: 'text-danger', text: 'Kedai ditutup buat sementara. Tempahan anda masih aktif — sila hubungi kedai sebelum datang.' };
+            }
+            const ops = getOpHours(today);
+            if (ops.closed || getClosedDates().includes(today)) {
+                return { tone: 'text-danger', text: 'Kedai tidak beroperasi hari ini. Sila hubungi kedai atau tekan Tukar Masa.' };
+            }
+            const nowMinutes = businessMinutes(getMalaysiaCurrentMinutes(), ops);
+            const apptStart = businessMinutes(timeToMinutes(appointment.time), ops);
+            if (Number.isFinite(apptStart) && apptStart - nowMinutes > BOOKING_DELAY_WINDOW_MINUTES) {
+                return { tone: 'text-muted', text: 'Anggaran lewat dipaparkan 2 jam sebelum masa tempahan.' };
+            }
+            if (Number.isFinite(apptStart) && nowMinutes >= apptStart) {
+                return { tone: 'text-info', text: 'Masa tempahan sudah tiba. Tunjukkan Pas & QR di kaunter supaya anda dimasukkan ke giliran.' };
+            }
+            const estimate = estimateAppointmentDelay(appointment);
+            if (!estimate) return { tone: 'text-muted', text: 'Anggaran belum tersedia.' };
+            if (estimate.noSeats) return { tone: 'text-warning', text: 'Tiada kerusi dibuka buat masa ini (tukang gunting berehat atau belum bertugas). Anggaran akan dikemas kini.' };
+            if (estimate.delay < 5) return { tone: 'text-success', text: 'Dijangka dilayan tepat pada masa.' };
+            const rounded = Math.max(5, Math.round(estimate.delay / 5) * 5);
+            return { tone: 'text-warning', text: `Dijangka dilayan ~${formatWaitMinutes(rounded)} lewat.` };
+        }
+
+        function renderAppointmentDelayLabel(appointment) {
+            const status = getAppointmentDelayStatus(appointment);
+            if (!status) return '';
+            return `<br><span class="fs-85 ${status.tone}" data-appt-delay-id="${escapeHTML(appointment.id)}" aria-live="polite">${escapeHTML(status.text)}</span>`;
+        }
+
+        function refreshAppointmentDelayLabels() {
+            const appointments = Array.isArray(window.latestCustomerAppointments) ? window.latestCustomerAppointments : [];
+            document.querySelectorAll('[data-appt-delay-id]').forEach(element => {
+                const appointment = appointments.find(a => a.id === element.dataset.apptDelayId);
+                const status = appointment ? getAppointmentDelayStatus(appointment) : null;
+                if (!status) return;
+                element.className = `fs-85 ${status.tone}`;
+                element.textContent = status.text;
+            });
         }
         function getSeatCount() {
             const count = Number.parseInt(localStorage.getItem('seatCount'), 10);
@@ -9647,6 +9795,8 @@
             const isWalkin = document.getElementById('btnModeWalkin').classList.contains('active');
             const isShopOpen = localStorage.getItem('shopStatus') === 'open';
             renderCustomerTicket(queues, activeSeats, isWalkin, isShopOpen, waitByRecordId);
+            refreshAppointmentDelayLabels();
+            refreshTodayBookedSlots();
             document.querySelectorAll('[data-wait-record-id]').forEach(element => {
                 if (waitByRecordId.has(element.dataset.waitRecordId)) {
                     element.textContent = formatWaitMinutes(waitByRecordId.get(element.dataset.waitRecordId));
@@ -10004,7 +10154,7 @@
             document.getElementById('customer-my-appointments').style.display = myAppointments.length ? 'block' : 'none';
             document.getElementById('myBookingListContainer').innerHTML = myAppointments.map(a => `
                 <div class="booking-list-item">
-                    <div><strong>${escapeHTML(a.date)} ${escapeHTML(a.time)} GMT+8</strong><br>${escapeHTML(a.name)}<br><span class="text-muted">${escapeHTML(a.service)} (${escapeHTML(getDisplayTicketId(a))})</span></div>
+                    <div><strong>${escapeHTML(a.date)} ${escapeHTML(a.time)} GMT+8</strong><br>${escapeHTML(a.name)}<br><span class="text-muted">${escapeHTML(a.service)} (${escapeHTML(getDisplayTicketId(a))})</span>${renderAppointmentDelayLabel(a)}</div>
                     <div class="d-flex gap-8 flex-wrap">
                         <button class="btn btn-sm btn-action" onclick="openBookingPass(${toInlineJSString(a.id)})">Pas &amp; QR</button>
                         <button class="btn btn-sm btn-info" onclick="startRescheduleAppointment(${toInlineJSString(a.id)})">Tukar Masa</button>

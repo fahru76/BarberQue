@@ -229,6 +229,27 @@ export async function adminCancelRecord(source, id, reason) {
  * `whatsappAuto` is local-only UI state (never a DB column) and is simply
  * absent from a freshly-merged row, same as any other client-only field.
  */
+/**
+ * Start time ("HH:MM") and length of every still-upcoming booking on `date`
+ * (the business date). Uses the existing anon read access: the
+ * "appointments readable by anon" policy (status = 'upcoming') plus the anon
+ * column grant (id, appt_date, appt_time, duration_minutes, status) -- no
+ * name, phone or price (20260901000700, 20260916050200). Used by the
+ * customer's "Tempahan Saya" delay estimate.
+ */
+export async function listTodayBookedSlots(date) {
+    const { data, error } = await supabase
+        .from('appointments')
+        .select('appt_time, duration_minutes')
+        .eq('appt_date', date)
+        .eq('status', 'upcoming');
+    raiseOnError(error);
+    return (data ?? []).map(row => ({
+        time: typeof row.appt_time === 'string' ? row.appt_time.slice(0, 5) : row.appt_time,
+        duration: Number(row.duration_minutes) || 0
+    }));
+}
+
 export async function listActiveAppointments() {
     const { data, error } = await supabase.rpc('list_active_appointments');
     raiseOnError(error);
