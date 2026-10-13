@@ -264,7 +264,8 @@ export async function loadSalesReport(from, to, own = false) {
     const summary = await summaryPromise;
     raiseOnError(summary.error);
     return {
-        records: rows.map(row => ({ ...mapQueueRow(row), price: row.price_sen / 100, barberName: row.barber_name })),
+        records: rows.map(row => ({ ...mapQueueRow(row), price: row.price_sen / 100, barberName: row.barber_name,
+            quotedPrice: row.quoted_price_sen == null ? null : row.quoted_price_sen / 100 })),
         summary: (summary.data || []).map(row => ({ barberId: row.barber_id, barberName: row.display_name,
             customers: Number(row.customers), sales: Number(row.sales_sen) / 100,
             averageSale: Number(row.customers) ? Number(row.sales_sen) / 100 / Number(row.customers) : 0 }))
@@ -303,10 +304,35 @@ export async function callSpecific(seatNo, queueId) {
 }
 
 /** Mark a `serving` ticket `done`. Requires an authenticated, active-staff session. */
-export async function completeService(id) {
-    const { data, error } = await supabase.rpc('complete_service', { p_id: id });
+export async function completeService(id, finalPriceRm) {
+    // finalPriceRm: the amount actually paid, required by the server when the
+    // ticket has a "harga ikut keadaan" service (20261014090000); omit it for
+    // fixed-price tickets.
+    const params = { p_id: id };
+    if (finalPriceRm !== undefined && finalPriceRm !== null) params.p_final_price_sen = Math.round(Number(finalPriceRm) * 100);
+    const { data, error } = await supabase.rpc('complete_service', params);
     raiseOnError(error);
-    return mapQueueRow(data);
+    return { ...mapQueueRow(data), price: data.price_sen / 100 };
+}
+
+/** Admin: correct the amount paid on a finished ticket (reason required; logged). */
+export async function setTicketPrice(id, priceRm, reason) {
+    const { data, error } = await supabase.rpc('admin_set_ticket_price', {
+        p_id: id, p_price_sen: Math.round(Number(priceRm) * 100), p_reason: reason
+    });
+    raiseOnError(error);
+    return { ...mapQueueRow(data), price: data.price_sen / 100 };
+}
+
+/** Admin: every amount entered at Selesai or corrected later, newest first. */
+export async function listPriceChanges(from, to) {
+    const { data, error } = await supabase.rpc('list_price_changes', { p_from: from, p_to: to });
+    raiseOnError(error);
+    return (data ?? []).map(row => ({
+        queueId: row.queue_id, customerName: row.customer_name, service: row.service,
+        barberName: row.barber_name, oldPrice: row.old_price_sen / 100, newPrice: row.new_price_sen / 100,
+        kind: row.kind, reason: row.reason || '', changedBy: row.changed_by_name || '', changedAt: row.changed_at
+    }));
 }
 
 /**

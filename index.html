@@ -1847,6 +1847,7 @@
         .border-left-danger { border-left-color:var(--danger); }
         .border-left-primary { border-left-color:var(--primary-color); }
         .border-left-success { border-left-color:var(--success); }
+        .border-left-warning { border-left-color:var(--warning); }
         .border-left-fastpass { border-left-color:#ffc107; }
         .d-none { display:none; }
         /* .q-num already sets font-size via the descendant selector
@@ -2546,6 +2547,9 @@
                 <div id="barberPerformanceSummary" class="barber-performance-grid"></div>
                 <h4 class="mb-10 fs-90 text-muted">Senarai Pelanggan Selesai:</h4>
                 <div id="reportListContainer"></div>
+                <h4 class="mb-10 mt-20 fs-90 text-muted">Rekod Perubahan Harga:</h4>
+                <p class="text-muted fs-82 mb-10">Jumlah yang dimasukkan semasa Selesai (servis harga ikut keadaan) dan setiap pembetulan oleh admin.</p>
+                <div id="reportPriceChangesContainer"></div>
             </div>
 
                     </div>
@@ -2672,6 +2676,10 @@
                         </div>
                     </div>
                     <div class="input-group">
+                        <label class="d-flex gap-8 items-center"><input type="checkbox" id="editSvcVariable"> Harga ikut keadaan</label>
+                        <span class="text-muted fs-82">Harga di atas menjadi harga permulaan (pelanggan nampak "Dari RM…"). Jumlah sebenar dimasukkan semasa tekan Selesai.</span>
+                    </div>
+                    <div class="input-group">
                         <label for="editSvcNotes">Penceritaan Gaya (pilihan):</label>
                         <textarea id="editSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea>
                     </div>
@@ -2755,6 +2763,10 @@
                     <div class="input-row">
                         <div><label for="newSvcPrice">Harga (RM):</label><input type="number" id="newSvcPrice" placeholder="Harga (RM)"></div>
                         <div><label for="newSvcDuration">Masa (Minit):</label><input type="number" id="newSvcDuration" placeholder="Masa (Minit)"></div>
+                    </div>
+                    <div class="input-group">
+                        <label class="d-flex gap-8 items-center"><input type="checkbox" id="newSvcVariable"> Harga ikut keadaan</label>
+                        <span class="text-muted fs-82">Harga di atas menjadi harga permulaan (pelanggan nampak "Dari RM…"). Jumlah sebenar dimasukkan semasa tekan Selesai.</span>
                     </div>
                     <div class="input-group"><label for="newSvcNotes">Penceritaan Gaya (pilihan):</label><textarea id="newSvcNotes" rows="2" maxlength="200" placeholder="Cth: Bahagian sisi pendek kemas, atas kekal panjang untuk gaya profesional."></textarea></div>
                     <p class="text-muted fs-85">Gambar gaya (depan/belakang) boleh ditambah selepas servis ini disimpan -- buka semula dalam senarai di bawah untuk muat naik.</p>
@@ -3034,6 +3046,26 @@
         </div>
     </dialog>
 
+    <dialog id="amountDialog" class="app-dialog" aria-labelledby="amountDialogTitle">
+        <div class="app-dialog-content">
+            <h3 id="amountDialogTitle">Jumlah Dibayar</h3>
+            <p id="amountDialogMessage" class="text-muted"></p>
+            <div class="input-group">
+                <label for="amountDialogInput">Jumlah dibayar (RM):</label>
+                <input type="number" id="amountDialogInput" inputmode="decimal" min="0" max="999" step="0.01" autocomplete="off">
+            </div>
+            <div class="input-group" id="amountDialogReasonGroup" hidden>
+                <label for="amountDialogReason">Sebab pembetulan:</label>
+                <input type="text" id="amountDialogReason" maxlength="200" autocomplete="off" placeholder="Contoh: Tambah rawatan rambut">
+            </div>
+            <p id="amountDialogError" class="field-error" role="alert"></p>
+            <div class="d-flex gap-10 mt-15">
+                <button type="button" class="btn btn-reset flex-1" id="amountDialogCancelBtn">Batal</button>
+                <button type="button" class="btn btn-action flex-1" id="amountDialogOkBtn">Sahkan</button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="operationalResetDialog" class="app-dialog" aria-labelledby="operationalResetDialogTitle">
         <div class="app-dialog-content">
             <h3 id="operationalResetDialogTitle">Reset Operasi</h3>
@@ -3121,7 +3153,7 @@
     <script src="js/i18n.js"></script>
     <!-- xlsx.full.min.js is loaded on demand by loadXlsxLibrary() so customers never download it. -->
     <script type="module">
-        import { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges, loadSalesReport } from './js/repositories/queueRepository.js';
+        import { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges, loadSalesReport, setTicketPrice, listPriceChanges } from './js/repositories/queueRepository.js';
         import { listSeats, listSeatProfiles, setSeatAssignment, setSeatRest, startDuty, endDuty, subscribeSeatChanges } from './js/repositories/seatRepository.js';
         import { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto } from './js/repositories/serviceRepository.js';
         import { getShopSettings, createShopSettings, updateShopSettings, resetOperationalState } from './js/repositories/shopSettingsRepository.js';
@@ -3132,7 +3164,7 @@
         } from './js/repositories/appointmentRepository.js';
         import * as AuthRepo from './js/repositories/authRepository.js';
 
-        window.QueueRepo = { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges, loadSalesReport };
+        window.QueueRepo = { takeTicket, cancelOwn, callNext, callSpecific, completeService, listQueues, listTodayQueuesFull, subscribeQueueChanges, loadSalesReport, setTicketPrice, listPriceChanges };
         window.SeatRepo = { listSeats, listSeatProfiles, setSeatAssignment, setSeatRest, startDuty, endDuty, subscribeSeatChanges };
         window.ServiceRepo = { listServices, createService, updateService, deleteService, reorderServices, uploadServicePhoto, deleteServicePhoto };
         setTimeout(() => window.updateUI?.(), 0);
@@ -3468,6 +3500,90 @@
                 cancelBtn.addEventListener('click', onCancel);
                 dialog.addEventListener('cancel', onCancel);
                 openAppDialog(dialog);
+            });
+        }
+
+        // Amount-paid dialog (variable-price services, 20261014090000). Resolves
+        // { rm, reason } or null when cancelled. Validates RM0-RM999 with at
+        // most 2 decimals, and a 3-200 character reason when requireReason.
+        function askAmountDialog({ title = 'Jumlah Dibayar', message = '', defaultRm = null, requireReason = false, okLabel = 'Sahkan' } = {}) {
+            return new Promise(resolve => {
+                const dialog = document.getElementById('amountDialog');
+                const input = document.getElementById('amountDialogInput');
+                const reasonGroup = document.getElementById('amountDialogReasonGroup');
+                const reasonInput = document.getElementById('amountDialogReason');
+                const errorEl = document.getElementById('amountDialogError');
+                const okBtn = document.getElementById('amountDialogOkBtn');
+                const cancelBtn = document.getElementById('amountDialogCancelBtn');
+                document.getElementById('amountDialogTitle').textContent = title;
+                document.getElementById('amountDialogMessage').textContent = message;
+                input.value = Number.isFinite(Number(defaultRm)) && defaultRm !== null ? Number(defaultRm).toFixed(2) : '';
+                reasonGroup.hidden = !requireReason;
+                reasonGroup.style.display = requireReason ? '' : 'none';
+                reasonInput.value = '';
+                errorEl.textContent = '';
+                okBtn.textContent = okLabel;
+                input.oninput = () => { errorEl.textContent = ''; };
+                reasonInput.oninput = () => { errorEl.textContent = ''; };
+                const finish = (result) => {
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    dialog.removeEventListener('cancel', onCancel);
+                    closeAppDialog(dialog);
+                    resolve(result);
+                };
+                const onOk = () => {
+                    const raw = String(input.value).trim();
+                    const rm = Number(raw);
+                    if (!raw || !Number.isFinite(rm) || rm < 0 || rm > 999 || Math.round(rm * 100) !== Number((rm * 100).toFixed(2))) {
+                        errorEl.textContent = 'Masukkan jumlah antara RM0 dan RM999 (contoh: 45 atau 45.50).';
+                        input.focus();
+                        return;
+                    }
+                    const reason = reasonInput.value.trim();
+                    if (requireReason && (reason.length < 3 || reason.length > 200)) {
+                        errorEl.textContent = 'Sila tulis sebab pembetulan (sekurang-kurangnya 3 aksara).';
+                        reasonInput.focus();
+                        return;
+                    }
+                    finish({ rm: Math.round(rm * 100) / 100, reason });
+                };
+                const onCancel = (e) => { if (e) e.preventDefault(); finish(null); };
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+                dialog.addEventListener('cancel', onCancel);
+                openAppDialog(dialog);
+                setTimeout(() => { input.focus(); input.select?.(); }, 0);
+            });
+        }
+
+        function formatServicePrice(service) {
+            const price = Number(service?.price);
+            const amount = Number.isFinite(price) ? (Number.isInteger(price) ? String(price) : price.toFixed(2)) : '0';
+            return service?.priceIsVariable ? `Dari RM ${amount}` : `RM ${amount}`;
+        }
+
+        function ticketHasVariablePrice(ticket) {
+            const ids = Array.isArray(ticket?.serviceIds) ? ticket.serviceIds : [];
+            if (!ids.length) return false;
+            const services = getServices();
+            return ids.some(id => services.find(service => service.id === id)?.priceIsVariable);
+        }
+
+        function getTicketStartingPrice(ticket) {
+            const price = Number(ticket?.price);
+            if (Number.isFinite(price)) return price;
+            const services = getServices();
+            const ids = Array.isArray(ticket?.serviceIds) ? ticket.serviceIds : [];
+            return ids.reduce((sum, id) => sum + (Number(services.find(service => service.id === id)?.price) || 0), 0);
+        }
+
+        async function askFinalPriceForTicket(ticket) {
+            return askAmountDialog({
+                title: 'Jumlah Dibayar',
+                message: `${ticket.name || 'Pelanggan'} — ${ticket.service || ''}. Harga permulaan RM ${getTicketStartingPrice(ticket).toFixed(2)}. Masukkan jumlah sebenar yang dibayar.`,
+                defaultRm: getTicketStartingPrice(ticket),
+                okLabel: 'Simpan & Selesai'
             });
         }
 
@@ -7516,6 +7632,7 @@
             let category = document.getElementById('newSvcCategory').value;
             let type = document.getElementById('newSvcType').value;
             let styleNotes = document.getElementById('newSvcNotes').value.trim();
+            const priceIsVariable = document.getElementById('newSvcVariable').checked;
             if(!profile) { (await showAlertDialog("Pilih Profil Logik untuk servis ini.")); return; }
             if(!name || !Number.isFinite(price) || price <= 0 || !Number.isInteger(duration) || duration <= 0) { (await showAlertDialog("Masukkan nama, harga positif dan masa servis yang sah.")); return; }
             let svcs = getServices();
@@ -7523,14 +7640,14 @@
             if (!window.ServiceRepo?.createService) { (await showAlertDialog("Ciri tambah servis belum sedia. Sila muat semula halaman.")); return; }
             const id = createServiceId();
             try {
-                await window.ServiceRepo.createService({ id, name, priceRm: price, durationMinutes: duration, category, target, type, styleNotes });
+                await window.ServiceRepo.createService({ id, name, priceRm: price, durationMinutes: duration, category, target, type, styleNotes, priceIsVariable });
             } catch (error) {
                 (await showAlertDialog(error.message || "Tambah servis gagal. Sila cuba lagi.")); return;
             }
-            svcs.push({ id, name, price, duration, active: true, profile, target, category, type, styleNotes });
+            svcs.push({ id, name, price, duration, active: true, profile, target, category, type, styleNotes, priceIsVariable });
             saveServices(svcs);
             syncServiceOrderToServer(svcs);
-            document.getElementById('newSvcName').value = ""; document.getElementById('newSvcPrice').value = ""; document.getElementById('newSvcDuration').value = ""; document.getElementById('newSvcNotes').value = "";
+            document.getElementById('newSvcName').value = ""; document.getElementById('newSvcPrice').value = ""; document.getElementById('newSvcDuration').value = ""; document.getElementById('newSvcNotes').value = ""; document.getElementById('newSvcVariable').checked = false;
             (await showAlertDialog("Servis baharu ditambah.")); refreshServiceConfigurationUI();
         }
 
@@ -7543,6 +7660,7 @@
                 document.getElementById('editSvcPrice').value = svc.price;
                 document.getElementById('editSvcDuration').value = svc.duration || 40;
                 document.getElementById('editSvcNotes').value = svc.styleNotes || '';
+                document.getElementById('editSvcVariable').checked = !!svc.priceIsVariable;
                 updateServicePhotoPreview('front', svc.imageUrlFront || '');
                 updateServicePhotoPreview('back', svc.imageUrlBack || '');
                 document.getElementById('editSvcTarget').value = svc.target || 'semua';
@@ -7675,6 +7793,7 @@
             let nCategory = document.getElementById('editSvcCategory').value;
             let nType = document.getElementById('editSvcType').value;
             let nNotes = document.getElementById('editSvcNotes').value.trim();
+            const nVariable = document.getElementById('editSvcVariable').checked;
             if(!nProfile) { (await showAlertDialog("Pilih Profil Logik untuk servis ini.")); return; }
             if(!nName || !Number.isFinite(nPrice) || nPrice <= 0 || !Number.isInteger(nDur) || nDur <= 0) { (await showAlertDialog("Lengkapkan maklumat dengan nilai positif.")); return; }
             let svcs = getServices();
@@ -7685,12 +7804,12 @@
             }
             if (!window.ServiceRepo?.updateService) { (await showAlertDialog("Ciri kemas kini servis belum sedia. Sila muat semula halaman.")); return; }
             try {
-                await window.ServiceRepo.updateService(serviceId, { name: nName, priceRm: nPrice, durationMinutes: nDur, category: nCategory, target: nTarget, type: nType, styleNotes: nNotes });
+                await window.ServiceRepo.updateService(serviceId, { name: nName, priceRm: nPrice, durationMinutes: nDur, category: nCategory, target: nTarget, type: nType, styleNotes: nNotes, priceIsVariable: nVariable });
             } catch (error) {
                 (await showAlertDialog(error.message || "Kemas kini servis gagal. Sila cuba lagi.")); return;
             }
             if(svcs[index]) {
-                svcs[index].name = nName; svcs[index].price = nPrice; svcs[index].duration = nDur; svcs[index].profile = nProfile; svcs[index].target = nTarget; svcs[index].category = nCategory; svcs[index].type = nType; svcs[index].styleNotes = nNotes;
+                svcs[index].name = nName; svcs[index].price = nPrice; svcs[index].duration = nDur; svcs[index].profile = nProfile; svcs[index].target = nTarget; svcs[index].category = nCategory; svcs[index].type = nType; svcs[index].styleNotes = nNotes; svcs[index].priceIsVariable = nVariable;
                 saveServices(svcs);
                 document.getElementById('adminEditServiceForm').style.display = 'none'; (await showAlertDialog("Servis dikemas kini.")); refreshServiceConfigurationUI();
             }
@@ -7913,8 +8032,8 @@
             // enforceServiceRules().
             const serviceHTML = services.length ? services.map(service => {
                     const detail = showDuration
-                        ? `RM ${escapeHTML(service.price)} &bull; ${escapeHTML(service.duration)} min`
-                        : `RM ${escapeHTML(service.price)}`;
+                        ? `${escapeHTML(formatServicePrice(service))} &bull; ${escapeHTML(service.duration)} min`
+                        : `${escapeHTML(formatServicePrice(service))}`;
                     const totalFunction = context === 'walkin' ? 'calcWalkinTotal()' : 'calcBookingTotal()';
                     const noteHTML = service.styleNotes ? `<span class="service-style-note">${escapeHTML(service.styleNotes)}</span>` : '';
                     // Item 3 (style photo preview): thumbnail is the front
@@ -7927,7 +8046,7 @@
                     const thumbHTML = service.imageUrlFront
                         ? `<img class="service-thumb" src="${escapeHTML(service.imageUrlFront)}" alt="" loading="lazy" onclick="event.preventDefault(); event.stopPropagation(); openStylePhotoPreview('${escapeHTML(service.id)}');">`
                         : '';
-                    return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}">${thumbHTML}<div class="service-info"><div class="service-name-line"><strong>${escapeHTML(service.name)}</strong>${noteHTML}</div><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
+                    return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-variable="${service.priceIsVariable ? '1' : '0'}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}">${thumbHTML}<div class="service-info"><div class="service-name-line"><strong>${escapeHTML(service.name)}</strong>${noteHTML}</div><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
                 }).join('') : (isLoadingServices
                     ? '<div class="catalog-loading-state">Memuatkan senarai servis…</div>'
                     : '<div class="service-empty-state">Tiada servis yang aktif.</div>');
@@ -8270,14 +8389,25 @@
             selectCalDate(tomorrow);
         }
 
+        // "Dari RM…" when any chosen service is "harga ikut keadaan": the
+        // final amount is only known when the barber finishes the ticket.
+        function formatSelectedServicesTotal(inputName) {
+            let tPrice = 0, variable = false;
+            document.querySelectorAll(`input[name="${inputName}"]:checked`).forEach(cb => {
+                tPrice += parseFloat(cb.dataset.price);
+                if (cb.dataset.variable === '1') variable = true;
+            });
+            if (!(tPrice > 0)) return '';
+            return variable
+                ? `<strong>Jumlah: dari RM ${tPrice.toFixed(2)}</strong><br><span class="text-muted fs-82">Harga akhir bergantung pada servis sebenar dan disahkan oleh tukang gunting.</span>`
+                : `<strong>Jumlah: RM ${tPrice.toFixed(2)}</strong>`;
+        }
         function calcWalkinTotal() {
-            let tPrice = 0; document.querySelectorAll('input[name="walkinServices"]:checked').forEach(cb => tPrice += parseFloat(cb.dataset.price));
-            document.getElementById('walkinServiceSummary').innerHTML = tPrice > 0 ? `<strong>Jumlah: RM ${tPrice.toFixed(2)}</strong>` : '';
+            document.getElementById('walkinServiceSummary').innerHTML = formatSelectedServicesTotal('walkinServices');
             renderWalkinQueuePreview();
         }
         function calcBookingTotal() {
-            let tPrice = 0; document.querySelectorAll('input[name="bookingServices"]:checked').forEach(cb => tPrice += parseFloat(cb.dataset.price));
-            document.getElementById('bookServiceSummary').innerHTML = tPrice > 0 ? `<strong>Jumlah: RM ${tPrice.toFixed(2)}</strong>` : '';
+            document.getElementById('bookServiceSummary').innerHTML = formatSelectedServicesTotal('bookingServices');
             generateTimeSlots();
         }
 
@@ -9346,15 +9476,37 @@
         async function markSeatDone(seatNum) {
             const idx = getQueues().findIndex(q => q.status === 'serving' && q.seat === seatNum);
             if (idx === -1) return;
-            const ticketId = getQueues()[idx].id;
+            const ticket = getQueues()[idx];
+            const ticketId = ticket.id;
             if (!window.QueueRepo?.completeService) return (await showAlertDialog("Ciri selesai servis belum sedia. Sila muat semula halaman."));
+
+            // "Harga ikut keadaan": the amount actually paid is required.
+            let finalPriceRm;
+            if (ticketHasVariablePrice(ticket)) {
+                const answer = await askFinalPriceForTicket(ticket);
+                if (!answer) return;
+                finalPriceRm = answer.rm;
+            }
 
             let completed;
             try {
-                completed = await window.QueueRepo.completeService(ticketId);
+                completed = await window.QueueRepo.completeService(ticketId, finalPriceRm);
             } catch (error) {
-                (await showAlertDialog(error.message || "Rekod servis gagal disimpan. Sila cuba lagi."));
-                return;
+                // This device's service list may be older than the server's:
+                // if the server asks for the amount, ask and try once more.
+                if (finalPriceRm === undefined && /jumlah yang dibayar/i.test(error.message || '')) {
+                    const answer = await askFinalPriceForTicket(ticket);
+                    if (!answer) return;
+                    try {
+                        completed = await window.QueueRepo.completeService(ticketId, answer.rm);
+                    } catch (retryError) {
+                        (await showAlertDialog(retryError.message || "Rekod servis gagal disimpan. Sila cuba lagi."));
+                        return;
+                    }
+                } else {
+                    (await showAlertDialog(error.message || "Rekod servis gagal disimpan. Sila cuba lagi."));
+                    return;
+                }
             }
 
             let queues = getQueues();
@@ -9364,6 +9516,7 @@
                 queues[updatedIdx].status = 'done';
                 if (!queues[updatedIdx].barberName) queues[updatedIdx].barberName = assignments[seatNum] || 'Tidak direkodkan';
                 queues[updatedIdx].completedAt = completed.completedAt || getUTCISOString();
+                if (Number.isFinite(Number(completed.price))) queues[updatedIdx].price = Number(completed.price);
                 queues[updatedIdx].version = nextRecordVersion(queues[updatedIdx]);
             }
             const entries = { queues };
@@ -9611,6 +9764,60 @@
                 });
             }
             return entry;
+        }
+
+        // Price-change log (20261014090000), admin only, cached per period like
+        // getServerReport().
+        const priceChangeLogs = new Map();
+        function renderPriceChanges(type) {
+            const container = document.getElementById('reportPriceChangesContainer');
+            if (!container) return;
+            if (!staffProfile?.active || staffProfile.role !== 'admin' || !window.QueueRepo?.listPriceChanges) { container.innerHTML = ''; return; }
+            const range = reportRange(type);
+            const key = range.join(':');
+            let entry = priceChangeLogs.get(key);
+            if (!entry) { entry = { rows: [], time: 0, pending: false, loaded: false, error: false }; priceChangeLogs.set(key, entry); }
+            if (!entry.pending && Date.now() - entry.time > 15000) {
+                entry.pending = true;
+                window.QueueRepo.listPriceChanges(...range).then(rows => {
+                    Object.assign(entry, { rows, time: Date.now(), pending: false, loaded: true, error: false });
+                    renderPriceChanges(type);
+                }).catch(error => {
+                    Object.assign(entry, { time: Date.now(), pending: false, error: true });
+                    console.warn('Rekod perubahan harga gagal dimuatkan.', error);
+                    renderPriceChanges(type);
+                });
+            }
+            if (entry.error && !entry.loaded) { container.innerHTML = '<div class="text-muted">Rekod perubahan harga tidak dapat dimuatkan.</div>'; return; }
+            if (!entry.loaded) { container.innerHTML = '<div class="text-muted">Memuatkan…</div>'; return; }
+            container.innerHTML = entry.rows.map(row => {
+                const label = row.kind === 'correction' ? 'Dibetulkan oleh admin' : 'Dimasukkan semasa Selesai';
+                const reason = row.reason ? ` &bull; Sebab: ${escapeHTML(row.reason)}` : '';
+                return `<div class="admin-list-item border-left-warning"><strong>${escapeHTML(row.customerName || '')} (${escapeHTML(row.queueId)})</strong><span class="text-muted">${escapeHTML(row.service || '')} &bull; ${label}: RM${row.oldPrice.toFixed(2)} → <strong>RM${row.newPrice.toFixed(2)}</strong> &bull; Oleh ${escapeHTML(row.changedBy || '-')} &bull; ${escapeHTML(formatMalaysiaDateTime(row.changedAt))}${reason}</span></div>`;
+            }).join('') || '<div class="text-muted">Tiada perubahan harga untuk tempoh ini.</div>';
+        }
+
+        async function correctTicketPrice(ticketId) {
+            const record = (lastReportRecords || []).find(q => q.id === ticketId);
+            if (!record) return (await showAlertDialog('Rekod ini tidak lagi dipaparkan. Muat semula laporan.'));
+            if (!window.QueueRepo?.setTicketPrice) return (await showAlertDialog('Ciri ini belum sedia. Sila muat semula halaman.'));
+            const answer = await askAmountDialog({
+                title: 'Betulkan Harga',
+                message: `${record.name} (${record.id}) — ${record.service}. Jumlah sekarang RM${Number(record.price || 0).toFixed(2)}.`,
+                defaultRm: record.price,
+                requireReason: true,
+                okLabel: 'Simpan'
+            });
+            if (!answer) return;
+            try {
+                await window.QueueRepo.setTicketPrice(record.id, answer.rm, answer.reason);
+            } catch (error) {
+                return (await showAlertDialog(error.message || 'Pembetulan harga gagal disimpan. Sila cuba lagi.'));
+            }
+            serverReports.clear();
+            priceChangeLogs.clear();
+            updateUI();
+            await showAlertDialog(`Harga dikemas kini kepada RM${answer.rm.toFixed(2)}. Laporan akan dikira semula.`);
         }
 
         // REPORTS
@@ -10226,7 +10433,7 @@
                                     <span class="badge ${s.active ? 'badge-success' : 'badge-danger'}">${s.active ? 'AKTIF' : 'DITUTUP'}</span>
                                 </div>
                                 <div class="fs-90 text-muted mt-5">
-                                    RM ${escapeHTML(s.price)} &bull; ${escapeHTML(s.duration)} minit
+                                    ${escapeHTML(formatServicePrice(s))} &bull; ${escapeHTML(s.duration)} minit
                                 </div>
                             </div>
                             <div class="d-flex gap-8 flex-wrap justify-end">
@@ -10297,7 +10504,8 @@
                     <span>Prestasi setiap tukang gunting akan muncul di sini sebaik sahaja ada tiket yang selesai.</span>
                 </div>`;
 
-            document.getElementById('reportListContainer').innerHTML = targQ.map(q => `<div class="admin-list-item border-left-success"><strong>${escapeHTML(q.name)} (${escapeHTML(q.id)})</strong><span class="text-muted">${escapeHTML(q.service)} &bull; Tukang Gunting: ${escapeHTML(q.barberName || 'Tidak direkodkan')} &bull; Kerusi ${escapeHTML(q.seat || '-')} &bull; ${escapeHTML(formatMalaysiaDateTime(q.completedAt))} - <strong class="text-success">RM${Number(q.price||0).toFixed(2)}</strong></span></div>`).join('') || '<div class="text-muted">Tiada rekod jualan.</div>';
+            document.getElementById('reportListContainer').innerHTML = targQ.map(q => `<div class="admin-list-item border-left-success"><strong>${escapeHTML(q.name)} (${escapeHTML(q.id)})</strong><span class="text-muted">${escapeHTML(q.service)} &bull; Tukang Gunting: ${escapeHTML(q.barberName || 'Tidak direkodkan')} &bull; Kerusi ${escapeHTML(q.seat || '-')} &bull; ${escapeHTML(formatMalaysiaDateTime(q.completedAt))} - <strong class="text-success">RM${Number(q.price||0).toFixed(2)}</strong>${q.quotedPrice !== null && q.quotedPrice !== undefined && Number(q.quotedPrice) !== Number(q.price) ? ` <span class="text-muted fs-82">(harga asal RM${Number(q.quotedPrice).toFixed(2)})</span>` : ''}</span><button type="button" class="btn btn-sm btn-outline mt-5" onclick="correctTicketPrice(${toInlineJSString(q.id)})">Betulkan Harga</button></div>`).join('') || '<div class="text-muted">Tiada rekod jualan.</div>';
+            renderPriceChanges(currentReportType);
 
             // A signed-in barber's own "Ringkasan Prestasi Saya" panel (barber-app).
             // Filtered by barberId (the FK to their own staff.id), not by name --

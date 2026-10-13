@@ -19,7 +19,7 @@
  */
 import { supabase } from '../supabaseClient.js';
 
-const SERVICE_COLUMNS = 'id, name, price_sen, duration_minutes, active, category, target, type, sort_order, style_notes, image_url_front, image_url_back';
+const SERVICE_COLUMNS = 'id, name, price_sen, duration_minutes, active, category, target, type, sort_order, style_notes, image_url_front, image_url_back, price_is_variable';
 
 // Item 3 (QUEUECUT_HANDOVER.md) -- public-read/admin-write bucket created by
 // 20260906130100_service_photos.sql. Kept as a constant here rather than
@@ -52,7 +52,10 @@ function mapServiceRow(row) {
         // must degrade gracefully on '' (no broken image icon) per the
         // handover doc's fallback requirement.
         imageUrlFront: row.image_url_front || '',
-        imageUrlBack: row.image_url_back || ''
+        imageUrlBack: row.image_url_back || '',
+        // "Harga ikut keadaan" (20261014090000): `price` is then a starting
+        // price and the amount paid is entered when the ticket is finished.
+        priceIsVariable: !!row.price_is_variable
     };
 }
 
@@ -77,7 +80,7 @@ export async function listServices() {
  * (createServiceId(), `SVC-<uuid>`) rather than letting the server generate
  * one — nothing else needs a second identity for the same record.
  */
-export async function createService({ id, name, priceRm, durationMinutes, category, target, type, styleNotes, imageUrlFront, imageUrlBack }) {
+export async function createService({ id, name, priceRm, durationMinutes, category, target, type, styleNotes, imageUrlFront, imageUrlBack, priceIsVariable = false }) {
     const { data, error } = await supabase
         .from('services')
         .insert({
@@ -87,7 +90,8 @@ export async function createService({ id, name, priceRm, durationMinutes, catego
             category, target, type,
             style_notes: styleNotes || null,
             image_url_front: imageUrlFront || null,
-            image_url_back: imageUrlBack || null
+            image_url_back: imageUrlBack || null,
+            price_is_variable: !!priceIsVariable
         })
         .select(SERVICE_COLUMNS)
         .single();
@@ -108,6 +112,7 @@ export async function updateService(id, patch = {}) {
     if (patch.styleNotes !== undefined) dbPatch.style_notes = patch.styleNotes || null;
     if (patch.imageUrlFront !== undefined) dbPatch.image_url_front = patch.imageUrlFront || null;
     if (patch.imageUrlBack !== undefined) dbPatch.image_url_back = patch.imageUrlBack || null;
+    if (patch.priceIsVariable !== undefined) dbPatch.price_is_variable = !!patch.priceIsVariable;
 
     const { data, error } = await supabase
         .from('services')
