@@ -4166,3 +4166,9 @@ Validation: npm test passed; integration route/preference test passed; standalon
 ## Done — CI remote migration-plan target (2026-11-18)
 
 After the Actions access token was replaced, the Supabase job successfully linked the project but `db push --dry-run` targeted the CLI's default local stack at 127.0.0.1:54322. The CLI diagnostic explicitly requires `--remote` for the linked project. Added that flag while retaining `--dry-run`; no migrations are applied by this job.
+
+## Done — contextual Style Studio links (2026-11-19)
+
+Removed the large studio card above the Walk-in/Booking tabs. Both forms now show a secondary Lihat gaya rambut / View haircut styles link beside service selection, with a visible and accessible new-tab notice. A further link is available inside existing waiting-ticket actions, so it only appears while waiting. Every entry preserves the original form/tab and carries language, theme and palette preferences.
+
+Validation: npm test passed. Browser checks verified Malay and English links in Walk-in and Booking, new tabs opening the studio, and both test name fields remaining intact in the original page. No ticket or booking was submitted. Mobile layout was inspected; the waiting-ticket link follows the existing waiting-actions visibility condition without changing queue behavior. Screenshot: docs/style-studio-placement-mobile.jpg.

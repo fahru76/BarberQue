@@ -23,9 +23,9 @@
 
     // Exact Malay -> English. Keys are trimmed, single-spaced text.
     const EN = {
-        'Studio Gaya Rambut': 'Haircut Style Studio',
-        'Bandingkan foto anda dengan rujukan gaya sebelum memilih potongan. Foto belakang adalah pilihan.': 'Compare your photos with haircut references before choosing a cut. The back photo is optional.',
-        'Buka Studio Gaya': 'Open Style Studio',
+        'Lihat gaya rambut': 'View haircut styles',
+        'Sambil menunggu, lihat gaya rambut': 'While you wait, view haircut styles',
+        'Tab baharu': 'New tab',
         'Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai: jelas, pantas dan tanpa menunggu tanpa kepastian.':
             'Your time matters. Join the live queue or pick the slot that suits you: clear, quick and no guessing how long you will wait.',
         'Pengumuman Kedai': 'Shop Announcement',

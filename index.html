@@ -1977,6 +1977,14 @@
         #customer-app .lang-toggle button { min-width: 48px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.78rem; font-weight: 700; letter-spacing: .06em; cursor: pointer; }
         #customer-app .lang-toggle button[aria-pressed="true"] { background: var(--primary-color); color: var(--on-primary); }
         #customer-app .lang-toggle button:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+        .service-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 10px; }
+        .service-heading > label { margin-bottom: 0; }
+        .studio-link-group { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .studio-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 0; color: var(--primary-color); font-size: .85rem; font-weight: 600; line-height: 1.45; text-decoration: underline; text-underline-offset: 3px; }
+        .studio-link:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 4px; border-radius: 4px; }
+        .studio-link-note { color: var(--text-muted); font-size: .75rem; }
+        .studio-waiting-link { flex-basis: 100%; margin: 0; }
+        @media (max-width: 600px) { .service-heading { flex-direction: column; align-items: flex-start; } }
         /* Full-width primary action, kept in the flow so it never covers form fields. */
         #customer-app #btnBookTicket { width: 100%; }
         /* A disabled action must not take the hover fill (grey text on gold failed contrast). */
@@ -2065,12 +2073,6 @@
                 <p class="text-muted" id="customerTagline">Masa anda berharga. Sertai giliran semasa atau pilih slot yang paling sesuai: jelas, pantas dan tanpa menunggu tanpa kepastian.</p>
             </div>
 
-            <section class="style-studio-entry" aria-labelledby="styleStudioTitle" style="margin: 20px 0; padding: 18px; border: 1px solid var(--border-color, var(--primary-color)); border-radius: 14px; background: var(--surface-elevated, var(--card-bg));">
-                <h2 id="styleStudioTitle" style="font-size: 1.15rem; margin: 0 0 8px;">Studio Gaya Rambut</h2>
-                <p class="text-muted" style="margin: 0 0 12px;">Bandingkan foto anda dengan rujukan gaya sebelum memilih potongan. Foto belakang adalah pilihan.</p>
-                <a id="styleStudioLink" class="btn" href="./style-studio/" style="display: inline-flex; align-items: center; min-height: 44px; text-decoration: none;">Buka Studio Gaya</a>
-            </section>
-
             <section id="customerAnnouncement" class="customer-announcement" aria-labelledby="customerAnnouncementTitle" aria-live="polite">
                 <h2 id="customerAnnouncementTitle">Pengumuman Kedai</h2>
                 <div id="customerAnnouncementText" class="announcement-content"></div>
@@ -2148,7 +2150,13 @@
                     <div class="text-muted fs-85 mb-15">Nombor WhatsApp adalah pilihan dan tidak dikongsi dengan pihak ketiga. Anggaran masa boleh berubah mengikut operasi semasa.</div>
                     
                     <div class="input-group">
-                        <label id="walkinServicesLabel">Pilih Servis:</label>
+                        <div class="service-heading">
+                            <label id="walkinServicesLabel">Pilih Servis:</label>
+                            <div class="studio-link-group">
+                                <a class="studio-link" data-style-studio href="./style-studio/" target="_blank" rel="noopener noreferrer" aria-describedby="walkinStudioHint"><span>Lihat gaya rambut</span><span aria-hidden="true">↗</span></a>
+                                <span class="studio-link-note" id="walkinStudioHint">Tab baharu</span>
+                            </div>
+                        </div>
                         <div id="walkinServiceSelect" class="service-checkbox-container" role="group" aria-labelledby="walkinServicesLabel"></div>
                         <div id="walkinServiceSummary"></div>
                     </div>
@@ -2181,6 +2189,10 @@
                     <div id="walkinWaitingActions">
                         <button class="btn btn-reset flex-1" onclick="cancelCustomerWalkin()">BATAL WALK-IN</button>
                         <button class="btn btn-info flex-1" onclick="startWalkinConversion()">TUKAR KE TEMPAHAN ONLINE</button>
+                        <p class="studio-waiting-link studio-link-group">
+                            <a class="studio-link" data-style-studio href="./style-studio/" target="_blank" rel="noopener noreferrer" aria-describedby="waitingStudioHint"><span>Sambil menunggu, lihat gaya rambut</span><span aria-hidden="true">↗</span></a>
+                            <span class="studio-link-note" id="waitingStudioHint">Tab baharu</span>
+                        </p>
                     </div>
                     <button class="btn" id="btnBackToMenu" onclick="showTicketSelection()">← Kembali ke Menu Utama</button>
                 </div>
@@ -2208,7 +2220,13 @@
                     </div>
                     <div class="text-muted fs-85 mb-15">Nombor WhatsApp adalah pilihan dan tidak dikongsi dengan pihak ketiga. Masa tempahan boleh berubah mengikut operasi semasa.</div>
                     <div class="input-group">
-                        <label id="bookingServicesLabel">Pilih Servis:</label>
+                        <div class="service-heading">
+                            <label id="bookingServicesLabel">Pilih Servis:</label>
+                            <div class="studio-link-group">
+                                <a class="studio-link" data-style-studio href="./style-studio/" target="_blank" rel="noopener noreferrer" aria-describedby="bookingStudioHint"><span>Lihat gaya rambut</span><span aria-hidden="true">↗</span></a>
+                                <span class="studio-link-note" id="bookingStudioHint">Tab baharu</span>
+                            </div>
+                        </div>
                         <div id="bookServiceSelect" class="service-checkbox-container" role="group" aria-labelledby="bookingServicesLabel"></div>
                         <div id="bookServiceSummary"></div>
                     </div>

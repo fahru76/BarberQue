@@ -1,8 +1,7 @@
 (() => {
-    const link = document.getElementById('styleStudioLink');
-    if (!link) return;
+    const links = document.querySelectorAll('[data-style-studio]');
     // Keep the route relative so the custom domain and GitHub Pages both work.
-    link.addEventListener('click', () => {
+    links.forEach(link => link.addEventListener('click', () => {
         const destination = new URL('./style-studio/', document.baseURI);
         const language = window.CustomerI18n?.getLang() || document.documentElement.lang;
         let theme = 'auto';
@@ -11,5 +10,5 @@
         destination.searchParams.set('theme', theme);
         try { destination.searchParams.set('scheme', localStorage.getItem('appScheme') || 'gold'); } catch { /* Default scheme. */ }
         link.href = destination.href;
-    });
+    }));
 })();
