@@ -4156,3 +4156,13 @@ Before changing intake, bookings, reports, service restrictions, or browser queu
 - Rollout: apply 20261012151733_logic_audit_fixes.sql before publishing the page/repository. Refresh older pages after migration; they use revoked direct inserts. Live smoke verification remains pending migration deployment.
 
 Published for review: [PR #38](https://github.com/fahru76/BarberQue/pull/38), branch codex/logic-audit-2026-10-12. Latest implementation is in this branch/worktree; shared main checkout contains earlier local edits. Migration and deployment remain pending.
+
+## Done — Style Studio integration (2026-11-18)
+
+Added a customer entry to /style-studio/ with BM/EN translation, shared language/theme preferences, the same Gold/Teal/Forest/Royal Blue palette tokens and picker, and device-default mode. Front/left/right photo comparison stays entirely in tab memory; back is optional. Existing queue, booking, and database behavior is unchanged. See docs/style-studio.md for the source sync and preference contract.
+
+Validation: npm test passed; integration route/preference test passed; standalone studio preference and generation-disabled tests passed; browser entry, language/theme switching, reload persistence, optional-back preview and preservation of captured photos checked.
+
+## Done — CI remote migration-plan target (2026-11-18)
+
+After the Actions access token was replaced, the Supabase job successfully linked the project but `db push --dry-run` targeted the CLI's default local stack at 127.0.0.1:54322. The CLI diagnostic explicitly requires `--remote` for the linked project. Added that flag while retaining `--dry-run`; no migrations are applied by this job.
