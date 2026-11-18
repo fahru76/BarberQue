@@ -86,7 +86,8 @@ jobs:
           {
             echo "### Pending Supabase migrations"
             echo '```'
-            supabase db push --dry-run
+            # Current CLI defaults to the local stack; inspect the linked project explicitly.
+            supabase db push --remote --dry-run
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
