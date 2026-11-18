@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171a18">
+  <meta name="description" content="Try Malaysian barbershop cuts from four angles before your visit.">
+  <title>C-Cutz Style Studio</title>
+  <meta name="color-scheme" content="light dark">
+  <script src="./preferences.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./studio.css">
+  <link rel="stylesheet" href="./theme.css">
+  <script type="module" src="./studio.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span aria-hidden="true">✂︎</span><div><strong>C-CUTZ</strong><small>STYLE STUDIO</small></div></div>
+    <nav class="studio-tools" aria-label="Studio settings" data-i18n-aria-label="Studio settings">
+      <a class="back" href="https://c-cutzbarber.my/" data-i18n="Back to C-Cutz Barber">Back to C-Cutz Barber</a>
+      <div class="lang-toggle" role="group" aria-label="Bahasa / Language">
+        <button type="button" data-lang-option="ms" aria-pressed="true" lang="ms">BM</button>
+        <button type="button" data-lang-option="en" aria-pressed="false" lang="en">EN</button>
+      </div>
+      <select id="themeSelector" aria-label="Colour theme" data-i18n-aria-label="Colour theme">
+        <option value="auto" data-i18n="Auto (Follow device)">Auto (Follow device)</option>
+        <optgroup label="Gold (Default)" data-i18n-label="Gold (Default)">
+          <option value="gold:dark" data-i18n="Gold — Dark">Gold — Dark</option><option value="gold:light" data-i18n="Gold — Light">Gold — Light</option>
+        </optgroup>
+        <optgroup label="Teal"><option value="teal:dark" data-i18n="Teal — Dark">Teal — Dark</option><option value="teal:light" data-i18n="Teal — Light">Teal — Light</option></optgroup>
+        <optgroup label="Forest"><option value="forest:dark" data-i18n="Forest — Dark">Forest — Dark</option><option value="forest:light" data-i18n="Forest — Light">Forest — Light</option></optgroup>
+        <optgroup label="Royal Blue"><option value="royal:dark" data-i18n="Royal Blue — Dark">Royal Blue — Dark</option><option value="royal:light" data-i18n="Royal Blue — Light">Royal Blue — Light</option></optgroup>
+      </select>
+    </nav>
+  </header>
+  <main class="workspace" aria-label="Hairstyle editor" data-i18n-aria-label="Hairstyle editor">
+    <aside class="project panel" aria-labelledby="project-title">
+      <h2 id="project-title" data-i18n="Your photos">Your photos</h2>
+      <div class="photo-card">
+        <img id="photo-thumb" src="./assets/sample.webp" alt="">
+        <div><strong id="photo-name">Studio sample</strong><span id="photo-description" data-i18n="Ready to rotate">Ready to rotate</span></div>
+      </div>
+      <button id="upload" class="button upload accent" type="button" data-i18n="Take 3 photos">Take 3 photos</button>
+      <div id="photo-list" class="photo-list" aria-label="Your photo angles" data-i18n-aria-label="Your photo angles" hidden></div>
+      <button id="reset" class="text" type="button" hidden data-i18n="Use studio sample">Use studio sample</button>
+      <p class="tip" data-i18n="Front, left, then right. The back photo is optional; add it later with someone’s help.">Front, left, then right. The back photo is optional; add it later with someone’s help.</p>
+      <div class="rail-bottom">
+        <strong data-i18n="Private on your device">Private on your device</strong>
+        <p id="privacy" data-i18n="Your photos stay in this tab. Nothing is uploaded. Closing or reloading clears them.">Your photos stay in this tab. Nothing is uploaded. Closing or reloading clears them.</p>
+      </div>
+    </aside>
+    <section class="editor panel" aria-labelledby="editor-title">
+      <div class="editor-head">
+        <div><p class="kicker" id="preview-kind" data-i18n="HAIRCUT REFERENCES">HAIRCUT REFERENCES</p><h1 id="editor-title">Textured Crop</h1></div>
+        <div class="editor-actions">
+          <button id="save" class="button" type="button"><span data-i18n="Save view">Save view</span> <span aria-hidden="true">↓</span></button>
+        </div>
+      </div>
+      <div class="stage" id="stage" tabindex="0" role="group" aria-label="Four photo angles. Drag or use the left and right arrow keys to change angle." data-i18n-aria-label="Four photo angles. Drag or use the left and right arrow keys to change angle.">
+        <div class="stage-meta"><span id="view-name" data-i18n="Front view">Front view</span><span id="view-degrees">0°</span></div>
+        <canvas id="canvas" width="720" height="900" role="img" aria-label="Textured Crop, front view" data-i18n-aria-label="Textured Crop, front view"></canvas>
+        <div class="stage-hint" id="hint" data-i18n="Drag to change angle">Drag to change angle</div>
+      </div>
+      <div class="viewbar" id="viewbar">
+        <button class="nav" id="prev" type="button" aria-label="Rotate left" data-i18n-aria-label="Rotate left">‹</button>
+        <div id="views" class="views" role="group" aria-label="Camera angle" data-i18n-aria-label="Camera angle"></div>
+        <button class="nav" id="next" type="button" aria-label="Rotate right" data-i18n-aria-label="Rotate right">›</button>
+      </div>
+      <p class="comparison-note" id="comparison-note" data-i18n="Studio references. Choose a cut, then explore its four angles.">Studio references. Choose a cut, then explore its four angles.</p>
+      <button id="add-back" class="button" type="button" hidden data-i18n="Add optional back photo">Add optional back photo</button>
+      <a class="button book-link" href="https://c-cutzbarber.my/" data-i18n="Book / join queue">Book / join queue</a>
+      <p id="status" class="status" role="status"></p>
+    </section>
+    <aside class="library panel" aria-labelledby="styles-title">
+      <div class="library-top"><div><p class="kicker" data-i18n="MALAYSIAN BARBERSHOP CUTS">MALAYSIAN BARBERSHOP CUTS</p><h2 id="styles-title" data-i18n="Hairstyles">Hairstyles</h2></div><span id="count">6</span></div>
+      <div class="filters" id="filters" role="group" aria-label="Filter hairstyles" data-i18n-aria-label="Filter hairstyles"></div>
+      <div class="cuts" id="cuts"></div>
+    </aside>
+  </main>
+  <dialog id="capture-dialog" aria-labelledby="capture-title">
+    <div class="capture-header"><div><p class="kicker" id="capture-step" data-i18n="STEP 1 OF 3">STEP 1 OF 3</p><h2 id="capture-title" data-i18n="Front photo">Front photo</h2></div><button class="button" id="close-capture" type="button" aria-label="Close photo capture" data-i18n-aria-label="Close photo capture" data-i18n="Close">Close</button></div>
+    <div id="capture-steps" class="capture-steps" role="group" aria-label="Photo steps" data-i18n-aria-label="Photo steps"></div>
+    <section id="capture-single">
+      <p id="capture-instruction" class="capture-instruction"></p>
+      <div class="capture-frame">
+        <video id="camera-video" autoplay muted playsinline hidden></video>
+        <img id="capture-image" alt="Photo to review" data-i18n-alt="Photo to review" hidden>
+        <svg id="capture-guide" class="capture-guide" viewBox="0 0 360 450" aria-hidden="true"><path id="head-outline"/><path id="eye-line" d="M80 185H280"/></svg>
+        <span id="camera-placeholder" data-i18n="Fit your whole head and neckline inside the guide.">Fit your whole head and neckline inside the guide.</span>
+        <strong id="countdown" role="status" hidden></strong>
+      </div>
+      <p id="capture-tip" class="capture-tip"></p>
+      <div class="capture-actions" id="source-actions"><button id="use-camera" class="button accent" type="button" data-i18n="Use camera">Use camera</button><button id="choose-photo" class="button" type="button" data-i18n="Upload photo">Upload photo</button></div>
+      <div class="capture-actions" id="camera-actions" hidden><button id="shutter" class="button accent" type="button" data-i18n="Take photo · 3 sec">Take photo · 3 sec</button><button id="switch-camera" class="button" type="button" data-i18n="Switch camera">Switch camera</button><button id="camera-upload" class="button" type="button" data-i18n="Upload instead">Upload instead</button></div>
+      <div class="capture-actions" id="confirm-actions" hidden><button id="use-photo" class="button accent" type="button" data-i18n="Use photo">Use photo</button><button id="retake" class="button" type="button" data-i18n="Retake / replace">Retake / replace</button></div>
+      <button id="skip-back" class="text" type="button" hidden data-i18n="Skip for now">Skip for now</button>
+      <input id="file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+    </section>
+    <section id="capture-review" hidden><p class="capture-instruction" data-i18n="Front and both sides are enough to start. The back photo is optional; your barber can check it in person.">Front and both sides are enough to start. The back photo is optional; your barber can check it in person.</p><div id="review-grid" class="review-grid"></div><button id="open-preview" class="button accent" type="button" data-i18n="Open preview">Open preview</button></section>
+    <p id="capture-status" class="status" role="status" aria-live="polite"></p>
+    <p class="capture-privacy" data-i18n="Photos stay in this tab. Use the same lighting, distance, and eye-level camera for all your shots.">Photos stay in this tab. Use the same lighting, distance, and eye-level camera for all your shots.</p>
+  </dialog>
+</body>
+</html>
