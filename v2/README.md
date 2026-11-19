@@ -1,27 +1,26 @@
 # C-Cutz Barber V2
 
-Independent, interactive customer-screen design preview. Open `/v2/` on this branch’s deployment, or run `python -m http.server 4176 --bind 127.0.0.1` at the repository root and visit http://127.0.0.1:4176/v2/.
+An independent customer-screen design preview at /v2/. Work stays on design/barberque-v2, draft PR #41. Existing source, production deployment configuration, database and migrations are unchanged. Do not merge or promote automatically.
 
-This branch adds only `v2/`. Existing application files, production configuration, Supabase migrations and APIs are unchanged. Do not merge or promote automatically. There is no backend connection: service prices, availability, queue numbers and confirmation are explicitly sample data. Names and phones stay in page memory; only V2 language/theme preferences persist under separate storage keys.
+## November 20 redesign
 
-## Design decisions
+The previous spacious cream/serif direction was rejected. This revision replaces it with a compact booking workspace: charcoal queue strip, cool neutral surfaces, cobalt action, Barlow Condensed identity and Source Sans 3 operational text. Colours and typography may differ from production by the user's explicit instruction.
 
-- Hick’s Law: two visit types and a small sample service choice keep the next action clear.
-- Fitts’s Law: actions are at least 44px; fields and primary actions are at least 50px tall.
-- Gestalt proximity: prices and durations sit with their service; Style Studio sits beside service selection rather than above the main task.
-- Progressive disclosure: booking date and time appear only for bookings.
-- Von Restorff effect: one brass primary action per stage; secondary actions stay quiet.
-- Jakob’s Law: native radios, select, date input and modal dialog use familiar browser behaviour.
-- Error prevention: inline errors, retained form values, a review step and an explicit simulation confirmation.
-- Visibility of system status: sample queue and wait estimate stay visible, with clear sample labels and confirmation feedback.
-- Accessibility: semantic form labels, keyboard focus, skip link, native modal focus containment, BM/EN, system-aware theme, reduced-motion support and responsive text layout.
+Queue status occupies a strip rather than a hero. Services, price and duration stay together. Walk-in and booking retain the same structure; only booking reveals date/time. The total and review action stay fixed on narrow phones. Haircut references use the existing project images and update the larger desktop preview. Style Studio remains a separate-tab link immediately after services, with another link under references.
 
-Colours are derived from the C-Cutz espresso/brass and paper/walnut palettes. The user authorised typography and colour refinement. Manrope serves operational text; Cormorant Garamond serves identity and the introduction. No frontend framework or UI library migration is required. Pretext is vendored inline for responsive text sizing; fonts load from Google Fonts with system fallbacks. `?edit=1` enables editing marked presentation text for evaluation only; edits are not persisted.
+## UX laws applied
 
-## Evaluation
+- Hick: two visit types and two sample services, with booking-only fields disclosed when needed.
+- Fitts: 44px minimum interactive targets; 48px inputs; full service rows are clickable.
+- Gestalt proximity: service price and duration stay with their service; Studio stays near service selection.
+- Jakob: native radio, date, select and dialog controls retain familiar interaction.
+- Von Restorff: cobalt highlights the primary action and selected service; navigation stays neutral.
+- Error prevention and feedback: inline errors, preserved inputs, review, clearly simulated confirmation and native Escape dismissal.
 
-Try BM/EN, Light/Dark/System, both visit types, invalid/valid inputs, both services, review, confirmation, Escape and return-to-form. Resize at 375, 768, 1024 and 1440 pixels. Style Studio opens the existing live studio in a separate tab and carries language/theme preferences; the main website link opens the existing production application.
+## Evaluation and boundaries
 
-## Boundaries
+No backend connection. Prices, queue numbers, waiting estimates and times are sample data. The form creates no real booking or payment; personal inputs remain in page memory. Only V2 language and theme preferences persist under separate keys. Studio is an existing live page, opens separately and receives language/theme/gold-palette parameters.
 
-This is the V2 customer design, not a replacement for staff, admin, reporting, live queue or payment workflows. Backend integration requires a separate staging environment and another implementation pass. No production actions happen from the V2 form.
+Try BM/EN, Light/Dark/System, both services and visit types, invalid inputs, review, confirmation, Escape, and all three reference styles. Append ?edit=1 to edit selected presentation text temporarily. Run python -m http.server 4178 --bind 127.0.0.1 from the repository root for local evaluation.
+
+This is the customer design only. Staff/admin workflows and live backend integration remain outside this preview. See VERIFICATION.md for evidence and limitations.

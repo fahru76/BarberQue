@@ -9,10 +9,18 @@ let mode='walkin';
 const media = matchMedia('(prefers-color-scheme: dark)');
 const services={adult:{ms:'Potong rambut dewasa',en:'Adult haircut',price:20},child:{ms:'Potong rambut kanak-kanak',en:'Children’s haircut',price:12}};
 const tr=(ms,en)=>lang==='ms'?ms:en;
-function theme(){ const value=appearance==='system'?(media.matches?'dark':'light'):appearance; document.documentElement.dataset.theme=value; $('#theme').value=appearance; document.querySelector('meta[name="theme-color"]').content=value==='dark'?'#0d0a09':'#f2eee9'; updateStudio(); }
-function updateStudio(){ const url=new URL('https://c-cutzbarber.my/style-studio/');url.searchParams.set('lang',lang);url.searchParams.set('theme',appearance==='system'?'auto':appearance);url.searchParams.set('scheme','gold');$('#studio').href=url.href; }
-function translate(){document.documentElement.lang=lang;document.querySelectorAll('[data-ms][data-en]').forEach(el=>{el.textContent=el.dataset[lang];});document.querySelectorAll('[data-lang]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.lang===lang)));$('#theme').setAttribute('aria-label',tr('Paparan','Appearance'));$('#close').setAttribute('aria-label',tr('Tutup','Close'));updateMode();updateStudio();document.dispatchEvent(new Event('preview:textchange'));}
-function updateMode(){document.querySelectorAll('[data-mode]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.mode===mode)));$('#booking-fields').hidden=mode!=='booking';$('#date').disabled=mode!=='booking';$('#time').disabled=mode!=='booking';$('#review').textContent=mode==='booking'?tr('Semak tempahan contoh','Review sample booking'):tr('Semak giliran contoh','Review sample queue entry');}
+function theme(){ const value=appearance==='system'?(media.matches?'dark':'light'):appearance; document.documentElement.dataset.theme=value; $('#theme').value=appearance; document.querySelector('meta[name="theme-color"]').content=value==='dark'?'#111416':'#eef0f2'; updateStudio(); }
+function updateStudio(){ const url=new URL('https://c-cutzbarber.my/style-studio/');url.searchParams.set('lang',lang);url.searchParams.set('theme',appearance==='system'?'auto':appearance);url.searchParams.set('scheme','gold');document.querySelectorAll('[data-style-studio],#studio').forEach(link=>link.href=url.href); }
+function translate(){document.documentElement.lang=lang;document.querySelectorAll('[data-ms][data-en]').forEach(el=>{el.textContent=el.dataset[lang];});document.querySelectorAll('[data-lang]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.lang===lang)));$('#theme').setAttribute('aria-label',tr('Paparan','Appearance'));$('#close').setAttribute('aria-label',tr('Tutup','Close'));updateMode();updateStudio();updateLook();document.dispatchEvent(new Event('preview:textchange'));}
+function updateMode(){document.querySelectorAll('[data-mode]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.mode===mode)));$('#booking-fields').hidden=mode!=='booking';$('#date').disabled=mode!=='booking';$('#time').disabled=mode!=='booking';$('#review').firstElementChild.textContent=mode==='booking'?tr('Semak tempahan','Review booking'):tr('Semak giliran','Review visit');}
+const looks = {
+  'low-taper': {title:'Low Taper Fade',ms:'Taper lembut. Bentuk semula jadi.',en:'Soft taper. Natural shape.'},
+  'textured-crop': {title:'Textured Crop',ms:'Tekstur pendek. Sisi kemas.',en:'Short texture. Clean sides.'},
+  'side-part': {title:'Classic Side Part',ms:'Belahan jelas. Kemasan klasik.',en:'Defined part. Classic finish.'},
+};
+let selectedLook='low-taper';
+function updateLook(){const look=looks[selectedLook];$('#look-title').textContent=look.title;$('#look-detail').textContent=look[lang];$('#look-image').src=`../style-studio/assets/looks/${selectedLook}-front.webp`;$('#look-image').alt=tr(`Rujukan gaya ${look.title}`,`${look.title} haircut reference`);document.querySelectorAll('[data-look]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.look===selectedLook)));}
+document.querySelectorAll('[data-look]').forEach(el=>el.addEventListener('click',()=>{selectedLook=el.dataset.look;updateLook();}));
 function localDate(){ const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 $('#date').min=localDate();$('#date').value=localDate();
 document.querySelectorAll('[data-lang]').forEach(el=>el.addEventListener('click',()=>{lang=el.dataset.lang;storage.set('ccutzV2Language',lang);translate();}));

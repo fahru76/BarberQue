@@ -5,8 +5,9 @@
   "html_file": "index.html",
   "pretext_tier": "basic-height",
   "framework": "vanilla",
-  "iterations": 1,
-  "date": "2026-11-19T10:08:30.518Z",
+  "iterations": 2,
+  "date": "2026-11-20",
   "screen": "barberque-v2-customer",
-  "branch": "design/barberque-v2"
+  "branch": "design/barberque-v2",
+  "direction": "Compact booking workspace; charcoal/cobalt; Barlow Condensed and Source Sans 3"
 }
