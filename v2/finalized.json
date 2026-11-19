@@ -1,0 +1,12 @@
+{
+  "source_mockup": null,
+  "source_plan": null,
+  "mode": "evolve",
+  "html_file": "index.html",
+  "pretext_tier": "basic-height",
+  "framework": "vanilla",
+  "iterations": 1,
+  "date": "2026-11-19T10:08:30.518Z",
+  "screen": "barberque-v2-customer",
+  "branch": "design/barberque-v2"
+}
