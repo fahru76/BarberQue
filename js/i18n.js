@@ -49,6 +49,8 @@
         'Anggaran giliran dan servis anda mungkin tidak sempat diservis hari ini.': 'Your estimated turn and service may not be completed today.',
         'TEMPAH UNTUK ESOK': 'BOOK FOR TOMORROW',
         'Nama Anda:': 'Your name:',
+        'Kalendar tempahan': 'Booking calendar',
+        'Nama pelanggan mesti tidak melebihi 60 aksara.': 'Customer name must be 60 characters or fewer.',
         'Nombor WhatsApp (pilihan):': 'WhatsApp number (optional):',
         'Pilih Servis:': 'Choose a service:',
         'Servis Asas': 'Basic Services',
