@@ -173,7 +173,7 @@
         .service-photo-preview-box { position: relative; width: 100%; aspect-ratio: 1; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); overflow: hidden; background: var(--border-light); display: flex; align-items: center; justify-content: center; }
         .service-photo-preview { width: 100%; height: 100%; object-fit: cover; }
         .service-photo-placeholder { color: var(--text-muted); font-size: 0.78rem; }
-        .service-info { display: flex; flex-direction: column; gap: 3px; }
+        .service-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
         .service-info strong { font-size: 1rem; font-weight: 600; }
         .service-info span { color: var(--text-muted); font-size: 0.85rem; }
         /* "Penceritaan gaya" -- short optional description shown to the right
@@ -187,12 +187,16 @@
         .booking-list-item { background: var(--border-light); border-left: 4px solid var(--primary-color); padding: var(--space-3); margin-bottom: var(--space-2); display: flex; justify-content: space-between; align-items: center;}
 
         /* Kalendar Visual */
-        .custom-calendar { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4); width: 100%; box-sizing: border-box;}
-        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); font-size: 1.25rem; }
+        .custom-calendar { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4); width: 100%; box-sizing: border-box; overflow-x: auto; }
+        .cal-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: var(--space-3); font-size: 1.25rem; position: sticky; left: 0; }
+        .cal-header > div { min-width: 0; overflow-wrap: anywhere; text-align: center; }
+        .cal-header .cal-btn { flex-shrink: 0; }
         .cal-btn { background: transparent; border: 1px solid var(--primary-color); color: var(--text-main); padding: 4px 12px; cursor: pointer; font-weight: bold; }
         .cal-btn:hover { background: var(--primary-color); color: var(--on-primary); }
-        .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: bold; font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-2); }
-        .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-1); }
+        .cal-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; font-weight: bold; font-size: 0.78rem; color: var(--text-muted); margin-bottom: var(--space-2); }
+        .cal-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-1); }
+        .cal-weekdays, .cal-days { min-width: calc(12.25rem + 6 * var(--space-1)); gap: var(--space-1); }
+        .cal-weekdays > div { min-width: 0; overflow-wrap: anywhere; }
         .cal-day { padding: var(--space-2) 0; text-align: center; font-size: 1rem; cursor: pointer; border: 1px solid transparent; background: var(--border-light); }
         .cal-day:hover:not(.disabled) { border-color: var(--primary-color); }
         .cal-day.disabled { opacity: 0.2; cursor: not-allowed; background: transparent; }
@@ -2140,7 +2144,7 @@
 
                     <div class="input-group">
                         <label for="customerNameInput">Nama Anda:</label>
-                        <input type="text" id="customerNameInput" placeholder="Cth: Haziq" maxlength="20" autocomplete="name" required aria-required="true">
+                        <input type="text" id="customerNameInput" placeholder="Cth: Haziq" maxlength="60" autocomplete="name" required aria-required="true">
                     </div>
                     <div class="input-group">
                         <label for="customerPhoneInput">Nombor WhatsApp (pilihan):</label>
@@ -2211,7 +2215,7 @@
                     </div>
                     <div class="input-group">
                         <label for="bookNameInput">Nama Anda:</label>
-                        <input type="text" id="bookNameInput" placeholder="Sila masukkan nama" maxlength="20" autocomplete="name" required aria-required="true">
+                        <input type="text" id="bookNameInput" placeholder="Sila masukkan nama" maxlength="60" autocomplete="name" required aria-required="true">
                     </div>
                     <div class="input-group">
                         <label for="bookPhoneInput">Nombor WhatsApp (pilihan):</label>
@@ -2233,7 +2237,7 @@
                     <div class="input-row">
                         <div class="w-full">
                             <label for="bookDateInput">Pilih Tarikh:</label>
-                            <div class="custom-calendar" id="custVisualCalendar">
+                            <div class="custom-calendar" id="custVisualCalendar" tabindex="0" role="group" aria-label="Kalendar tempahan">
                                 <div class="cal-header">
                                     <button type="button" class="cal-btn" onclick="changeCalMonth(-1)">&lt;</button>
                                     <div id="calMonthYear">Bulan Tahun</div>
@@ -4644,14 +4648,16 @@
 
         function getAnnouncementRenderState() {
             const storedHTML = localStorage.getItem('shopAnnouncementHtml');
-            const plainSource = storedHTML === null ? getShopAnnouncement() : '';
+            const plainSource = getShopAnnouncement();
             if (announcementCache.initialized && announcementCache.source === storedHTML && announcementCache.plainSource === plainSource) {
                 return announcementCache;
             }
-            const html = storedHTML !== null
-                ? sanitizeAnnouncementHTML(storedHTML)
-                : escapeHTML(plainSource).replace(/\r?\n/g, '<br>');
-            const visible = Boolean((storedHTML !== null ? getShopAnnouncement() : plainSource) || /<img\b/i.test(html));
+            const richHTML = storedHTML !== null ? sanitizeAnnouncementHTML(storedHTML) : '';
+            const content = document.createElement('div');
+            content.innerHTML = richHTML;
+            const hasRichContent = Boolean(content.textContent.trim() || content.querySelector('img'));
+            const html = hasRichContent ? richHTML : escapeHTML(plainSource).replace(/\r?\n/g, '<br>');
+            const visible = Boolean(hasRichContent || plainSource);
             announcementCache = {
                 initialized: true,
                 source: storedHTML,
@@ -8088,7 +8094,7 @@
                     // the thumbnail from also toggling the checkbox, since
                     // the whole card is a <label> wrapping that checkbox.
                     const thumbHTML = service.imageUrlFront
-                        ? `<img class="service-thumb" src="${escapeHTML(service.imageUrlFront)}" alt="" loading="lazy" onclick="event.preventDefault(); event.stopPropagation(); openStylePhotoPreview('${escapeHTML(service.id)}');">`
+                        ? `<img class="service-thumb" src="${escapeHTML(service.imageUrlFront)}" alt="" loading="lazy" onerror="this.remove()" onclick="event.preventDefault(); event.stopPropagation(); openStylePhotoPreview('${escapeHTML(service.id)}');">`
                         : '';
                     return `<label class="service-checkbox-label"><input type="checkbox" name="${inputName}" value="${escapeHTML(service.name)}" data-service-id="${escapeHTML(service.id)}" data-price="${escapeHTML(service.price)}" data-variable="${service.priceIsVariable ? '1' : '0'}" data-duration="${escapeHTML(service.duration)}" data-target="${escapeHTML(service.target || 'semua')}" data-category="${escapeHTML(service.category)}" data-service-type="${escapeHTML(service.type)}" onchange="enforceServiceRules('${containerId}', '${inputName}', this); ${totalFunction}">${thumbHTML}<div class="service-info"><div class="service-name-line"><strong>${escapeHTML(service.name)}</strong>${noteHTML}</div><span>${detail}</span><span class="service-lock-reason"></span></div></label>`;
                 }).join('') : (isLoadingServices
@@ -8771,7 +8777,8 @@
             if (walkinWaitingCount >= maxQ) return (await showAlertDialog("Giliran Walk-in penuh."));
 
             let name = document.getElementById('customerNameInput').value.trim();
-            if (!name) return (await showAlertDialog("Masukkan nama pelanggan."));
+            const nameError = getCustomerNameError(name);
+            if (nameError) return (await showAlertDialog(nameError));
             const phone = normalizeWhatsAppNumber(document.getElementById('customerPhoneInput').value);
             if (document.getElementById('customerPhoneInput').value.trim() && !phone) return (await showAlertDialog("Masukkan nombor WhatsApp Malaysia yang sah, atau biarkan kosong."));
             let cb = document.querySelectorAll('input[name="walkinServices"]:checked');
@@ -9002,13 +9009,20 @@
             }
         }
 
+        function getCustomerNameError(name) {
+            if (!name.trim()) return 'Masukkan nama pelanggan.';
+            if (Array.from(name.trim()).length > 60) return 'Nama pelanggan mesti tidak melebihi 60 aksara.';
+            return '';
+        }
+
         async function submitAppointmentImpl() {
             let name = document.getElementById('bookNameInput').value.trim();
             let date = document.getElementById('bookDateInput').value;
             let time = document.getElementById('bookTimeInput').value;
             const phone = normalizeWhatsAppNumber(document.getElementById('bookPhoneInput').value);
             let cb = document.querySelectorAll('input[name="bookingServices"]:checked');
-            if(!name) return (await showAlertDialog("Masukkan nama pelanggan."));
+            const nameError = getCustomerNameError(name);
+            if (nameError) return (await showAlertDialog(nameError));
             if(!date || !time) return (await showAlertDialog("Pilih tarikh dan masa tempahan."));
             if (!phone && document.getElementById('bookPhoneInput').value.trim()) return (await showAlertDialog("Masukkan nombor WhatsApp Malaysia yang sah, atau biarkan kosong."));
             if(cb.length === 0) return (await showAlertDialog("Pilih servis."));
