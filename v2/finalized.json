@@ -1,0 +1,13 @@
+{
+  "source_mockup": null,
+  "source_plan": null,
+  "mode": "evolve",
+  "html_file": "index.html",
+  "pretext_tier": "basic-height",
+  "framework": "vanilla",
+  "iterations": 2,
+  "date": "2026-11-20",
+  "screen": "barberque-v2-customer",
+  "branch": "design/barberque-v2",
+  "direction": "Compact booking workspace; charcoal/cobalt; Barlow Condensed and Source Sans 3"
+}
